@@ -18,9 +18,10 @@ sih 2026/
 │       ├── core/                      # Low-level Qiskit circuit manipulation
 │       │   ├── __init__.py
 │       │   └── circuit.py             # Quantum state prep & measurement gates
-│       ├── channel/                   # Channel models & eavesdropper attacks
+│       ├── channel/                   # Channel models, noise & attacks
 │       │   ├── __init__.py
 │       │   ├── base.py                # QuantumChannel class
+│       │   ├── noise.py               # BitFlip, PhaseFlip, & Depolarizing noise
 │       │   └── attacks.py             # InterceptResendAttack class
 │       ├── nodes/                     # Network actor abstractions
 │       │   ├── __init__.py
@@ -28,17 +29,21 @@ sih 2026/
 │       ├── protocols/                 # Protocol execution workflows
 │       │   ├── __init__.py
 │       │   ├── base.py                # BaseProtocol abstract interface
-│       │   └── point_to_point.py      # Point-to-Point BB84 protocol runner
+│       │   ├── point_to_point.py      # Point-to-Point BB84 protocol runner
+│       │   └── secure_point_to_point.py # Secure protocol runner (with post-processing)
 │       └── utils/                     # Parsing & statistical metrics
 │           ├── __init__.py
-│           └── metrics.py             # Bit extraction, sifting, & QBER estimation
+│           ├── metrics.py             # Bit extraction, sifting, & QBER estimation
+│           └── post_processing.py     # Information reconciliation & privacy amplification
 ├── tests/                             # Automated Pytest test suite
 │   ├── test_circuit.py
 │   ├── test_metrics.py
 │   ├── test_channel.py
-│   └── test_protocol.py
+│   ├── test_protocol.py
+│   └── test_stage2.py
 └── examples/                          # Runnable CLI demonstration scripts
-    └── stage1_demo.py
+    ├── stage1_demo.py
+    └── stage2_demo.py
 ```
 
 ---
@@ -110,23 +115,34 @@ This module translates raw Qiskit simulator outcomes into classical bit lists an
 #### `protocols/point_to_point.py`
 * **`ProtocolResult`**: Dataclass storing results (`n_sent`, `n_sifted`, `sifted_bits_alice`, `sifted_bits_bob`, `qber`, `eve_detected`).
 * **`PointToPointProtocol(alice, bob, channel)`**:
-  * **What it does**: Executes the full point-to-point BB84 transmission pipeline on `AerSimulator`, sifts matching bases, computes QBER, and checks if QBER exceeds the threshold (`qber_threshold = 0.15`).
+  * **What it does**: Executes the full point-to-point BB84 transmission pipeline on `AerSimulator`.
+
+#### `protocols/secure_point_to_point.py`
+* **`SecureProtocolResult`**: Dataclass storing results including `reconciled_bits` and `final_key` outputs.
+* **`SecurePointToPointProtocol(alice, bob, channel)`**:
+  * **What it does**: Performs secure point-to-point key agreement using error reconciliation and privacy amplification.
 
 ---
 
-### 6. `tests/`
+### 6. `src/quantum_sim/utils/post_processing.py`
+* **`reconcile_keys(alice_bits, bob_bits, block_size)`**: Simplified Cascade parity-check error correction.
+* **`amplify_privacy(bits, qber)`**: Universal hashing privacy amplification.
+
+---
+
+### 7. `tests/`
 Automated test suite using `pytest`:
 * **`test_circuit.py`**: Verifies quantum circuit gate allocations.
 * **`test_metrics.py`**: Verifies bit array conversion and QBER sampling logic.
-* **`test_channel.py`**: Verifies ideal channel vs. attack register insertion.
-* **`test_protocol.py`**: Validates **0.0% QBER** under ideal channel and **~25% QBER** under full intercept-resend attack.
+* **`test_channel.py`**: Verifies ideal channel, noise application, and attack register insertion.
+* **`test_protocol.py`**: Validates Point-to-Point protocol under ideal and eavesdropped channels.
+* **`test_stage2.py`**: Validates Stage 2 features (Noise, Post-processing, Secure Protocol).
 
 ---
 
-### 7. `examples/stage1_demo.py`
-A complete command-line demonstration showing:
-1. **Scenario 1**: Alice transmitting 1000 qubits to Bob over an **Ideal Channel** (0% error).
-2. **Scenario 2**: Transmission over an **Eavesdropped Channel** (Eve intercepting 100% of qubits, introducing ~25% error and triggering the security alert).
+### 8. `examples/`
+* **`stage1_demo.py`**: Point-to-point transmission under ideal and eavesdropped channels.
+* **`stage2_demo.py`**: Stage 2 Secure point-to-point communication showing key agreement under noisy channels.
 
 ---
 
@@ -140,13 +156,19 @@ pip install -r requirements.txt
 
 
 ### 2. Run the Unit Test Suite
-To verify all 10 tests pass:
+To verify all 15 tests pass:
 ```powershell
 pytest
 ```
 
 ### 3. Run the Stage 1 Demo
-To see the simulator in action:
+To see the Stage 1 simulator:
 ```powershell
 python examples/stage1_demo.py
+```
+
+### 4. Run the Stage 2 Demo
+To see the Stage 2 simulator with error correction and privacy amplification:
+```powershell
+python examples/stage2_demo.py
 ```

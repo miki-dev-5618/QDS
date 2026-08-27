@@ -10,7 +10,7 @@ def test_protocol_ideal_channel():
     alice = Node("Alice")
     bob = Node("Bob")
     channel = QuantumChannel()
-    protocol = PointToPointProtocol(alice, bob, channel)
+    protocol = PointToPointProtocol(alice, bob, channel, shots=1)
     
     result = protocol.run(n_bits=100, rng=rng)
     
@@ -25,7 +25,7 @@ def test_protocol_eavesdropped_channel():
     alice = Node("Alice")
     bob = Node("Bob")
     channel = QuantumChannel(attacks=[InterceptResendAttack(p_intercept=1.0)])
-    protocol = PointToPointProtocol(alice, bob, channel, qber_threshold=0.15)
+    protocol = PointToPointProtocol(alice, bob, channel, shots=1, qber_threshold=0.15)
     
     result = protocol.run(n_bits=400, sample_ratio=0.5, rng=rng)
     
@@ -33,3 +33,4 @@ def test_protocol_eavesdropped_channel():
     assert result.n_sifted > 0
     assert 0.15 <= result.qber <= 0.35
     assert result.eve_detected
+

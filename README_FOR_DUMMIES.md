@@ -12,21 +12,23 @@ Imagine you want to send a secret message over the internet:
 2. **Quantum Computing (Our Project)**: You turn your 0s and 1s into **fragile quantum particles of light (photons/qubits)**.
 3. **The Golden Rule of Quantum Physics**: If Eve tries to peek at or measure a quantum particle in transit, **she physically alters it**, corrupting the data and leaving obvious fingerprints!
 
-This project is **Stage 1**: building a simulator on your computer using **Qiskit** that fires qubits from **Alice** to **Bob** over an optical fiber, and detects if **Eve** is eavesdropping!
+This project represents **Stage 1 & Stage 2**:
+* **Stage 1**: Building the baseline simulator loop (Alice $\rightarrow$ Bob) and detecting full-scale eavesdropping.
+* **Stage 2**: Adding physical noise (random channel fluctuations), error reconciliation (correcting minor noise errors), and privacy amplification (compressing keys so hackers are left with nothing!).
 
 ---
 
 ## 🧩 The Project Lego Blocks (Simplified Architecture)
 
-Instead of dumping everything into one huge file, our code is split into 5 small, clean folders:
+Instead of dumping everything into one huge file, our code is split into clean folders:
 
 ```text
 src/quantum_sim/
-├── core/         ---> 🎯 "The Qubit Launcher" (Turns 0s & 1s into Qiskit Quantum Circuits)
-├── channel/      ---> 🌐 "The Fiber Cable & Hacker" (Simulates transmission & Eve's attack)
+├── core/         ---> 🎯 "The Qubit Launcher" (Turns 0s & 1s into Qiskit circuits)
+├── channel/      ---> 🌐 "The Fiber Cable, Noise & Hacker" (Simulates transmission, noise & attacks)
 ├── nodes/        ---> 👤 "The People" (Classes for Alice & Bob)
-├── protocols/    ---> 📜 "The Rulebook" (Runs the step-by-step transmission pipeline)
-└── utils/        ---> 🧮 "The Calculator" (Compares bits & calculates Quantum Bit Error Rate)
+├── protocols/    ---> 📜 "The Rulebook" (Orchestrates normal and secure transmission pipelines)
+└── utils/        ---> 🧮 "The Calculator" (Sifting, QBER metrics, Error Correction, & Privacy Hashing)
 ```
 
 ---
@@ -46,16 +48,29 @@ To send a qubit, Alice shoots light through polarized sunglasses:
 > - If Bob uses the **SAME** sunglasses grid as Alice $\rightarrow$ Bob gets the **EXACT SAME bit (100% match)**.
 > - If Bob uses the **WRONG** sunglasses grid $\rightarrow$ The light gets confused! Bob gets a **random 50/50 guess**, and the original signal is destroyed.
 
-### 3. Sifting (The Post-Transmission Phone Call)
-After sending 200 qubits, Alice and Bob call each other on the normal phone line and say:
+### 3. Sifting & Sifted Key Length (The Post-Transmission Phone Call)
+After sending qubits, Alice and Bob call each other on the normal phone line to compare sunglasses grids:
 > *"For Qubit #1, I used Z-basis. What did you use?"*
 > - Both used Z-basis? $\rightarrow$ **KEEP THE BIT!**
 > - Alice used Z, Bob used X? $\rightarrow$ **THROW IT AWAY!**
 
-### 4. QBER (Quantum Bit Error Rate)
-Alice and Bob compare a small sample of their kept bits:
-* **QBER = 0%**: Channel is clean! Alice and Bob have identical secret data.
-* **QBER $\approx$ 25%**: **HACKER ALERT!** Eve intercepted the qubits!
+* 📐 **Sifted Key Length**: This is the count of bits left *after* discarding mismatched basis choices. Because Bob guesses the grid randomly, he is correct 50% of the time. Consequently, the sifted key length is usually around **50% of the total transmitted qubits** (e.g., ~100 bits sifted from 200 sent).
+
+### 4. Estimated QBER (Quantum Bit Error Rate)
+Before using the sifted key, Alice and Bob compare a random sample of it to check for tampering.
+* 🧮 **Estimated QBER**: The percentage of bit discrepancies found in that sample.
+  * **QBER = 0%**: Perfect, pristine channel with zero noise or intruders.
+  * **QBER = 1% - 5%**: Normal physical noise (e.g., dust in the fiber).
+  * **QBER $\ge$ 15% (or ~25% theoretical)**: **Hacker Alert!** Eve is intercepting and resending the qubits, which collapses their states and introduces high error rates.
+
+### 5. Noise & Error Reconciliation (Stage 2)
+Real glass fiber cables have dust or temperature fluctuations that randomly flip qubits (**Channel Noise**).
+* Alice and Bob run **Information Reconciliation** (error correction). They divide their keys into blocks and compare parities (whether the sum of bits is odd or even). If there's a discrepancy, they run a quick game of "Twenty Questions" (binary search bisection) to find the exact bit that flipped and correct it.
+
+### 6. Privacy Amplification (Stage 2)
+Even after correcting errors, Eve might have picked up some bits.
+* Alice and Bob compress their shared keys using **Universal Hashing** (multiplying the key by a random binary matrix). This shrinks the key to a smaller size, reducing Eve's knowledge of the key to virtually zero!
+
 
 ---
 
@@ -64,16 +79,20 @@ Alice and Bob compare a small sample of their kept bits:
 | File | What it actually does |
 | :--- | :--- |
 | **`src/quantum_sim/core/circuit.py`** | Builds Qiskit circuits. Applies `X` gates (bit flip) and `H` gates (basis change). |
-| **`src/quantum_sim/channel/attacks.py`** | Simulates Eve catching qubits mid-fiber, measuring them in a random basis, and resending them. |
+| **`src/quantum_sim/channel/noise.py`** | Simulates random physical cable noise (e.g., bit flips, depolarizing noise). |
+| **`src/quantum_sim/channel/attacks.py`** | Simulates Eve catching qubits mid-fiber, measuring them, and resending them. |
 | **`src/quantum_sim/channel/base.py`** | Represents the fiber optical cable connecting Alice to Bob. |
 | **`src/quantum_sim/nodes/node.py`** | Creates `Alice` and `Bob` objects that pick random bits and bases. |
-| **`src/quantum_sim/protocols/point_to_point.py`** | Orchestrates state prep $\rightarrow$ fiber transmission $\rightarrow$ Bob measurement $\rightarrow$ error calculation. |
-| **`src/quantum_sim/utils/metrics.py`** | Reads simulator counts, filters matching bases, and calculates error percentage. |
-| **`examples/stage1_demo.py`** | The runnable demonstration script showing Ideal Channel vs Eavesdropped Channel. |
+| **`src/quantum_sim/protocols/point_to_point.py`** | Orchestrates basic point-to-point state transmission. |
+| **`src/quantum_sim/protocols/secure_point_to_point.py`** | Orchestrates Stage 2 secure point-to-point protocol (with error correction and hashing). |
+| **`src/quantum_sim/utils/metrics.py`** | Calculates matching bases and QBER (error percentage). |
+| **`src/quantum_sim/utils/post_processing.py`** | Implements the bisection error corrector and privacy amplifier. |
+| **`examples/stage1_demo.py`** | Demonstration of Stage 1 transmission and intercept detection. |
+| **`examples/stage2_demo.py`** | Demonstration of Stage 2 error correction and privacy amplification under noisy conditions. |
 
 ---
 
-## ⚡ How to Run It in 2 Commands
+## ⚡ How to Run It
 
 Open your terminal in the project directory (`e:\2026-2\sih 2026`):
 
@@ -82,12 +101,18 @@ Open your terminal in the project directory (`e:\2026-2\sih 2026`):
    pip install -r requirements.txt
    ```
 
-2. **Run the Live Demo**:
+2. **Run Stage 1 Demo**:
    ```powershell
    python examples/stage1_demo.py
    ```
 
-3. **Run the Automated Tests**:
+3. **Run Stage 2 Demo**:
+   ```powershell
+   python examples/stage2_demo.py
+   ```
+
+4. **Run the Automated Tests**:
    ```powershell
    pytest
    ```
+
