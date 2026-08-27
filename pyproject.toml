@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quantum_sim"
+version = "0.1.0"
+description = "Quantum Communication & QDS Simulator"
+dependencies = [
+    "qiskit>=2.0.0",
+    "qiskit-aer>=0.15.0",
+    "numpy>=1.20.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
