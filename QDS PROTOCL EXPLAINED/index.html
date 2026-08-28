@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quantum Digital Signature (QDS) Protocol Visualizer</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="header-logo">
+        <span class="pulse-dot"></span>
+        <h1>Quantum Digital Signature (QDS)</h1>
+      </div>
+      <p class="subtitle">An interactive, step-by-step visualizer for beginners</p>
+    </header>
+
+    <main class="app-main">
+      <!-- Info banner explaining basic concept -->
+      <section class="intro-section glass-card">
+        <h2>💡 What is QDS?</h2>
+        <p>
+          Unlike standard signatures, a <strong>Quantum Digital Signature (QDS)</strong> uses the laws of quantum mechanics to sign messages. 
+          Alice sends quantum states (using BB84 states) to Bob and Charlie. Because quantum states <em>cannot be copied perfectly</em> (No-Cloning Theorem) 
+          and measuring them changes them, Bob and Charlie can verify Alice's signature without anyone being able to forge it or deny it.
+        </p>
+      </section>
+
+      <!-- Main simulator controls -->
+      <section class="simulation-controls glass-card">
+        <div class="control-row">
+          <div class="control-group">
+            <label for="sig-length">Signature Length (N):</label>
+            <input type="number" id="sig-length" value="8" min="4" max="16">
+          </div>
+          <div class="control-group">
+            <label for="abort-threshold">Min Received Threshold (%):</label>
+            <input type="number" id="abort-threshold" value="50" min="10" max="100">
+          </div>
+          <div class="button-group">
+            <button id="btn-random-sim" class="btn primary">🎲 Generate Random Run</button>
+            <button id="btn-next-step" class="btn secondary" disabled>➡️ Next Step</button>
+            <button id="btn-reset" class="btn outline">🔄 Reset</button>
+          </div>
+        </div>
+
+        <div class="status-panel">
+          <div class="status-indicator">
+            <span id="current-step-badge" class="badge text-uppercase">Idle</span>
+            <span id="step-description">Click "Generate Random Run" to begin the step-by-step QDS simulator!</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Protocol Flow Simulator -->
+      <section id="simulator-view" class="simulator-view" style="display: none;">
+        <!-- Distribution stage -->
+        <div class="stage-container glass-card">
+          <div class="stage-header">
+            <h3>Stage 1: State Distribution & Symmetrisation</h3>
+            <span class="stage-badge">Active</span>
+          </div>
+          
+          <div class="network-diagram">
+            <!-- Alice card -->
+            <div class="node-card alice-node">
+              <div class="node-avatar">A</div>
+              <h4>Alice (Sender)</h4>
+              <p class="node-description">Generates private quantum signature states</p>
+              <div class="signature-row" id="alice-states"></div>
+            </div>
+
+            <!-- Arrow paths -->
+            <div class="transfer-paths">
+              <div class="path-arrow path-left">
+                <span class="arrow-text">Alice sends Bob's copy</span>
+                <div class="line"></div>
+              </div>
+              <div class="path-arrow path-right">
+                <span class="arrow-text">Alice sends Charlie's copy</span>
+                <div class="line"></div>
+              </div>
+            </div>
+
+            <!-- Bob and Charlie cards -->
+            <div class="receivers-container">
+              <div class="node-card bob-node">
+                <div class="node-avatar">B</div>
+                <h4>Bob</h4>
+                <div class="decision-box">
+                  <span class="label">Decision Rule:</span>
+                  <div class="decisions-list" id="bob-decisions"></div>
+                </div>
+                <div class="holds-box">
+                  <span class="label">Possesses:</span>
+                  <div class="states-held" id="bob-held"></div>
+                </div>
+              </div>
+
+              <div class="symmetrisation-channel">
+                <div class="symmetrise-arrow left-to-right">
+                  <div class="arrow-head"></div>
+                </div>
+                <span class="symmetrise-label">Swap Channel (Forwarding)</span>
+                <div class="symmetrise-arrow right-to-left">
+                  <div class="arrow-head"></div>
+                </div>
+              </div>
+
+              <div class="node-card charlie-node">
+                <div class="node-avatar">C</div>
+                <h4>Charlie</h4>
+                <div class="decision-box">
+                  <span class="label">Decision Rule:</span>
+                  <div class="decisions-list" id="charlie-decisions"></div>
+                </div>
+                <div class="holds-box">
+                  <span class="label">Possesses:</span>
+                  <div class="states-held" id="charlie-held"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Abort & Measurement stage -->
+        <div class="stage-container glass-card">
+          <div class="stage-header">
+            <h3>Stage 2: Measurement & State Elimination</h3>
+          </div>
+          
+          <div class="measurement-layout">
+            <div class="elimination-column">
+              <h4>Bob's Elimination Process</h4>
+              <div class="elimination-table" id="bob-elimination-table">
+                <!-- Stored state outcomes -->
+              </div>
+            </div>
+            
+            <div class="elimination-column">
+              <h4>Charlie's Elimination Process</h4>
+              <div class="elimination-table" id="charlie-elimination-table">
+                <!-- Stored state outcomes -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Abort condition explanation -->
+        <div class="stage-container glass-card abort-card">
+          <div class="stage-header">
+            <h3>Abort Condition Check</h3>
+          </div>
+          <div class="abort-explanation-grid">
+            <div class="abort-gauge-box">
+              <h5>Bob's Received Elements</h5>
+              <div class="progress-bar-container">
+                <div id="bob-abort-progress" class="progress-bar">0%</div>
+              </div>
+              <p id="bob-abort-status" class="abort-status-text">Pending...</p>
+            </div>
+            <div class="abort-gauge-box">
+              <h5>Charlie's Received Elements</h5>
+              <div class="progress-bar-container">
+                <div id="charlie-abort-progress" class="progress-bar">0%</div>
+              </div>
+              <p id="charlie-abort-status" class="abort-status-text">Pending...</p>
+            </div>
+            <div class="abort-description">
+              <p>
+                <strong>Why check this?</strong> To ensure security, participants must receive at least a minimum number of signature elements. 
+                If an eavesdropper intercepts/blocks too many states, or if a cheating sender doesn't send enough, the protocol 
+                <strong>aborts</strong> to prevent security failures.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Messaging stage -->
+        <div class="stage-container glass-card messaging-card">
+          <div class="stage-header">
+            <h3>Stage 3: Messaging & Verification</h3>
+          </div>
+          <div class="messaging-layout">
+            <div class="message-select">
+              <label for="select-msg">Alice Signs Message:</label>
+              <select id="select-msg">
+                <option value="0">Message "0" (e.g. "Buy 10 Shares")</option>
+                <option value="1">Message "1" (e.g. "Sell 10 Shares")</option>
+              </select>
+              <button id="btn-verify-msg" class="btn primary">Verify Message Signature</button>
+            </div>
+
+            <div class="verification-results">
+              <div class="verif-box">
+                <h5>Bob's Verification</h5>
+                <div id="bob-verif-result" class="verif-result-indicator">Pending verification</div>
+                <div id="bob-verif-details" class="verif-details-text"></div>
+              </div>
+              <div class="verif-box">
+                <h5>Charlie's Verification</h5>
+                <div id="charlie-verif-result" class="verif-result-indicator">Pending verification</div>
+                <div id="charlie-verif-details" class="verif-details-text"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Element By Element Inspector -->
+      <section class="element-inspector glass-card">
+        <h2>🔍 Position-by-Position History</h2>
+        <p class="section-desc">Click a position below to trace the complete life cycle of that individual quantum element.</p>
+        <div class="position-selectors" id="position-selectors">
+          <!-- Position buttons generated by JavaScript -->
+        </div>
+        <div class="inspector-details" id="inspector-details">
+          <div class="empty-state">Select a position above to view its detailed quantum journey.</div>
+        </div>
+      </section>
+
+      <!-- Decision Tree / All Cases Explorer -->
+      <section class="cases-explorer glass-card">
+        <h2>🌳 QDS Decision Tree (All Possible Cases)</h2>
+        <p class="section-desc">Explore the deterministic outcomes of Keep vs. Forward combinations for a single element.</p>
+        
+        <div class="cases-tabs">
+          <button class="tab-btn active" id="btn-case-keep-keep">Keep / Keep</button>
+          <button class="tab-btn" id="btn-case-keep-forward">Keep / Forward</button>
+          <button class="tab-btn" id="btn-case-forward-keep">Forward / Keep</button>
+          <button class="tab-btn" id="btn-case-forward-forward">Forward / Forward</button>
+        </div>
+
+        <div class="case-card-content" id="case-display">
+          <!-- Case contents loaded dynamically -->
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>Quantum Digital Signature Simulator | Built for Educational Purposes</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

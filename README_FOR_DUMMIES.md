@@ -12,9 +12,10 @@ Imagine you want to send a secret message over the internet:
 2. **Quantum Computing (Our Project)**: You turn your 0s and 1s into **fragile quantum particles of light (photons/qubits)**.
 3. **The Golden Rule of Quantum Physics**: If Eve tries to peek at or measure a quantum particle in transit, **she physically alters it**, corrupting the data and leaving obvious fingerprints!
 
-This project represents **Stage 1 & Stage 2**:
+This project represents **Stage 1, Stage 2, & Stage 3**:
 * **Stage 1**: Building the baseline simulator loop (Alice $\rightarrow$ Bob) and detecting full-scale eavesdropping.
 * **Stage 2**: Adding physical noise (random channel fluctuations), error reconciliation (correcting minor noise errors), and privacy amplification (compressing keys so hackers are left with nothing!).
+* **Stage 3**: Implementing **Quantum Digital Signatures (QDS)**, where Alice signs a contract in a way that Bob and Charlie can verify independently, preventing Alice from denying it or Bob from forging it.
 
 ---
 
@@ -86,9 +87,13 @@ Instead of Alice sending her entire key to Bob (which would let Eve steal it!), 
 
 
 ### 6. Privacy Amplification (Stage 2)
-Even after correcting errors, Eve might have picked up some bits.
-* Alice and Bob compress their shared keys using **Universal Hashing** (multiplying the key by a random binary matrix). This shrinks the key to a smaller size, reducing Eve's knowledge of the key to virtually zero!
+Alice and Bob compress their shared keys using **Universal Hashing** (multiplying the key by a random binary matrix). This shrinks the key to a smaller size, reducing Eve's knowledge of the key to virtually zero!
 
+### 7. Symmetrisation & State Elimination (Stage 3 QDS)
+* 📜 **Quantum Digital Signature**: Unlike standard signatures, a QDS signs documents using fragile quantum states. Bob and Charlie can verify that Alice wrote the signature, but neither can alter it.
+* 🔄 **Symmetrisation (Keep or Forward)**: To prevent Alice from sending different states to Bob and Charlie (cheating/repudiation), Bob and Charlie decide independently to **Keep** their copy or **Forward** it to the other. By swapping elements, Alice cannot predict who holds which state, meaning she cannot bias her transmission to cheat one receiver over the other.
+* ❌ **State Elimination**: In quantum mechanics, you cannot always read a state perfectly. However, by measuring it, you can prove what state it **could not possibly be**. Bob and Charlie store a list of these *impossible states*.
+* 🔍 **Verification**: When Alice publishes her signature, Bob and Charlie check if the states Alice claims to have sent contradict their lists of impossible states. If Alice tries to forge or lie, Bob/Charlie immediately notice the contradictions and reject the signature.
 
 ---
 
@@ -103,10 +108,13 @@ Even after correcting errors, Eve might have picked up some bits.
 | **`src/quantum_sim/nodes/node.py`** | Creates `Alice` and `Bob` objects that pick random bits and bases. |
 | **`src/quantum_sim/protocols/point_to_point.py`** | Orchestrates basic point-to-point state transmission. |
 | **`src/quantum_sim/protocols/secure_point_to_point.py`** | Orchestrates Stage 2 secure point-to-point protocol (with error correction and hashing). |
+| **`src/quantum_sim/protocols/qds.py`** | Simulates Stage 3 QDS protocol (Alice preparing states, Keep/Forward swaps, measurements, and verification checks). |
 | **`src/quantum_sim/utils/metrics.py`** | Calculates matching bases and QBER (error percentage). |
 | **`src/quantum_sim/utils/post_processing.py`** | Implements the bisection error corrector and privacy amplifier. |
 | **`examples/stage1_demo.py`** | Demonstration of Stage 1 transmission and intercept detection. |
 | **`examples/stage2_demo.py`** | Demonstration of Stage 2 error correction and privacy amplification under noisy conditions. |
+| **`examples/stage3_demo.py`** | Demonstration of Stage 3 QDS signature generation and verification. |
+| **`examples/README_STAGE3.md`** | A detailed non-technical breakdown of the QDS simulation. |
 
 ---
 
@@ -129,8 +137,14 @@ Open your terminal in the project directory (`e:\2026-2\sih 2026`):
    python examples/stage2_demo.py
    ```
 
-4. **Run the Automated Tests**:
+4. **Run Stage 3 Demo (QDS)**:
+   ```powershell
+   python examples/stage3_demo.py
+   ```
+
+5. **Run the Automated Tests**:
    ```powershell
    pytest
    ```
+
 

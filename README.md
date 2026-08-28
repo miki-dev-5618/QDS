@@ -1,4 +1,4 @@
-# 🚀 Quantum Communication & QDS Simulator (Stage 1)
+# 🚀 Quantum Communication & QDS Simulator (Stage 3)
 
 Welcome to the **Quantum Communication Simulator**! This repository provides a modular, Qiskit 2.x-based simulator for quantum state preparation, quantum channel transmission, eavesdropping simulation, and point-to-point protocols.
 
@@ -30,7 +30,8 @@ sih 2026/
 │       │   ├── __init__.py
 │       │   ├── base.py                # BaseProtocol abstract interface
 │       │   ├── point_to_point.py      # Point-to-Point BB84 protocol runner
-│       │   └── secure_point_to_point.py # Secure protocol runner (with post-processing)
+│       │   ├── secure_point_to_point.py # Secure protocol runner (with post-processing)
+│       │   └── qds.py                 # QDS protocol runner (with symmetrisation & verification)
 │       └── utils/                     # Parsing & statistical metrics
 │           ├── __init__.py
 │           ├── metrics.py             # Bit extraction, sifting, & QBER estimation
@@ -40,10 +41,13 @@ sih 2026/
 │   ├── test_metrics.py
 │   ├── test_channel.py
 │   ├── test_protocol.py
-│   └── test_stage2.py
+│   ├── test_stage2.py
+│   └── test_qds.py
 └── examples/                          # Runnable CLI demonstration scripts
     ├── stage1_demo.py
-    └── stage2_demo.py
+    ├── stage2_demo.py
+    └── stage3_demo.py
+    └── README_STAGE3.md               # Detailed walkthrough of Stage 3
 ```
 
 ---
@@ -122,6 +126,11 @@ This module translates raw Qiskit simulator outcomes into classical bit lists an
 * **`SecurePointToPointProtocol(alice, bob, channel)`**:
   * **What it does**: Performs secure point-to-point key agreement using error reconciliation and privacy amplification.
 
+#### `protocols/qds.py`
+* **`QDSResult`**: Dataclass storing details of the signature states, receiver Keep/Forward decisions, and state elimination.
+* **`QDSProtocol(alice, bob, charlie, channel)`**:
+  * **What it does**: Simulates the full Quantum Digital Signature (QDS) protocol, executing Alice's state preparation, Bob & Charlie's Keep/Forward symmetrisation, state-elimination measurements, abort checks, and signature verification.
+
 ---
 
 ### 6. `src/quantum_sim/utils/post_processing.py`
@@ -143,6 +152,7 @@ Automated test suite using `pytest`:
 ### 8. `examples/`
 * **`stage1_demo.py`**: Point-to-point transmission under ideal and eavesdropped channels.
 * **`stage2_demo.py`**: Stage 2 Secure point-to-point communication showing key agreement under noisy channels.
+* **`stage3_demo.py`**: Stage 3 QDS protocol demonstration showing Alice signing messages and receivers verifying signatures.
 
 ---
 
@@ -172,3 +182,10 @@ To see the Stage 2 simulator with error correction and privacy amplification:
 ```powershell
 python examples/stage2_demo.py
 ```
+
+### 5. Run the Stage 3 Demo
+To run the Stage 3 QDS protocol simulation:
+```powershell
+python examples/stage3_demo.py
+```
+

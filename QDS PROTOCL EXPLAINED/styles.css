@@ -1,0 +1,739 @@
+/* ==========================================
+   Swiss International Style (International Typographic Style)
+   Design System & Tokens
+   ========================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+
+:root {
+  /* Strict Palette */
+  --bg-white: #ffffff;
+  --bg-muted: #f2f2f2;
+  --color-black: #000000;
+  --color-swiss-red: #ff3000;
+  --color-border: #000000;
+  
+  /* State Colors mapped to Swiss Red/Black schema or stark indicators */
+  --state-0: #000000;
+  --state-1: #000000;
+  --state-plus: #ff3000;
+  --state-minus: #ff3000;
+  
+  /* Layout constraints */
+  --border-thick: 4px;
+  --border-thin: 2px;
+}
+
+/* Noise & Texture SVG background overlay simulated in CSS */
+body {
+  background-color: var(--bg-white);
+  color: var(--color-black);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  margin: 0;
+  padding: 0;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+  /* Paper grain noise overlay */
+  background-image: radial-gradient(var(--color-black) 0.5px, transparent 0.5px), radial-gradient(var(--color-black) 0.5px, var(--bg-white) 0.5px);
+  background-size: 40px 40px;
+  background-position: 0 0, 20px 20px;
+  opacity: 0.99; /* trigger stacking context */
+}
+
+/* Subtle pattern overlay class */
+.swiss-grid-pattern {
+  background-size: 24px 24px;
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+}
+
+.swiss-dots {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.04) 1.5px, transparent 1.5px);
+  background-size: 16px 16px;
+}
+
+/* Layout Core */
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+  border-left: var(--border-thick) solid var(--color-black);
+  border-right: var(--border-thick) solid var(--color-black);
+  background-color: var(--bg-white);
+}
+
+/* Header */
+.app-header {
+  border-bottom: var(--border-thick) solid var(--color-black);
+  padding-bottom: 2.5rem;
+  margin-bottom: 3rem;
+  text-align: left;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.pulse-dot {
+  width: 16px;
+  height: 16px;
+  background-color: var(--color-swiss-red);
+  border-radius: 0; /* Strictly rectangular */
+}
+
+h1 {
+  font-size: 3.5rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  color: var(--color-black);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--color-black);
+  margin-top: 0.5rem;
+  font-weight: 700;
+}
+
+/* Typography & Section Titles */
+h2 {
+  font-size: 2rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  color: var(--color-black);
+  border-bottom: var(--border-thick) solid var(--color-black);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+h2::before {
+  content: "■";
+  color: var(--color-swiss-red);
+}
+
+h3, h4, h5, h6 {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.75rem;
+}
+
+p {
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--color-black);
+  margin-bottom: 1rem;
+  max-width: 70ch;
+}
+
+/* Glass card overrides (Strict Swiss flat containers) */
+.glass-card {
+  background-color: var(--bg-white);
+  border: var(--border-thick) solid var(--color-black);
+  border-radius: 0 !important; /* No rounded corners */
+  padding: 2rem;
+  margin-bottom: 2.5rem;
+  box-shadow: none !important; /* Flat design */
+  transition: background-color 0.2s ease;
+}
+
+.glass-card:hover {
+  border-color: var(--color-black);
+}
+
+.intro-section {
+  background-color: var(--bg-muted);
+  border-width: var(--border-thick);
+  background-size: 24px 24px;
+  background-image: linear-gradient(to right, rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+}
+
+/* Sticky Controls Section */
+.simulation-controls {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: var(--bg-white) !important;
+  border-bottom: var(--border-thick) solid var(--color-black) !important;
+  margin-bottom: 3rem;
+  padding: 1.5rem 2rem;
+}
+
+.simulation-controls .control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+label {
+  font-size: 0.85rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+input, select {
+  background-color: var(--bg-white);
+  border: var(--border-thin) solid var(--color-black);
+  border-radius: 0;
+  color: var(--color-black);
+  padding: 0.5rem 1rem;
+  font-weight: 700;
+  font-size: 1rem;
+  outline: none;
+}
+
+input:focus, select:focus {
+  border-color: var(--color-swiss-red);
+  background-color: var(--bg-muted);
+}
+
+/* Buttons */
+.btn {
+  font-family: inherit;
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0;
+  border: var(--border-thin) solid var(--color-black);
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+
+.btn.primary {
+  background-color: var(--color-black);
+  color: var(--bg-white);
+}
+
+.btn.primary:hover:not(:disabled) {
+  background-color: var(--color-swiss-red);
+  border-color: var(--color-swiss-red);
+}
+
+.btn.secondary {
+  background-color: var(--bg-white);
+  color: var(--color-black);
+  border-width: var(--border-thick);
+}
+
+.btn.secondary:hover:not(:disabled) {
+  background-color: var(--color-black);
+  color: var(--bg-white);
+}
+
+.btn.outline {
+  background-color: transparent;
+  color: var(--color-black);
+}
+
+.btn.outline:hover:not(:disabled) {
+  background-color: var(--bg-muted);
+}
+
+.btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Status Indicator */
+.status-panel {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: var(--bg-muted);
+  border-left: var(--border-thick) solid var(--color-swiss-red);
+  border-radius: 0;
+}
+
+.badge {
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0;
+  background-color: var(--color-swiss-red);
+  color: var(--bg-white);
+}
+
+#step-description {
+  font-weight: 500;
+}
+
+/* Network Diagram & Nodes */
+.network-diagram {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  align-items: center;
+  padding: 1.5rem 0;
+}
+
+.node-card {
+  background-color: var(--bg-white);
+  border: var(--border-thin) solid var(--color-black);
+  border-radius: 0;
+  padding: 1.5rem;
+  width: 100%;
+}
+
+.node-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 0;
+  border: var(--border-thin) solid var(--color-black);
+  background-color: var(--color-black);
+  color: var(--bg-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1.5rem;
+  margin: 0 auto 1rem;
+}
+
+.alice-node .node-avatar {
+  background-color: var(--color-swiss-red);
+}
+
+.node-card h4 {
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Quantum State Icons */
+.signature-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.qstate-circle {
+  width: 50px;
+  height: 50px;
+  border-radius: 0; /* Flat rectangles */
+  border: var(--border-thin) solid var(--color-black);
+  background-color: var(--bg-white);
+  font-weight: 900;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: background-color 0.15s ease;
+}
+
+.qstate-circle:hover {
+  background-color: var(--bg-muted);
+}
+
+.qstate-circle.state-0 { background-color: var(--color-black); color: var(--bg-white); }
+.qstate-circle.state-1 { background-color: var(--color-black); color: var(--bg-white); }
+.qstate-circle.state-plus { background-color: var(--color-swiss-red); color: var(--bg-white); border-color: var(--color-swiss-red); }
+.qstate-circle.state-minus { background-color: var(--color-swiss-red); color: var(--bg-white); border-color: var(--color-swiss-red); }
+
+.qstate-circle .pos-badge {
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  background-color: var(--color-black);
+  color: var(--bg-white);
+  font-size: 0.65rem;
+  padding: 1px 4px;
+  font-weight: 900;
+}
+
+/* Transfer paths */
+.transfer-paths {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 600px;
+  position: relative;
+}
+
+.path-arrow .line {
+  height: 40px;
+  width: 2px;
+  background-color: var(--color-black);
+  position: relative;
+}
+
+.path-arrow .line::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -4px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--color-black);
+}
+
+/* Symmetrisation / Forward Channel */
+.receivers-container {
+  display: grid;
+  grid-template-columns: 1fr 120px 1fr;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .receivers-container {
+    grid-template-columns: 1fr;
+  }
+  .symmetrisation-channel {
+    transform: rotate(90deg);
+    margin: 1.5rem 0;
+  }
+}
+
+.symmetrisation-channel {
+  border: var(--border-thin) solid var(--color-black);
+  background-color: var(--bg-muted);
+  padding: 1rem 0.5rem;
+  text-align: center;
+}
+
+.symmetrise-arrow {
+  height: 2px;
+  background-color: var(--color-black);
+  margin: 0.5rem 0;
+}
+
+.symmetrise-label {
+  font-size: 0.65rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  display: block;
+}
+
+/* Decision & possession boxes */
+.decision-box, .holds-box {
+  border-top: var(--border-thin) solid var(--color-black);
+  padding-top: 1rem;
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.decision-box .label, .holds-box .label {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: var(--color-swiss-red);
+}
+
+.decision-badge {
+  font-size: 0.75rem;
+  font-weight: 900;
+  border: var(--border-thin) solid var(--color-black);
+  padding: 2px 6px;
+  background-color: var(--bg-white);
+}
+
+.decision-badge.keep {
+  background-color: var(--color-black);
+  color: var(--bg-white);
+}
+
+.decision-badge.forward {
+  background-color: var(--color-swiss-red);
+  color: var(--bg-white);
+  border-color: var(--color-swiss-red);
+}
+
+.states-held {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: auto;
+}
+
+.held-item {
+  border: var(--border-thin) solid var(--color-black);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 0;
+  background-color: var(--bg-muted);
+}
+
+/* Elimination display */
+.measurement-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+}
+
+.elimination-table {
+  border: var(--border-thick) solid var(--color-black);
+  background-color: var(--bg-white);
+  padding: 1.5rem;
+  border-radius: 0;
+  max-height: 400px;
+}
+
+.elim-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  padding: 0.75rem 0;
+  border-bottom: var(--border-thin) solid var(--bg-muted);
+}
+
+.elim-row:last-child {
+  border-bottom: none;
+}
+
+.elim-pos-label {
+  font-weight: 900;
+  font-size: 0.9rem;
+}
+
+.elim-state-badge {
+  border: var(--border-thin) solid var(--color-black);
+  padding: 0.2rem 0.5rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin-right: 0.25rem;
+}
+
+.elim-state-badge.eliminated {
+  background-color: var(--bg-muted);
+  color: #ccc;
+  text-decoration: line-through;
+  border-color: #ddd;
+}
+
+.elim-state-badge.possible {
+  background-color: var(--color-swiss-red);
+  color: var(--bg-white);
+  border-color: var(--color-swiss-red);
+}
+
+/* Abort Gauge styling */
+.abort-explanation-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.progress-bar-container {
+  border: var(--border-thick) solid var(--color-black);
+  height: 30px;
+  background-color: var(--bg-muted);
+  border-radius: 0;
+}
+
+.progress-bar {
+  background: var(--color-black);
+  height: 100%;
+  color: var(--bg-white);
+  line-height: 22px;
+  font-weight: 900;
+}
+
+.abort-status-text {
+  font-size: 1.1rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  margin-top: 0.5rem;
+}
+
+.abort-status-text.accept {
+  color: var(--color-black);
+}
+
+.abort-status-text.abort {
+  color: var(--color-swiss-red);
+}
+
+/* Messaging verification UI */
+.messaging-layout {
+  border-top: var(--border-thin) solid var(--color-black);
+  padding-top: 2rem;
+}
+
+.verif-box {
+  border: var(--border-thick) solid var(--color-black);
+  padding: 1.5rem;
+  background-color: var(--bg-white);
+}
+
+.verif-result-indicator {
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+}
+
+.verif-result-indicator.success {
+  color: var(--color-swiss-red);
+}
+
+.verif-result-indicator.fail {
+  color: var(--color-black);
+}
+
+/* Element Inspector styles */
+.position-selectors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pos-btn {
+  border: var(--border-thin) solid var(--color-black);
+  background-color: var(--bg-white);
+  color: var(--color-black);
+  width: 44px;
+  height: 44px;
+  border-radius: 0;
+  font-weight: 900;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.pos-btn:hover {
+  background-color: var(--bg-muted);
+}
+
+.pos-btn.active {
+  background-color: var(--color-swiss-red);
+  color: var(--bg-white);
+  border-color: var(--color-swiss-red);
+}
+
+.inspector-details {
+  border: var(--border-thick) solid var(--color-black);
+  border-radius: 0;
+  background: var(--bg-white);
+  padding: 2.5rem;
+  margin-top: 1.5rem;
+}
+
+.inspector-flow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+.inspector-step {
+  display: flex;
+  gap: 1.5rem;
+  border-bottom: var(--border-thin) solid var(--bg-muted);
+  padding-bottom: 1.5rem;
+}
+
+.inspector-step:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.step-num-icon {
+  width: 36px;
+  height: 36px;
+  background-color: var(--color-black);
+  color: var(--bg-white);
+  font-weight: 900;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+}
+
+.step-info h5 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Decision tree */
+.cases-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: var(--border-thin) solid var(--color-black);
+  padding-bottom: 1rem;
+}
+
+.tab-btn {
+  border: var(--border-thin) solid var(--color-black);
+  border-radius: 0;
+  font-weight: 900;
+  text-transform: uppercase;
+  padding: 0.6rem 1.2rem;
+  background-color: var(--bg-white);
+  color: var(--color-black);
+}
+
+.tab-btn.active {
+  background-color: var(--color-black);
+  color: var(--bg-white);
+}
+
+.tab-btn:hover:not(.active) {
+  background-color: var(--bg-muted);
+}
+
+.case-card-content {
+  border: var(--border-thick) solid var(--color-black);
+  border-top: none;
+  padding: 2.5rem;
+  background-color: var(--bg-white);
+}
+
+.case-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+}
+
+.case-side h4 {
+  font-size: 1.5rem;
+  color: var(--color-swiss-red);
+  margin-bottom: 1rem;
+}
+
+.outcome-item {
+  border: var(--border-thin) solid var(--color-black);
+  padding: 1.25rem;
+  background-color: var(--bg-muted);
+  margin-bottom: 1rem;
+  border-radius: 0;
+}
+
+.outcome-item h5 {
+  font-size: 1rem;
+}
+
+.app-footer {
+  text-align: left;
+  border-top: var(--border-thick) solid var(--color-black);
+  padding-top: 2rem;
+  margin-top: 5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+}
