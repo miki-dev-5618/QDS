@@ -67,6 +67,24 @@ Before using the sifted key, Alice and Bob compare a random sample of it to chec
 Real glass fiber cables have dust or temperature fluctuations that randomly flip qubits (**Channel Noise**).
 * Alice and Bob run **Information Reconciliation** (error correction). They divide their keys into blocks and compare parities (whether the sum of bits is odd or even). If there's a discrepancy, they run a quick game of "Twenty Questions" (binary search bisection) to find the exact bit that flipped and correct it.
 
+#### 🔍 How Parity Reconciliation Works (Step-by-Step)
+Instead of Alice sending her entire key to Bob (which would let Eve steal it!), they use **Parity Check Bisection** to fix errors privately:
+
+1. **Split into Blocks:** Alice and Bob divide their matching sifted keys into blocks of 8 bits.
+2. **Check the Parity:** 
+   * The **parity** of a block is simply whether the number of `1`s is even (0) or odd (1).
+   * Alice and Bob compare their parities for each block.
+   * If Alice's block parity is `1` (odd) and Bob's is `0` (even), they know **exactly one bit is mismatched** in that block.
+3. **Play "Twenty Questions" (Bisection Binary Search):**
+   * Alice and Bob split the mismatched 8-bit block in half (left 4 bits, right 4 bits).
+   * They compare the parity of the **left half**.
+   * *If the left parities match:* The error is in the **right half**.
+   * *If the left parities mismatch:* The error is in the **left half**.
+   * They split the erroneous half again (down to 2 bits) and compare parities.
+   * Within 3 rounds of halving, they pinpoint the **exact bit index** that was flipped.
+4. **Flip the Bit:** Bob flips that bit in his key, and now their keys match perfectly!
+
+
 ### 6. Privacy Amplification (Stage 2)
 Even after correcting errors, Eve might have picked up some bits.
 * Alice and Bob compress their shared keys using **Universal Hashing** (multiplying the key by a random binary matrix). This shrinks the key to a smaller size, reducing Eve's knowledge of the key to virtually zero!
