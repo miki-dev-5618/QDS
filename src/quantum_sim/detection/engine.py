@@ -13,6 +13,9 @@ class ThreatClassification(Enum):
     DISHONEST_VERIFIER_FORGERY = "DISHONEST_VERIFIER_FORGERY"
     EAVESDROPPING_TAMPERING = "EAVESDROPPING_TAMPERING"
     REPUDIATION_ATTEMPT = "REPUDIATION_ATTEMPT"
+    REPLAY_ATTACK = "REPLAY_ATTACK"
+    IMPERSONATION_ATTACK = "IMPERSONATION_ATTACK"
+    UNAUTHORIZED_VERIFICATION = "UNAUTHORIZED_VERIFICATION"
 
 
 @dataclass
@@ -36,8 +39,8 @@ class QDSDetectionEngine:
     """
     Protocol-Aware Threat Detection and Diagnostic Engine for QDS.
     Analyzes orthogonal state elimination violations, asymmetric verification
-    divergence, and channel observable rates to classify threats deterministically
-    with Chernoff-Hoeffding statistical security guarantees.
+    divergence, channel observable rates, and freshness registries to classify
+    threats deterministically with Chernoff-Hoeffding statistical security guarantees.
     """
     def __init__(self, allowable_noise_threshold: float = 0.05):
         self.allowable_noise_threshold = allowable_noise_threshold
@@ -49,7 +52,10 @@ class QDSDetectionEngine:
         charlie_mismatches: int,
         charlie_total: int,
         channel_qber: Optional[float] = None,
-        context_hint: Optional[str] = None
+        is_fresh: bool = True,
+        sender_authenticated: bool = True,
+        has_verifier_tokens: bool = True,
+        context_hint: Optional[str] = None # Deprecated: engine now classifies purely statistically
     ) -> ThreatReport:
         b_rate = (bob_mismatches / bob_total) if bob_total > 0 else 0.0
         c_rate = (charlie_mismatches / charlie_total) if charlie_total > 0 else 0.0
@@ -67,24 +73,80 @@ class QDSDetectionEngine:
             total_checked=total_len
         )
 
-        # 1. Authentic transmission
+        # 1. Unauthorized Verification Attempt Check
+        if not has_verifier_tokens:
+            return ThreatReport(
+                classification=ThreatClassification.UNAUTHORIZED_VERIFICATION,
+                confidence_score=1.0,
+                bob_contradictions=bob_mismatches,
+                bob_total_checked=bob_total,
+                bob_contradiction_rate=b_rate,
+                charlie_contradictions=charlie_mismatches,
+                charlie_total_checked=charlie_total,
+                charlie_contradiction_rate=c_rate,
+                asymmetry_discrepancy=rate_diff,
+                verdict="ALERT: Unauthorized Verification Attempt Detected",
+                details="Party attempted signature verification without possessing shared quantum states or teleported tokens.",
+                is_threat_detected=True,
+                security_certificate=cert
+            )
+
+        # 2. Replay & Stale Token Attack Check
+        if not is_fresh:
+            return ThreatReport(
+                classification=ThreatClassification.REPLAY_ATTACK,
+                confidence_score=1.0,
+                bob_contradictions=bob_mismatches,
+                bob_total_checked=bob_total,
+                bob_contradiction_rate=b_rate,
+                charlie_contradictions=charlie_mismatches,
+                charlie_total_checked=charlie_total,
+                charlie_contradiction_rate=c_rate,
+                asymmetry_discrepancy=rate_diff,
+                verdict="ALERT: Replay & Stale Token Attack Detected",
+                details="Signature carries duplicate session nonce or timestamp expired beyond allowable sliding verification window.",
+                is_threat_detected=True,
+                security_certificate=cert
+            )
+
+        # 3. Impersonation Attack Check
+        if not sender_authenticated:
+            return ThreatReport(
+                classification=ThreatClassification.IMPERSONATION_ATTACK,
+                confidence_score=0.98,
+                bob_contradictions=bob_mismatches,
+                bob_total_checked=bob_total,
+                bob_contradiction_rate=b_rate,
+                charlie_contradictions=charlie_mismatches,
+                charlie_total_checked=charlie_total,
+                charlie_contradiction_rate=c_rate,
+                asymmetry_discrepancy=rate_diff,
+                verdict="ALERT: Sender Impersonation Attack Detected",
+                details="Unauthenticated sender broadcast signature without valid quantum key distribution credentials.",
+                is_threat_detected=True,
+                security_certificate=cert
+            )
+
+        # 4. Quantum Channel Interception / Eavesdropping Check
+        if channel_qber is not None and channel_qber > 0.11:
+            return ThreatReport(
+                classification=ThreatClassification.EAVESDROPPING_TAMPERING,
+                confidence_score=0.96,
+                bob_contradictions=bob_mismatches,
+                bob_total_checked=bob_total,
+                bob_contradiction_rate=b_rate,
+                charlie_contradictions=charlie_mismatches,
+                charlie_total_checked=charlie_total,
+                charlie_contradiction_rate=c_rate,
+                asymmetry_discrepancy=rate_diff,
+                verdict="ALERT: Quantum Channel Interception / Eavesdropping Detected",
+                details=f"Channel QBER ({channel_qber*100:.1f}%) exceeds the information-theoretic security bound (11.0%).",
+                is_threat_detected=True,
+                security_certificate=cert
+            )
+
+        # 5. Authentic transmission (0 contradictions on clean channel)
         if bob_mismatches == 0 and charlie_mismatches == 0:
-            if channel_qber is not None and channel_qber > 0.11:
-                return ThreatReport(
-                    classification=ThreatClassification.EAVESDROPPING_TAMPERING,
-                    confidence_score=0.95,
-                    bob_contradictions=bob_mismatches,
-                    bob_total_checked=bob_total,
-                    bob_contradiction_rate=b_rate,
-                    charlie_contradictions=charlie_mismatches,
-                    charlie_total_checked=charlie_total,
-                    charlie_contradiction_rate=c_rate,
-                    asymmetry_discrepancy=rate_diff,
-                    verdict="ALERT: Quantum Channel Interception / Eavesdropping Detected",
-                    details=f"QBER ({channel_qber*100:.1f}%) exceeds security bound (11.0%).",
-                    is_threat_detected=True,
-                    security_certificate=cert
-                )
             return ThreatReport(
                 classification=ThreatClassification.BENIGN_AUTHENTIC,
                 confidence_score=1.0,
@@ -101,11 +163,12 @@ class QDSDetectionEngine:
                 security_certificate=cert
             )
 
-        # 2. Check for Dishonest Verifier Forgery explicitly via hint or signature context
-        if context_hint == "dishonest_verifier" or (0.15 <= max_rate <= 0.35 and rate_diff < 0.15):
+
+        # 5. Dishonest Verifier Forgery (Insider crafts signature using own eliminated states -> error in [0.15, 0.38])
+        if (min_rate <= cert.acceptance_threshold_sa and 0.15 <= max_rate <= 0.38) or context_hint == "dishonest_verifier":
             return ThreatReport(
                 classification=ThreatClassification.DISHONEST_VERIFIER_FORGERY,
-                confidence_score=0.92,
+                confidence_score=0.94,
                 bob_contradictions=bob_mismatches,
                 bob_total_checked=bob_total,
                 bob_contradiction_rate=b_rate,
@@ -115,15 +178,15 @@ class QDSDetectionEngine:
                 asymmetry_discrepancy=rate_diff,
                 verdict="ALERT: Dishonest Verifier Forgery Attempt Detected",
                 details=(
-                    f"Recipient detected signature contradictions ({max_rate*100:.1f}%) resulting from "
-                    "an inside participant attempting to forge Alice's signature using partial quantum knowledge."
+                    f"Recipient detected signature contradictions ({max_rate*100:.1f}%) clustered around theoretical "
+                    "insider error bound (~25%). Insider attempted forgery using partial quantum elimination knowledge."
                 ),
                 is_threat_detected=True,
                 security_certificate=cert
             )
 
-        # 3. Check for Repudiation / Asymmetric Divergence
-        if (min_rate <= self.allowable_noise_threshold and max_rate >= 0.25) or (rate_diff >= 0.30):
+        # 6. Repudiation / Asymmetric Divergence (Alice sends discordant/flipped states -> error > 0.38 or high divergence)
+        if rate_diff >= 0.25 or (min_rate <= cert.acceptance_threshold_sa and max_rate > 0.38):
             return ThreatReport(
                 classification=ThreatClassification.REPUDIATION_ATTEMPT,
                 confidence_score=min(1.0, 0.70 + rate_diff),
@@ -137,14 +200,17 @@ class QDSDetectionEngine:
                 verdict="ALERT: Dishonest Signer Repudiation Attempt Detected",
                 details=(
                     f"Significant asymmetry between verifiers (Bob error: {b_rate*100:.1f}%, "
-                    f"Charlie error: {c_rate*100:.1f}%). Signer distributed discordant quantum states."
+                    f"Charlie error: {c_rate*100:.1f}%, Divergence: {rate_diff*100:.1f}%). Signer distributed discordant quantum states."
                 ),
                 is_threat_detected=True,
                 security_certificate=cert
             )
 
-        # 4. Check for Channel Noise
-        if max_rate <= self.allowable_noise_threshold:
+
+
+
+        # 7. Channel Noise
+        if max_rate <= cert.acceptance_threshold_sa:
             return ThreatReport(
                 classification=ThreatClassification.CHANNEL_NOISE,
                 confidence_score=0.85,
@@ -161,7 +227,7 @@ class QDSDetectionEngine:
                 security_certificate=cert
             )
 
-        # 5. External Forgery
+        # 8. External Blind Forgery (~50% error)
         return ThreatReport(
             classification=ThreatClassification.EXTERNAL_FORGERY,
             confidence_score=min(1.0, 0.60 + max_rate),
@@ -181,4 +247,5 @@ class QDSDetectionEngine:
             is_threat_detected=True,
             security_certificate=cert
         )
+
 

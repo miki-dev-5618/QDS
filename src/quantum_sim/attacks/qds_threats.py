@@ -98,3 +98,72 @@ class RepudiationSimulation:
             bob_initial_sigs=bob_sigs,
             charlie_initial_sigs=charlie_sigs
         )
+
+
+@dataclass
+class ReplayPayload:
+    message_k: int
+    signature: List[Tuple[int, int]]
+    original_nonce: str
+    original_timestamp: float
+    replayed_timestamp: float
+
+
+class ReplayAttack:
+    """
+    Simulates an adversary replaying a previously intercepted valid signature.
+    """
+    @staticmethod
+    def craft_replay(
+        original_k: int,
+        original_sig: List[Tuple[int, int]],
+        original_nonce: str,
+        original_timestamp: float,
+        timestamp_delay_seconds: float = 600.0
+    ) -> ReplayPayload:
+        return ReplayPayload(
+            message_k=original_k,
+            signature=list(original_sig),
+            original_nonce=original_nonce,
+            original_timestamp=original_timestamp,
+            replayed_timestamp=original_timestamp + timestamp_delay_seconds
+        )
+
+
+@dataclass
+class ImpersonationPayload:
+    claimed_sender: str
+    message_k: int
+    forged_signature: List[Tuple[int, int]]
+    is_authenticated_credentials: bool = False
+
+
+class ImpersonationAttack:
+    """
+    Simulates an unauthorized adversary (Mallory) claiming to be Alice
+    without holding shared quantum entanglement or private keys.
+    """
+    @staticmethod
+    def generate_impersonation(
+        claimed_sender: str,
+        n_bits: int,
+        k: int = 0,
+        rng: Optional[np.random.Generator] = None
+    ) -> ImpersonationPayload:
+        if rng is None:
+            rng = np.random.default_rng()
+        forged_sig = EveSignatureForgery.generate_random_forgery(n_bits=n_bits, rng=rng)
+        return ImpersonationPayload(
+            claimed_sender=claimed_sender,
+            message_k=k,
+            forged_signature=forged_sig,
+            is_authenticated_credentials=False
+        )
+
+
+@dataclass
+class UnauthorizedVerificationAttempt:
+    rogue_verifier_name: str
+    holds_entangled_tokens: bool = False
+    is_authorized_recipient: bool = False
+

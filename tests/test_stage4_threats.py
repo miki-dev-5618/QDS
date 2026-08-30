@@ -101,8 +101,7 @@ def test_dishonest_verifier_forgery_detection():
         bob_mismatches=b_mismatches,
         bob_total=b_total,
         charlie_mismatches=c_mismatches,
-        charlie_total=c_total,
-        context_hint="dishonest_verifier"
+        charlie_total=c_total
     )
 
     assert report.classification == ThreatClassification.DISHONEST_VERIFIER_FORGERY
@@ -140,3 +139,46 @@ def test_repudiation_detection():
 
     assert report.classification == ThreatClassification.REPUDIATION_ATTEMPT
     assert report.is_threat_detected is True
+
+
+def test_replay_attack_detection():
+    engine = QDSDetectionEngine()
+    report = engine.analyze(
+        bob_mismatches=0,
+        bob_total=16,
+        charlie_mismatches=0,
+        charlie_total=16,
+        is_fresh=False
+    )
+    assert report.classification == ThreatClassification.REPLAY_ATTACK
+    assert report.is_threat_detected is True
+    assert "Replay" in report.verdict
+
+
+def test_impersonation_attack_detection():
+    engine = QDSDetectionEngine()
+    report = engine.analyze(
+        bob_mismatches=8,
+        bob_total=16,
+        charlie_mismatches=8,
+        charlie_total=16,
+        sender_authenticated=False
+    )
+    assert report.classification == ThreatClassification.IMPERSONATION_ATTACK
+    assert report.is_threat_detected is True
+    assert "Impersonation" in report.verdict
+
+
+def test_unauthorized_verification_detection():
+    engine = QDSDetectionEngine()
+    report = engine.analyze(
+        bob_mismatches=0,
+        bob_total=0,
+        charlie_mismatches=0,
+        charlie_total=0,
+        has_verifier_tokens=False
+    )
+    assert report.classification == ThreatClassification.UNAUTHORIZED_VERIFICATION
+    assert report.is_threat_detected is True
+    assert "Unauthorized" in report.verdict
+
