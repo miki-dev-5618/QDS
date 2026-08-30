@@ -152,6 +152,11 @@ p strong {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  position: sticky;
+  top: 1rem;
+  z-index: 100;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
 }
 
 .control-row {
