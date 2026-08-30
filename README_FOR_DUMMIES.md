@@ -12,10 +12,12 @@ Imagine you want to send a secret message over the internet:
 2. **Quantum Computing (Our Project)**: You turn your 0s and 1s into **fragile quantum particles of light (photons/qubits)**.
 3. **The Golden Rule of Quantum Physics**: If Eve tries to peek at or measure a quantum particle in transit, **she physically alters it**, corrupting the data and leaving obvious fingerprints!
 
-This project represents **Stage 1, Stage 2, & Stage 3**:
+This project represents **Stages 1 through 5**:
 * **Stage 1**: Building the baseline simulator loop (Alice $\rightarrow$ Bob) and detecting full-scale eavesdropping.
 * **Stage 2**: Adding physical noise (random channel fluctuations), error reconciliation (correcting minor noise errors), and privacy amplification (compressing keys so hackers are left with nothing!).
 * **Stage 3**: Implementing **Quantum Digital Signatures (QDS)**, where Alice signs a contract in a way that Bob and Charlie can verify independently, preventing Alice from denying it or Bob from forging it.
+* **Stage 4**: Multi-vector threat simulations (external forgeries, dishonest verifiers, repudiation, channel tampering) and protocol-aware threat classification.
+* **Stage 5**: **Teleportation-Based QDS & Information-Theoretic Security Bounds**, using entangled Bell pairs, Bell-State Measurements (BSM), Pauli feed-forward corrections, and Chernoff-Hoeffding mathematical security guarantees!
 
 ---
 
@@ -25,11 +27,14 @@ Instead of dumping everything into one huge file, our code is split into clean f
 
 ```text
 src/quantum_sim/
-├── core/         ---> 🎯 "The Qubit Launcher" (Turns 0s & 1s into Qiskit circuits)
+├── core/         ---> 🎯 "The Qubit Launcher" (Turns bits into Qiskit circuits, Bell pairs & Teleportation)
 ├── channel/      ---> 🌐 "The Fiber Cable, Noise & Hacker" (Simulates transmission, noise & attacks)
-├── nodes/        ---> 👤 "The People" (Classes for Alice & Bob)
-├── protocols/    ---> 📜 "The Rulebook" (Orchestrates normal and secure transmission pipelines)
-└── utils/        ---> 🧮 "The Calculator" (Sifting, QBER metrics, Error Correction, & Privacy Hashing)
+├── nodes/        ---> 👤 "The People" (Classes for Alice, Bob & Charlie)
+├── protocols/    ---> 📜 "The Rulebook" (Point-to-point, WDKA QDS, and Teleportation QDS pipelines)
+├── attacks/      ---> 🦹 "The Threat Engine" (External forgeries, insider attacks, and repudiation scenarios)
+├── detection/    ---> 🛡️ "The Detective" (Protocol-aware deterministic threat classifier)
+├── network/      ---> 🔌 "The Internet Grid" (Multi-process asynchronous socket daemons)
+└── utils/        ---> 🧮 "The Calculator" (Sifting, QBER metrics, Error Correction, & Chernoff Math Bounds)
 ```
 
 ---
@@ -68,24 +73,6 @@ Before using the sifted key, Alice and Bob compare a random sample of it to chec
 Real glass fiber cables have dust or temperature fluctuations that randomly flip qubits (**Channel Noise**).
 * Alice and Bob run **Information Reconciliation** (error correction). They divide their keys into blocks and compare parities (whether the sum of bits is odd or even). If there's a discrepancy, they run a quick game of "Twenty Questions" (binary search bisection) to find the exact bit that flipped and correct it.
 
-#### 🔍 How Parity Reconciliation Works (Step-by-Step)
-Instead of Alice sending her entire key to Bob (which would let Eve steal it!), they use **Parity Check Bisection** to fix errors privately:
-
-1. **Split into Blocks:** Alice and Bob divide their matching sifted keys into blocks of 8 bits.
-2. **Check the Parity:** 
-   * The **parity** of a block is simply whether the number of `1`s is even (0) or odd (1).
-   * Alice and Bob compare their parities for each block.
-   * If Alice's block parity is `1` (odd) and Bob's is `0` (even), they know **exactly one bit is mismatched** in that block.
-3. **Play "Twenty Questions" (Bisection Binary Search):**
-   * Alice and Bob split the mismatched 8-bit block in half (left 4 bits, right 4 bits).
-   * They compare the parity of the **left half**.
-   * *If the left parities match:* The error is in the **right half**.
-   * *If the left parities mismatch:* The error is in the **left half**.
-   * They split the erroneous half again (down to 2 bits) and compare parities.
-   * Within 3 rounds of halving, they pinpoint the **exact bit index** that was flipped.
-4. **Flip the Bit:** Bob flips that bit in his key, and now their keys match perfectly!
-
-
 ### 6. Privacy Amplification (Stage 2)
 Alice and Bob compress their shared keys using **Universal Hashing** (multiplying the key by a random binary matrix). This shrinks the key to a smaller size, reducing Eve's knowledge of the key to virtually zero!
 
@@ -95,26 +82,41 @@ Alice and Bob compress their shared keys using **Universal Hashing** (multiplyin
 * ❌ **State Elimination**: In quantum mechanics, you cannot always read a state perfectly. However, by measuring it, you can prove what state it **could not possibly be**. Bob and Charlie store a list of these *impossible states*.
 * 🔍 **Verification**: When Alice publishes her signature, Bob and Charlie check if the states Alice claims to have sent contradict their lists of impossible states. If Alice tries to forge or lie, Bob/Charlie immediately notice the contradictions and reject the signature.
 
+### 8. Quantum Teleportation & Pauli Corrections (Stage 5)
+How do we send quantum states without physically mailing them through an untrusted fiber?
+* 🎲 **Entangled Bell Pairs (The Twin Magic Dice)**: Alice and Bob share a pair of connected quantum particles.
+* 🔬 **Bell-State Measurement (The Scan & Destroy)**: Alice interacts her secret signature particle with her half of the twin die. This destroys the particle on Alice's side and gives two simple classical numbers $(m_1, m_2)$.
+* 🎛️ **Pauli Corrections (The Adjustment Dial)**: Alice sends $(m_1, m_2)$ over normal Wi-Fi to Bob. Bob turns his quantum dial ($X$ flip or $Z$ phase rotate) based on those numbers, and his twin die instantly transforms into the exact original signature state!
+
+### 9. Chernoff-Hoeffding Security Bounds (Stage 5 Math)
+Instead of guessing error cutoffs, we use **Chernoff-Hoeffding Bounds**:
+* 🛡️ **Mathematical Proof of Security**: It calculates an exact mathematical upper bound on the chance that an attacker could ever cheat ($P_{\text{forge}} \le e^{-2\delta^2 L}$).
+* 📏 **Dynamic Safety Line ($s_a$ & $s_v$)**: Automatically calculates the exact passing and failing grades based on channel noise.
+* 🔢 **Security Level in Bits**: Tells you how many cryptographic bits of protection your signature currently has (e.g., 128-bit or 256-bit security).
+
 ---
 
 ## 📁 What Every File Does in Plain English
 
 | File | What it actually does |
 | :--- | :--- |
-| **`src/quantum_sim/core/circuit.py`** | Builds Qiskit circuits. Applies `X` gates (bit flip) and `H` gates (basis change). |
+| **`src/quantum_sim/core/circuit.py`** | Builds Qiskit circuits, prepares BB84 states, Bell pairs, and Teleportation circuits. |
 | **`src/quantum_sim/channel/noise.py`** | Simulates random physical cable noise (e.g., bit flips, depolarizing noise). |
 | **`src/quantum_sim/channel/attacks.py`** | Simulates Eve catching qubits mid-fiber, measuring them, and resending them. |
 | **`src/quantum_sim/channel/base.py`** | Represents the fiber optical cable connecting Alice to Bob. |
-| **`src/quantum_sim/nodes/node.py`** | Creates `Alice` and `Bob` objects that pick random bits and bases. |
+| **`src/quantum_sim/nodes/node.py`** | Creates `Alice`, `Bob`, and `Charlie` network participants. |
 | **`src/quantum_sim/protocols/point_to_point.py`** | Orchestrates basic point-to-point state transmission. |
 | **`src/quantum_sim/protocols/secure_point_to_point.py`** | Orchestrates Stage 2 secure point-to-point protocol (with error correction and hashing). |
-| **`src/quantum_sim/protocols/qds.py`** | Simulates Stage 3 QDS protocol (Alice preparing states, Keep/Forward swaps, measurements, and verification checks). |
-| **`src/quantum_sim/utils/metrics.py`** | Calculates matching bases and QBER (error percentage). |
-| **`src/quantum_sim/utils/post_processing.py`** | Implements the bisection error corrector and privacy amplifier. |
+| **`src/quantum_sim/protocols/qds.py`** | Simulates Stage 3 WDKA prepare-and-measure QDS protocol. |
+| **`src/quantum_sim/protocols/teleportation_qds.py`** | Simulates Stage 5 **Teleportation-Based QDS** with Bell pairs, BSM, and Pauli corrections. |
+| **`src/quantum_sim/attacks/qds_threats.py`** | Threat engine simulating signature forgeries, dishonest verifiers, and repudiation. |
+| **`src/quantum_sim/detection/engine.py`** | Detective engine classifying threats deterministically with security certificates. |
+| **`src/quantum_sim/utils/security_analysis.py`** | Chernoff-Hoeffding statistical security bound calculator and certificate generator. |
 | **`examples/stage1_demo.py`** | Demonstration of Stage 1 transmission and intercept detection. |
 | **`examples/stage2_demo.py`** | Demonstration of Stage 2 error correction and privacy amplification under noisy conditions. |
 | **`examples/stage3_demo.py`** | Demonstration of Stage 3 QDS signature generation and verification. |
-| **`examples/README_STAGE3.md`** | A detailed non-technical breakdown of the QDS simulation. |
+| **`examples/stage4_demo.py`** | Demonstration of Stage 4 multi-vector threat simulation and diagnostic engine. |
+| **`examples/stage5_teleportation_demo.py`** | Demonstration of Stage 5 **Teleportation-Based QDS** with live Chernoff security bounds. |
 
 ---
 
@@ -127,24 +129,44 @@ Open your terminal in the project directory (`e:\2026-2\sih 2026`):
    pip install -r requirements.txt
    ```
 
-2. **Run Stage 1 Demo**:
+2. **Run Stage 1 Demo (Basic Quantum Loop)**:
    ```powershell
    python examples/stage1_demo.py
    ```
 
-3. **Run Stage 2 Demo**:
+3. **Run Stage 2 Demo (Noise & Privacy Hashing)**:
    ```powershell
    python examples/stage2_demo.py
    ```
 
-4. **Run Stage 3 Demo (QDS)**:
+4. **Run Stage 3 Demo (Prepare-and-Measure QDS)**:
    ```powershell
    python examples/stage3_demo.py
    ```
 
-5. **Run the Automated Tests**:
+5. **Run Stage 4 Demo (Threat & Attack Simulator)**:
+   ```powershell
+   python examples/stage4_demo.py
+   ```
+
+6. **Run Stage 5 Demo (Teleportation QDS & Chernoff Bounds)**:
+   ```powershell
+   python examples/stage5_teleportation_demo.py
+   ```
+
+7. **Launch the Interactive Web Visualizer**:
+   Simply open `visualizer/index.html` in any web browser to explore:
+   - Interactive 5-step Quantum Teleportation simulator.
+   - Cyber Threat & Attack Lab with real-time observables.
+   - Deterministic Non-AI Threat Detection Engine dashboard.
+   - Interactive Chernoff-Hoeffding security bound curve plotter.
+   - 3-Qubit quantum circuit & Pauli truth table inspector.
+
+8. **Run the Automated Test Suite**:
    ```powershell
    pytest
    ```
+
+
 
 

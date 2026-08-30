@@ -3,6 +3,8 @@ from enum import Enum
 from typing import List, Dict, Tuple, Optional
 import numpy as np
 
+from quantum_sim.utils.security_analysis import QDSSecurityBounds, SecurityCertificate
+
 
 class ThreatClassification(Enum):
     BENIGN_AUTHENTIC = "BENIGN_AUTHENTIC"
@@ -27,13 +29,15 @@ class ThreatReport:
     verdict: str
     details: str
     is_threat_detected: bool
+    security_certificate: Optional[SecurityCertificate] = None
 
 
 class QDSDetectionEngine:
     """
     Protocol-Aware Threat Detection and Diagnostic Engine for QDS.
     Analyzes orthogonal state elimination violations, asymmetric verification
-    divergence, and channel observable rates to classify threats deterministically.
+    divergence, and channel observable rates to classify threats deterministically
+    with Chernoff-Hoeffding statistical security guarantees.
     """
     def __init__(self, allowable_noise_threshold: float = 0.05):
         self.allowable_noise_threshold = allowable_noise_threshold
@@ -53,6 +57,15 @@ class QDSDetectionEngine:
         rate_diff = abs(b_rate - c_rate)
         max_rate = max(b_rate, c_rate)
         min_rate = min(b_rate, c_rate)
+        total_len = max(bob_total, charlie_total, 1)
+
+        # Generate formal security certificate
+        cert = QDSSecurityBounds.generate_security_certificate(
+            signature_length=total_len,
+            channel_error_rate=channel_qber if channel_qber is not None else self.allowable_noise_threshold,
+            mismatches=max(bob_mismatches, charlie_mismatches),
+            total_checked=total_len
+        )
 
         # 1. Authentic transmission
         if bob_mismatches == 0 and charlie_mismatches == 0:
@@ -69,7 +82,8 @@ class QDSDetectionEngine:
                     asymmetry_discrepancy=rate_diff,
                     verdict="ALERT: Quantum Channel Interception / Eavesdropping Detected",
                     details=f"QBER ({channel_qber*100:.1f}%) exceeds security bound (11.0%).",
-                    is_threat_detected=True
+                    is_threat_detected=True,
+                    security_certificate=cert
                 )
             return ThreatReport(
                 classification=ThreatClassification.BENIGN_AUTHENTIC,
@@ -82,12 +96,13 @@ class QDSDetectionEngine:
                 charlie_contradiction_rate=0.0,
                 asymmetry_discrepancy=0.0,
                 verdict="PASS: Valid Authentic Quantum Signature",
-                details="Zero orthogonal state elimination contradictions across all verifiers.",
-                is_threat_detected=False
+                details="Zero orthogonal state elimination contradictions across all verifiers. Information-Theoretically Secure.",
+                is_threat_detected=False,
+                security_certificate=cert
             )
 
         # 2. Check for Dishonest Verifier Forgery explicitly via hint or signature context
-        if context_hint == "dishonest_verifier":
+        if context_hint == "dishonest_verifier" or (0.15 <= max_rate <= 0.35 and rate_diff < 0.15):
             return ThreatReport(
                 classification=ThreatClassification.DISHONEST_VERIFIER_FORGERY,
                 confidence_score=0.92,
@@ -100,10 +115,11 @@ class QDSDetectionEngine:
                 asymmetry_discrepancy=rate_diff,
                 verdict="ALERT: Dishonest Verifier Forgery Attempt Detected",
                 details=(
-                    f"Recipient detected signature contradictions ({c_rate*100:.1f}%) resulting from "
+                    f"Recipient detected signature contradictions ({max_rate*100:.1f}%) resulting from "
                     "an inside participant attempting to forge Alice's signature using partial quantum knowledge."
                 ),
-                is_threat_detected=True
+                is_threat_detected=True,
+                security_certificate=cert
             )
 
         # 3. Check for Repudiation / Asymmetric Divergence
@@ -123,7 +139,8 @@ class QDSDetectionEngine:
                     f"Significant asymmetry between verifiers (Bob error: {b_rate*100:.1f}%, "
                     f"Charlie error: {c_rate*100:.1f}%). Signer distributed discordant quantum states."
                 ),
-                is_threat_detected=True
+                is_threat_detected=True,
+                security_certificate=cert
             )
 
         # 4. Check for Channel Noise
@@ -139,8 +156,9 @@ class QDSDetectionEngine:
                 charlie_contradiction_rate=c_rate,
                 asymmetry_discrepancy=rate_diff,
                 verdict="NOTICE: Benign Low-Level Channel Noise",
-                details=f"Contradictions within acceptable environmental noise threshold ({self.allowable_noise_threshold*100:.1f}%).",
-                is_threat_detected=False
+                details=f"Contradictions within acceptable statistical noise threshold (sa = {cert.acceptance_threshold_sa*100:.1f}%).",
+                is_threat_detected=False,
+                security_certificate=cert
             )
 
         # 5. External Forgery
@@ -158,7 +176,9 @@ class QDSDetectionEngine:
             details=(
                 f"Both verifiers detected significant orthogonal state contradictions "
                 f"(Bob: {b_rate*100:.1f}%, Charlie: {c_rate*100:.1f}%). "
-                "Signature was forged without knowledge of private quantum states."
+                f"Signature error exceeds Chernoff verification threshold (sv = {cert.verification_threshold_sv*100:.1f}%)."
             ),
-            is_threat_detected=True
+            is_threat_detected=True,
+            security_certificate=cert
         )
+

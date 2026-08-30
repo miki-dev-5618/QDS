@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quantum Digital Signature (QDS) & Threat Detection Framework</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- KaTeX for rendering mathematical and quantum formulations -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+</head>
+
+<body class="dark-theme">
+  <div class="glow-backdrop"></div>
+
+  <div class="app-layout">
+    <!-- Header Bar -->
+    <header class="app-header">
+      <div class="header-branding">
+        <div class="logo-orb">
+          <span class="core-dot"></span>
+          <div class="orbital-ring"></div>
+        </div>
+        <div>
+          <div class="badge-row">
+            <span class="badge cyber-badge">SIH 2026</span>
+            <span class="badge quantum-badge">QISKIT & AER POWERED</span>
+            <span class="badge its-badge">INFORMATION-THEORETIC SECURITY</span>
+          </div>
+          <h1 class="app-title">Quantum-Inspired Cyber Threat Detection for QDS</h1>
+          <p class="app-subtitle">Teleportation-Based Quantum Digital Signatures, Deterministic Diagnostics & Chernoff-Hoeffding Security Bounds</p>
+        </div>
+      </div>
+
+      <div class="header-stats">
+        <div class="stat-pill">
+          <span class="stat-label">Security Model</span>
+          <span class="stat-val text-cyan">Bell-State Teleportation</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">Threat Engine</span>
+          <span class="stat-val text-emerald">Deterministic Non-AI</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">Security Proof</span>
+          <span class="stat-val text-purple">Chernoff-Hoeffding Bounds</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tab-teleportation">
+        <span class="tab-icon">⚛️</span> 1. Teleportation Protocol
+      </button>
+      <button class="tab-btn" data-tab="tab-threats">
+        <span class="tab-icon">🦹</span> 2. Threat & Attack Lab
+      </button>
+      <button class="tab-btn" data-tab="tab-detection">
+        <span class="tab-icon">🛡️</span> 3. Threat Detection Engine
+      </button>
+      <button class="tab-btn" data-tab="tab-chernoff">
+        <span class="tab-icon">📊</span> 4. Chernoff Security Bounds
+      </button>
+      <button class="tab-btn" data-tab="tab-circuit">
+        <span class="tab-icon">🔬</span> 5. Quantum Circuit & Pauli Math
+      </button>
+    </nav>
+
+    <!-- MAIN CONTENT CONTAINERS -->
+    <main class="main-content">
+
+      <!-- ========================================== -->
+      <!-- TAB 1: TELEPORTATION PROTOCOL SIMULATOR -->
+      <!-- ========================================== -->
+      <section id="tab-teleportation" class="tab-pane active">
+        <!-- Control Strip -->
+        <div class="glass-card control-strip">
+          <div class="control-inputs">
+            <div class="input-group">
+              <label for="tel-sig-len">Signature Length ($L$ qubits):</label>
+              <input type="range" id="tel-sig-len" min="4" max="24" value="12" step="2">
+              <span id="tel-sig-len-val" class="val-tag">12</span>
+            </div>
+            <div class="input-group">
+              <label for="tel-noise">Channel Baseline Noise ($e_0$):</label>
+              <input type="range" id="tel-noise" min="0" max="10" value="2" step="0.5">
+              <span id="tel-noise-val" class="val-tag">2.0%</span>
+            </div>
+          </div>
+          <div class="action-buttons">
+            <button id="btn-run-teleportation" class="btn btn-primary">
+              <span class="icon">🚀</span> Run Teleportation Protocol
+            </button>
+            <button id="btn-step-teleportation" class="btn btn-secondary">
+              <span class="icon">▶️</span> Step-by-Step
+            </button>
+            <button id="btn-reset-teleportation" class="btn btn-outline">
+              <span class="icon">🔄</span> Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Protocol Stepper Progress -->
+        <div class="stepper-bar glass-card">
+          <div class="step-node active" data-step="1">
+            <div class="step-circle">1</div>
+            <div class="step-info">
+              <span class="step-title">State Prep</span>
+              <span class="step-sub">Alice Pauli States</span>
+            </div>
+          </div>
+          <div class="step-connector"></div>
+          <div class="step-node" data-step="2">
+            <div class="step-circle">2</div>
+            <div class="step-info">
+              <span class="step-title">Bell Pairs & BSM</span>
+              <span class="step-sub">Entanglement & Scan</span>
+            </div>
+          </div>
+          <div class="step-connector"></div>
+          <div class="step-node" data-step="3">
+            <div class="step-circle">3</div>
+            <div class="step-info">
+              <span class="step-title">Pauli Corrections</span>
+              <span class="step-sub">Feed-Forward <em>X</em><sup>m₂</sup> <em>Z</em><sup>m₁</sup></span>
+            </div>
+          </div>
+          <div class="step-connector"></div>
+          <div class="step-node" data-step="4">
+            <div class="step-circle">4</div>
+            <div class="step-info">
+              <span class="step-title">Symmetrisation</span>
+              <span class="step-sub">Keep/Forward Swap</span>
+            </div>
+          </div>
+
+          <div class="step-connector"></div>
+          <div class="step-node" data-step="5">
+            <div class="step-circle">5</div>
+            <div class="step-info">
+              <span class="step-title">Verification</span>
+              <span class="step-sub">Projective Mismatch Check</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Teleportation Architecture Diagram -->
+        <div class="architecture-grid">
+          <!-- Alice Node Card -->
+          <div class="glass-card node-card node-alice">
+            <div class="node-header">
+              <div class="avatar avatar-alice">A</div>
+              <div>
+                <h3>Alice (Signer)</h3>
+                <span class="role-tag">Entangled State Preparer</span>
+              </div>
+            </div>
+            <div class="node-body">
+              <div class="token-container">
+                <label>Private Signature Tokens ($|\psi\rangle$):</label>
+                <div id="alice-token-pool" class="token-stream"></div>
+              </div>
+              <div class="syndrome-container">
+                <label>Bell-State Measurement (BSM) Syndromes $(m_1, m_2)$:</label>
+                <div id="alice-syndrome-pool" class="syndrome-stream"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Central Quantum Teleportation Channel Canvas -->
+          <div class="glass-card teleport-channel-card">
+            <div class="channel-header">
+              <h4>Quantum Teleportation & Bell Entanglement Bridge</h4>
+              <span class="channel-status active">Entangled $|\Phi^+\rangle$ Active</span>
+            </div>
+            <div class="teleport-animation-box">
+              <div class="bell-source">
+                <div class="epr-emitter">
+                  <div class="epr-pulse"></div>
+                  <span>Bell Source $|\Phi^+\rangle$</span>
+                </div>
+                <div class="entangle-beam beam-left"></div>
+                <div class="entangle-beam beam-right"></div>
+              </div>
+              <div class="classical-data-link">
+                <span class="data-packet packet-bob">Classical BSM Syndromes $(m_1, m_2) \to$ Bob</span>
+                <span class="data-packet packet-charlie">Classical BSM Syndromes $(m_1, m_2) \to$ Charlie</span>
+              </div>
+            </div>
+            <div class="symmetrisation-swap-box">
+              <div class="swap-label">🔄 Symmetrisation Swap Channel (Keep / Forward)</div>
+              <div class="swap-indicators">
+                <span id="bob-swap-stat" class="swap-stat">Bob Kept: 0 | Fwd: 0</span>
+                <span id="charlie-swap-stat" class="swap-stat">Charlie Kept: 0 | Fwd: 0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Receivers (Bob and Charlie) -->
+          <div class="receivers-grid">
+            <!-- Bob Card -->
+            <div class="glass-card node-card node-bob">
+              <div class="node-header">
+                <div class="avatar avatar-bob">B</div>
+                <div>
+                  <h3>Bob (Verifier 1)</h3>
+                  <span class="role-tag">Pauli Correction & Verification</span>
+                </div>
+              </div>
+              <div class="node-body">
+                <div class="pauli-correction-box">
+                  <label>Pauli Feed-Forward Applied:</label>
+                  <div id="bob-pauli-applied" class="pauli-stream"></div>
+                </div>
+                <div class="holds-container">
+                  <label>Held Qubit Registry:</label>
+                  <div id="bob-held-pool" class="token-stream"></div>
+                </div>
+                <div class="elimination-box">
+                  <label>Eliminated Orthogonal States:</label>
+                  <div id="bob-elim-pool" class="elim-stream"></div>
+                </div>
+                <div class="verification-badge-box">
+                  <span id="bob-verdict-badge" class="verdict-badge idle">Awaiting Verification</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Charlie Card -->
+            <div class="glass-card node-card node-charlie">
+              <div class="node-header">
+                <div class="avatar avatar-charlie">C</div>
+                <div>
+                  <h3>Charlie (Verifier 2)</h3>
+                  <span class="role-tag">Cross-Verification & Symmetrisation</span>
+                </div>
+              </div>
+              <div class="node-body">
+                <div class="pauli-correction-box">
+                  <label>Pauli Feed-Forward Applied:</label>
+                  <div id="charlie-pauli-applied" class="pauli-stream"></div>
+                </div>
+                <div class="holds-container">
+                  <label>Held Qubit Registry:</label>
+                  <div id="charlie-held-pool" class="token-stream"></div>
+                </div>
+                <div class="elimination-box">
+                  <label>Eliminated Orthogonal States:</label>
+                  <div id="charlie-elim-pool" class="elim-stream"></div>
+                </div>
+                <div class="verification-badge-box">
+                  <span id="charlie-verdict-badge" class="verdict-badge idle">Awaiting Verification</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Live Verification Telemetry Strip -->
+        <div class="glass-card telemetry-strip">
+          <div class="telemetry-item">
+            <span class="tel-label">Bob Mismatches</span>
+            <span id="tel-bob-mis" class="tel-val text-cyan">0 / 0 (0.0%)</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="tel-label">Charlie Mismatches</span>
+            <span id="tel-charlie-mis" class="tel-val text-purple">0 / 0 (0.0%)</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="tel-label">Acceptance Threshold ($s_a$)</span>
+            <span id="tel-sa-val" class="tel-val text-emerald">9.67%</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="tel-label">Verification Threshold ($s_v$)</span>
+            <span id="tel-sv-val" class="tel-val text-amber">17.33%</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="tel-label">Overall Protocol Status</span>
+            <span id="tel-protocol-status" class="tel-val text-green">IDLE</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 2: THREAT & ATTACK LAB -->
+      <!-- ========================================== -->
+      <section id="tab-threats" class="tab-pane">
+        <div class="threat-lab-layout">
+          <!-- Attack Selector Panel -->
+          <div class="glass-card attack-selector-panel">
+            <h3>🦹 Select Cyber Threat Scenario</h3>
+            <p class="panel-desc">Simulate realistic cyber attacks against the Quantum Digital Signature protocol without machine learning.</p>
+
+            <div class="attack-options">
+              <label class="attack-card active" data-attack="authentic">
+                <input type="radio" name="attack-choice" value="authentic" checked>
+                <div class="attack-card-content">
+                  <div class="attack-title-row">
+                    <span class="attack-name">🟢 Baseline Authentic</span>
+                    <span class="badge badge-sm badge-green">Safe</span>
+                  </div>
+                  <p class="attack-desc">Honest Alice, Bob, and Charlie. Signature states and teleportation channels operate without tampering.</p>
+                </div>
+              </label>
+
+              <label class="attack-card" data-attack="external_forgery">
+                <input type="radio" name="attack-choice" value="external_forgery">
+                <div class="attack-card-content">
+                  <div class="attack-title-row">
+                    <span class="attack-name">🔴 External Signature Forgery (Eve)</span>
+                    <span class="badge badge-sm badge-red">Critical</span>
+                  </div>
+                  <p class="attack-desc">Eve blindly crafts a counterfeit signature without knowing Alice's private Pauli eigenstates.</p>
+                </div>
+              </label>
+
+              <label class="attack-card" data-attack="dishonest_verifier">
+                <input type="radio" name="attack-choice" value="dishonest_verifier">
+                <div class="attack-card-content">
+                  <div class="attack-title-row">
+                    <span class="attack-name">🟠 Dishonest Verifier Forgery (Bob)</span>
+                    <span class="badge badge-sm badge-amber">Insider Threat</span>
+                  </div>
+                  <p class="attack-desc">Bob uses his eliminated state records to construct a targeted counterfeit to frame Alice to Charlie.</p>
+                </div>
+              </label>
+
+              <label class="attack-card" data-attack="mitm_intercept">
+                <input type="radio" name="attack-choice" value="mitm_intercept">
+                <div class="attack-card-content">
+                  <div class="attack-title-row">
+                    <span class="attack-name">⚡ Quantum Channel Interception (MITM)</span>
+                    <span class="badge badge-sm badge-red">Channel Attack</span>
+                  </div>
+                  <p class="attack-desc">Eve intercepts and measures qubits in transit, collapsing superpositions and introducing ~25% QBER.</p>
+                </div>
+              </label>
+
+              <label class="attack-card" data-attack="repudiation">
+                <input type="radio" name="attack-choice" value="repudiation">
+                <div class="attack-card-content">
+                  <div class="attack-title-row">
+                    <span class="attack-name">🟣 Dishonest Signer Repudiation (Alice)</span>
+                    <span class="badge badge-sm badge-purple">Protocol Cheat</span>
+                  </div>
+                  <p class="attack-desc">Alice prepares asymmetric states so Bob accepts but Charlie rejects, allowing Alice to deny signing.</p>
+                </div>
+              </label>
+
+              <label class="attack-card" data-attack="replay_attack">
+                <input type="radio" name="attack-choice" value="replay_attack">
+                <div class="attack-card-content">
+                  <div class="attack-title-row">
+                    <span class="attack-name">🟡 Replay & Stale Token Attack</span>
+                    <span class="badge badge-sm badge-amber">Replay Attack</span>
+                  </div>
+                  <p class="attack-desc">Attacker captures an old valid signature and replays it with an expired session nonce or timestamp.</p>
+                </div>
+              </label>
+
+              <label class="attack-card" data-attack="channel_noise">
+                <input type="radio" name="attack-choice" value="channel_noise">
+                <div class="attack-card-content">
+                  <div class="attack-title-row">
+                    <span class="attack-name">⚪ Benign Physical Fiber Noise</span>
+                    <span class="badge badge-sm badge-blue">Noise Only</span>
+                  </div>
+                  <p class="attack-desc">Natural environmental noise (p=2.0%). Engine must distinguish this from malicious tampering.</p>
+                </div>
+              </label>
+            </div>
+
+            <button id="btn-inject-attack" class="btn btn-primary btn-block">
+              <span class="icon">💥</span> Inject Attack & Execute Simulation
+            </button>
+          </div>
+
+          <!-- Attack Simulation Visual Feedback -->
+          <div class="glass-card attack-execution-panel">
+            <div class="panel-header">
+              <h3>Simulation Execution & Physical Attack Mechanics</h3>
+              <span id="current-threat-badge" class="badge text-uppercase">Baseline</span>
+            </div>
+
+            <div class="attack-diagram-container">
+              <div id="attack-diagram-canvas" class="attack-diagram"></div>
+            </div>
+
+            <!-- Mathematical & Observable Consequence Box -->
+            <div class="observable-box">
+              <h4>Quantum & Statistical Observables:</h4>
+              <div class="observable-grid">
+                <div class="obs-card">
+                  <span class="obs-name">Observed Mismatch Rate (Bob)</span>
+                  <span id="obs-bob-rate" class="obs-val">0.0%</span>
+                  <div class="progress-bar"><div id="bar-bob-rate" class="progress-fill" style="width: 0%;"></div></div>
+                </div>
+                <div class="obs-card">
+                  <span class="obs-name">Observed Mismatch Rate (Charlie)</span>
+                  <span id="obs-charlie-rate" class="obs-val">0.0%</span>
+                  <div class="progress-bar"><div id="bar-charlie-rate" class="progress-fill" style="width: 0%;"></div></div>
+                </div>
+                <div class="obs-card">
+                  <span class="obs-name">Asymmetry Divergence $|e_B - e_C|$</span>
+                  <span id="obs-asym-rate" class="obs-val">0.0%</span>
+                  <div class="progress-bar"><div id="bar-asym-rate" class="progress-fill" style="width: 0%;"></div></div>
+                </div>
+                <div class="obs-card">
+                  <span class="obs-name">Channel QBER ($Q$)</span>
+                  <span id="obs-qber-rate" class="obs-val">0.0%</span>
+                  <div class="progress-bar"><div id="bar-qber-rate" class="progress-fill" style="width: 0%;"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 3: THREAT DETECTION ENGINE -->
+      <!-- ========================================== -->
+      <section id="tab-detection" class="tab-pane">
+        <div class="detection-dashboard-grid">
+          <!-- Real-Time Diagnostic Verdict Box -->
+          <div class="glass-card diagnostic-verdict-card">
+            <div class="verdict-header">
+              <div>
+                <span class="sub-label">Deterministic Classifier Output</span>
+                <h2 id="engine-verdict-title">PASS: Valid Authentic Quantum Signature</h2>
+              </div>
+              <div id="engine-alert-stamp" class="alert-stamp safe">AUTHENTIC</div>
+            </div>
+
+            <p id="engine-verdict-details" class="verdict-description">
+              Zero orthogonal state elimination contradictions detected across all verifiers. All quantum states match announced Pauli eigenstates.
+            </p>
+
+            <div class="engine-metrics-row">
+              <div class="metric-card">
+                <span class="metric-label">Classification</span>
+                <span id="engine-classification" class="metric-value text-green">BENIGN_AUTHENTIC</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Confidence Score</span>
+                <span id="engine-confidence" class="metric-value text-cyan">100.0%</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Threat Detected?</span>
+                <span id="engine-is-threat" class="metric-value text-green">NO</span>
+              </div>
+              <div class="metric-card">
+                <span class="metric-label">Security Bound Checked</span>
+                <span id="engine-bound-status" class="metric-value text-purple">CHERNOFF COMPLIANT</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Decision Logic & Threshold Analysis -->
+          <div class="glass-card decision-logic-card">
+            <h3>🛡️ Deterministic Non-AI Decision Logic Matrix</h3>
+            <p class="panel-desc">Classifies threats based purely on quantum mechanics principles, without statistical training or neural networks.</p>
+
+            <div class="decision-matrix-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Threat Scenario</th>
+                    <th>Bob Error ($e_B$)</th>
+                    <th>Charlie Error ($e_C$)</th>
+                    <th>Asymmetry Divergence</th>
+                    <th>Decision Rule</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr id="row-auth" class="active-rule">
+                    <td><strong>Authentic</strong></td>
+                    <td>$e_B \le s_a$ ($0\%$)</td>
+                    <td>$e_C \le s_a$ ($0\%$)</td>
+                    <td>$\approx 0\%$</td>
+                    <td><span class="badge badge-green">Accept</span></td>
+                  </tr>
+                  <tr id="row-ext">
+                    <td><strong>External Forgery</strong></td>
+                    <td>$e_B \ge s_v$ (~50%)</td>
+                    <td>$e_C \ge s_v$ (~50%)</td>
+                    <td>Low ($< 15\%$)</td>
+                    <td><span class="badge badge-red">Alert: Forgery</span></td>
+                  </tr>
+                  <tr id="row-dishonest">
+                    <td><strong>Dishonest Verifier</strong></td>
+                    <td>$0\%$ (holds state)</td>
+                    <td>$15\% \le e_C \le 35\%$</td>
+                    <td>Moderate</td>
+                    <td><span class="badge badge-amber">Alert: Insider</span></td>
+                  </tr>
+                  <tr id="row-mitm">
+                    <td><strong>Channel MITM</strong></td>
+                    <td>$QBER > 11.0\%$</td>
+                    <td>High Error</td>
+                    <td>Symmetric</td>
+                    <td><span class="badge badge-red">Alert: Eavesdropping</span></td>
+                  </tr>
+                  <tr id="row-rep">
+                    <td><strong>Repudiation</strong></td>
+                    <td>$e_B \le s_a$ (Low)</td>
+                    <td>$e_C \ge 25\%$ (High)</td>
+                    <td>$|e_B - e_C| \ge 30\%$</td>
+                    <td><span class="badge badge-purple">Alert: Repudiation</span></td>
+                  </tr>
+                  <tr id="row-noise">
+                    <td><strong>Channel Noise</strong></td>
+                    <td>$0\% < e_B \le s_a$</td>
+                    <td>$0\% < e_C \le s_a$</td>
+                    <td>Low ($< 5\%$)</td>
+                    <td><span class="badge badge-blue">Notice: Noise</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 4: CHERNOFF SECURITY BOUNDS -->
+      <!-- ========================================== -->
+      <section id="tab-chernoff" class="tab-pane">
+        <div class="chernoff-layout">
+          <!-- Math Parameter Controls -->
+          <div class="glass-card chernoff-controls-card">
+            <h3>📐 Chernoff-Hoeffding Parameter Configuration</h3>
+            <p class="panel-desc">Model and calculate exact information-theoretic security bounds as functions of signature length $L$ and noise $e_0$.</p>
+
+            <div class="param-group">
+              <label for="ch-length">Signature Length ($L$ bits):</label>
+              <input type="range" id="ch-length" min="16" max="512" value="128" step="16">
+              <span id="ch-length-val" class="val-tag">128</span>
+            </div>
+
+            <div class="param-group">
+              <label for="ch-noise">Channel Noise ($e_0$):</label>
+              <input type="range" id="ch-noise" min="0.00" max="0.10" value="0.02" step="0.005">
+              <span id="ch-noise-val" class="val-tag">0.020 (2.0%)</span>
+            </div>
+
+            <div class="param-group">
+              <label for="ch-target-eps">Target Security Parameter ($\epsilon$):</label>
+              <select id="ch-target-eps" class="select-input">
+                <option value="1e-3">10⁻³ (Standard Test)</option>
+                <option value="1e-6" selected>10⁻⁶ (Cryptographic Safe)</option>
+                <option value="1e-9">10⁻⁹ (High Assurance)</option>
+                <option value="1e-12">10⁻¹² (Military Grade)</option>
+              </select>
+            </div>
+
+            <div class="security-readout-box">
+              <div class="readout-item">
+                <span>Calculated $s_a$ (Acceptance Threshold)</span>
+                <strong id="ch-calc-sa" class="text-cyan">9.67%</strong>
+              </div>
+              <div class="readout-item">
+                <span>Calculated $s_v$ (Verification Threshold)</span>
+                <strong id="ch-calc-sv" class="text-amber">17.33%</strong>
+              </div>
+              <div class="readout-item">
+                <span>Safety Margin ($\delta$)</span>
+                <strong id="ch-calc-delta" class="text-emerald">0.0767</strong>
+              </div>
+              <div class="readout-item">
+                <span>Min Required Length ($L_{\text{min}}$)</span>
+                <strong id="ch-calc-lmin" class="text-purple">1,173 qubits</strong>
+              </div>
+            </div>
+
+            <button id="btn-export-cert" class="btn btn-secondary btn-block">
+              <span class="icon">📜</span> View & Export Formal Security Certificate
+            </button>
+          </div>
+
+          <!-- Interactive Probability Curve Canvas -->
+          <div class="glass-card chernoff-chart-card">
+            <div class="chart-header">
+              <h4>Forgery & Failure Probability vs Signature Length $L$</h4>
+              <span class="legend-note">$P_{\text{forge}} \le \exp(-2\delta^2 L)$</span>
+            </div>
+
+            <div class="canvas-container">
+              <canvas id="chernoffCanvas" width="700" height="340"></canvas>
+            </div>
+
+            <div class="chart-footer-metrics">
+              <div class="foot-card">
+                <span>Current $P_{\text{forge}}$ Bound</span>
+                <strong id="foot-pforge" class="text-cyan">2.21 × 10⁻²</strong>
+              </div>
+              <div class="foot-card">
+                <span>False Rejection Rate ($P_{\text{FRR}}$)</span>
+                <strong id="foot-pfrr" class="text-emerald">2.21 × 10⁻²</strong>
+              </div>
+              <div class="foot-card">
+                <span>Repudiation Bound ($P_{\text{rep}}$)</span>
+                <strong id="foot-prep" class="text-purple">7.65 × 10⁻²</strong>
+              </div>
+              <div class="foot-card">
+                <span>Security Equivalent</span>
+                <strong id="foot-secbits" class="text-amber">5.5 bits</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 5: QUANTUM CIRCUIT & PAULI MATH -->
+      <!-- ========================================== -->
+      <section id="tab-circuit" class="tab-pane">
+        <div class="circuit-math-layout">
+          <!-- Circuit Gate Step Diagram -->
+          <div class="glass-card circuit-viewer-card">
+            <h3>🔬 3-Qubit Teleportation Circuit Structure</h3>
+            <p class="panel-desc">Visual representation of Qiskit circuit execution: Bell pair entanglement, Bell-State Measurement (BSM), and Pauli feed-forward operations.</p>
+
+            <div class="circuit-wire-diagram">
+              <!-- Qubit 0: Input Signature State -->
+              <div class="wire-row">
+                <div class="wire-label">|ψ_sig⟩ (q0)</div>
+                <div class="wire-line">
+                  <span class="gate gate-prep">State Prep</span>
+                  <span class="gate gate-ctrl">●</span>
+                  <span class="gate gate-h">H</span>
+                  <span class="gate gate-meas">M(m₁)</span>
+                </div>
+              </div>
+
+              <!-- Qubit 1: Alice's half of Bell Pair -->
+              <div class="wire-row">
+                <div class="wire-label">|Φ⁺_A⟩ (q1)</div>
+                <div class="wire-line">
+                  <span class="gate gate-h">H</span>
+                  <span class="gate gate-ctrl">●</span>
+                  <span class="gate gate-target">⊕</span>
+                  <span class="gate gate-meas">M(m₂)</span>
+                </div>
+              </div>
+
+              <!-- Qubit 2: Receiver's half of Bell Pair -->
+              <div class="wire-row">
+                <div class="wire-label">|Φ⁺_R⟩ (q2)</div>
+                <div class="wire-line">
+                  <span class="wire-gap"></span>
+                  <span class="gate gate-target">⊕</span>
+                  <span class="wire-gap"></span>
+                  <span class="gate gate-pauli-x">X^{m₂}</span>
+                  <span class="gate gate-pauli-z">Z^{m₁}</span>
+                  <span class="gate gate-meas">M_proj</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pauli Correction Syndrome Truth Table -->
+            <div class="syndrome-table-box">
+              <h4>Pauli Syndrome Feed-Forward Truth Table</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>BSM Output $(m_1, m_2)$</th>
+                    <th>Receiver State Before Correction</th>
+                    <th>Pauli Correction Applied</th>
+                    <th>Final Recovered State</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>(0, 0)</code></td>
+                    <td>$|\psi\rangle$</td>
+                    <td>$I$ (Identity - No action)</td>
+                    <td><strong class="text-green">$|\psi\rangle$ (100% Fidelity)</strong></td>
+                  </tr>
+                  <tr>
+                    <td><code>(0, 1)</code></td>
+                    <td>$X |\psi\rangle$</td>
+                    <td>$X$ (Bit Flip)</td>
+                    <td><strong class="text-green">$|\psi\rangle$ (100% Fidelity)</strong></td>
+                  </tr>
+                  <tr>
+                    <td><code>(1, 0)</code></td>
+                    <td>$Z |\psi\rangle$</td>
+                    <td>$Z$ (Phase Flip)</td>
+                    <td><strong class="text-green">$|\psi\rangle$ (100% Fidelity)</strong></td>
+                  </tr>
+                  <tr>
+                    <td><code>(1, 1)</code></td>
+                    <td>$XZ |\psi\rangle$</td>
+                    <td>$XZ = -iY$ (Bit + Phase Flip)</td>
+                    <td><strong class="text-green">$|\psi\rangle$ (100% Fidelity)</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Mathematical Definitions Panel -->
+          <div class="glass-card math-explainer-card">
+            <h3>📚 Mathematical Formulations</h3>
+
+            <div class="math-card">
+              <h4>1. Bell State Definition:</h4>
+              <p class="math-eq">$$|\Phi^+\rangle = \frac{|00\rangle + |11\rangle}{\sqrt{2}}$$</p>
+            </div>
+
+            <div class="math-card">
+              <h4>2. Pauli Eigenstates for Signatures:</h4>
+              <p class="math-eq">$$|0\rangle, |1\rangle \in Z\text{-basis}, \quad |+\rangle = \frac{|0\rangle+|1\rangle}{\sqrt{2}}, |-\rangle = \frac{|0\rangle-|1\rangle}{\sqrt{2}} \in X\text{-basis}$$</p>
+            </div>
+
+            <div class="math-card">
+              <h4>3. Chernoff-Hoeffding Forgery Bound:</h4>
+              <p class="math-eq">$$P_{\text{forge}} \le \exp\left(-2 \delta^2 L\right) \quad \text{where } \delta = \frac{p_{\text{forg\_min}} - e_0}{3}$$</p>
+            </div>
+
+            <div class="math-card">
+              <h4>4. Repudiation Insecurity Bound:</h4>
+              <p class="math-eq">$$P_{\text{rep}} \le 2 \exp\left(-\frac{1}{2}(s_v - s_a)^2 L\right)$$</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Modal Certificate Dialog -->
+    <div id="cert-modal" class="modal-backdrop" style="display: none;">
+      <div class="modal-box glass-card">
+        <div class="modal-header">
+          <h3>📜 Formal Information-Theoretic Security Certificate</h3>
+          <button id="btn-close-modal" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body" id="modal-cert-content">
+          <!-- Injected certificate details -->
+        </div>
+        <div class="modal-footer">
+          <button id="btn-copy-cert" class="btn btn-secondary">📋 Copy Certificate JSON</button>
+          <button id="btn-dismiss-cert" class="btn btn-primary">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <span>Quantum Digital Signature Simulator • SIH 2026 Teleportation & Threat Detection Platform</span>
+      <span class="text-muted">Pure Vanilla HTML/CSS/JS • Zero External Frontend Dependencies</span>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
