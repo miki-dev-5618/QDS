@@ -1,0 +1,123 @@
+/* ==========================================================================
+   CHERNOFF SECURITY BOUNDS & CANVAS CHART (SIMPLIFIED EDITORIAL)
+   ========================================================================== */
+
+.chernoff-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .chernoff-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chernoff-controls-card h3, .chernoff-chart-card h4 {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 16px;
+}
+
+.param-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.param-group label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-main);
+}
+
+.security-readout-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.readout-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.readout-item span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.readout-item strong {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* Canvas Card */
+.chernoff-chart-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 8px;
+}
+
+.legend-note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-purple);
+  font-weight: 600;
+}
+
+.canvas-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--bg-page);
+  border: 1px solid var(--border-subtle);
+  padding: 10px;
+}
+
+.chart-footer-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.foot-card {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.foot-card span {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.foot-card strong {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}

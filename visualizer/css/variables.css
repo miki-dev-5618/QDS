@@ -1,0 +1,86 @@
+/* ==========================================================================
+   MINIMALIST EDITORIAL DESIGN SYSTEM (CALM, SIMPLE & CLEAN)
+   ========================================================================== */
+
+:root {
+  /* Warm Off-White / Paper Palette */
+  --bg-page: #f7f7f5;
+  --bg-surface: #ffffff;
+  --bg-surface-alt: #fbfbf9;
+  --bg-card: #ffffff;
+  --bg-inset: #f2f2ee;
+
+  /* Editorial Ink & Typography */
+  --text-main: #1a1a1a;
+  --text-muted: #5a5a56;
+  --text-dim: #84847e;
+  --text-light: #abab9f;
+
+  /* Thin 1px Hairline Borders */
+  --border-dark: #1a1a1a;
+  --border-medium: #888880;
+  --border-subtle: #dcdcd5;
+  --border-light: #eaeae4;
+
+  /* Muted Editorial Accents (Restrained & Understated) */
+  --accent-green: #2e6f40;
+  --accent-green-bg: #f2f7f3;
+  --accent-green-border: #b8d5bf;
+
+  --accent-purple: #5c446e;
+  --accent-purple-bg: #f6f2f8;
+  --accent-purple-border: #ccbed4;
+
+  --accent-amber: #8c5311;
+  --accent-amber-bg: #fcf6ee;
+  --accent-amber-border: #dfc8a5;
+
+  --accent-red: #942b32;
+  --accent-red-bg: #faf0f1;
+  --accent-red-border: #dbadb1;
+
+  --accent-blue: #2c5282;
+  --accent-blue-bg: #f0f4f9;
+  --accent-blue-border: #b3c6dd;
+
+  /* Typography Font Stacks */
+  --font-serif: "Newsreader", Georgia, "Times New Roman", Times, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Subtle Editorial Geometry */
+  --radius-none: 0px;
+  --radius-sm: 1px;
+
+  /* Clean Editorial Shadows (Flat, Delicate, Uncluttered) */
+  --shadow-none: none;
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+  --transition-fast: 0.15s ease;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+}
+
+/* Color Helpers */
+.text-cyan { color: var(--accent-blue) !important; font-weight: 600; }
+.text-purple { color: var(--accent-purple) !important; font-weight: 600; }
+.text-emerald, .text-green { color: var(--accent-green) !important; font-weight: 600; }
+.text-amber { color: var(--accent-amber) !important; font-weight: 600; }
+.text-red { color: var(--accent-red) !important; font-weight: 600; }
+.text-muted { color: var(--text-muted); }

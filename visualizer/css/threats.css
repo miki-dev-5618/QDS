@@ -1,0 +1,355 @@
+/* ==========================================================================
+   THREAT LAB & DETECTION ENGINE (SIMPLIFIED EDITORIAL THEME)
+   ========================================================================== */
+
+.threat-lab-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 1.3fr;
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .threat-lab-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.attack-selector-panel h3, .diagnostic-verdict-card h2 {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 18px;
+}
+
+.panel-desc {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  margin-bottom: 14px;
+}
+
+/* Attack Selector List */
+.attack-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.attack-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-none);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.attack-card:hover {
+  border-color: var(--border-medium);
+}
+
+.attack-card.active {
+  background: var(--bg-surface-alt);
+  border-color: var(--border-dark);
+  border-left: 3px solid var(--border-dark);
+}
+
+.attack-card input[type="radio"] {
+  margin-top: 3px;
+  accent-color: var(--border-dark);
+}
+
+.attack-card-content {
+  flex: 1;
+}
+
+.attack-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.attack-name {
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.attack-desc {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Threat Story & Physics Banners */
+.threat-narrative-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.narrative-banner {
+  padding: 10px 14px;
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.story-banner {
+  background: var(--accent-green-bg);
+  border-left: 3px solid var(--accent-green);
+  color: var(--text-main);
+}
+
+.physics-banner {
+  background: var(--accent-purple-bg);
+  border-left: 3px solid var(--accent-purple);
+  color: var(--text-main);
+}
+
+body.story-mode .story-banner {
+  display: block !important;
+}
+
+body.story-mode .physics-banner {
+  display: none !important;
+}
+
+body.expert-mode .story-banner {
+  display: none !important;
+}
+
+body.expert-mode .physics-banner {
+  display: block !important;
+}
+
+/* Observables Box */
+.observable-box {
+  margin-top: 14px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 12px;
+}
+
+.observable-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.obs-card {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.obs-name {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.obs-val {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-inset);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--text-main);
+  transition: width var(--transition-fast);
+}
+
+/* Deterministic Diagnostic Verdict Card */
+.diagnostic-verdict-card {
+  border: 1px solid var(--border-subtle);
+}
+
+.diagnostic-verdict-card.threat-active {
+  border-left: 4px solid var(--accent-red);
+}
+
+.verdict-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.sub-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+}
+
+.alert-stamp {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border: 1px solid;
+}
+
+.alert-stamp.safe {
+  color: var(--accent-green);
+  border-color: var(--accent-green-border);
+  background: var(--accent-green-bg);
+}
+
+.alert-stamp.danger {
+  color: var(--accent-red);
+  border-color: var(--accent-red-border);
+  background: var(--accent-red-bg);
+}
+
+.verdict-description {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.engine-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.metric-card {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metric-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.metric-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Decision Matrix Table */
+.decision-matrix-table {
+  overflow-x: auto;
+  margin-top: 14px;
+}
+
+/* Live Simulated Token Log */
+.threat-token-inspector {
+  margin-top: 14px;
+}
+
+.token-log-stream {
+  scrollbar-width: thin;
+}
+
+.token-log-item {
+  padding: 3px 6px;
+  border-left: 2px solid var(--border-subtle);
+  background: var(--bg-surface);
+  line-height: 1.4;
+}
+
+.token-log-item.pass {
+  border-left-color: var(--accent-green);
+  color: var(--text-main);
+}
+
+.token-log-item.fail {
+  border-left-color: var(--accent-red);
+  color: var(--accent-red);
+  font-weight: 600;
+}
+
+.token-log-item.insider {
+  border-left-color: var(--accent-amber);
+  color: var(--accent-amber);
+  font-weight: 600;
+}
+
+.token-log-item.mitm {
+  border-left-color: var(--accent-purple);
+  color: var(--accent-purple);
+  font-weight: 600;
+}
+
+.token-log-item.replay {
+  border-left-color: var(--accent-amber);
+  color: var(--accent-amber);
+  font-weight: 600;
+}
+
+.token-log-item.noise {
+  border-left-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.decision-matrix-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  border: 1px solid var(--border-subtle);
+}
+
+.decision-matrix-table th {
+  text-align: left;
+  padding: 8px 10px;
+  background: var(--bg-inset);
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-light);
+  font-weight: 600;
+}
+
+.decision-matrix-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-light);
+  border-right: 1px solid var(--border-light);
+  color: var(--text-muted);
+}
+
+.decision-matrix-table tr.active-rule {
+  background: var(--accent-purple-bg);
+}
+
+.decision-matrix-table tr.active-rule td {
+  color: var(--text-main);
+  font-weight: 600;
+}

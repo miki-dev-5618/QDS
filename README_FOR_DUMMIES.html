@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quantum Communication Simulator — Guide for Beginners</title>
+  <meta name="description" content="A comprehensive, beginner-friendly interactive guide to Quantum Key Distribution, Quantum Digital Signatures, State Elimination, and Quantum Teleportation." />
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- KaTeX for crisp LaTeX math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+
+  <style>
+    :root {
+      --bg-base: #070a13;
+      --bg-surface: #0d1322;
+      --bg-surface-elevated: #141d33;
+      --bg-glass: rgba(13, 19, 34, 0.75);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-color-hover: rgba(56, 189, 248, 0.4);
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-cyan: #38bdf8;
+      --accent-indigo: #818cf8;
+      --accent-purple: #c084fc;
+      --accent-emerald: #34d399;
+      --accent-amber: #fbbf24;
+      --accent-rose: #fb7185;
+      --glow-cyan: rgba(56, 189, 248, 0.15);
+      --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-display: 'Outfit', var(--font-main);
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      color-scheme: dark;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-main);
+      line-height: 1.68;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.07) 0%, transparent 40%),
+        radial-gradient(circle at 85% 80%, rgba(192, 132, 252, 0.06) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(129, 140, 248, 0.04) 0%, transparent 60%);
+      background-attachment: fixed;
+    }
+
+    /* Layout */
+    .app-container {
+      display: flex;
+      min-height: 100vh;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: 290px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 2rem 1.25rem;
+      border-right: 1px solid var(--border-color);
+      background: rgba(7, 10, 19, 0.85);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+    }
+
+    .brand-text h2 {
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-text span {
+      font-size: 0.75rem;
+      color: var(--accent-cyan);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 0.85rem;
+      border-radius: 8px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .nav-link:hover, .nav-link.active {
+      color: #fff;
+      background: var(--bg-surface-elevated);
+      border-color: var(--border-color-hover);
+      box-shadow: 0 0 12px var(--glow-cyan);
+      transform: translateX(3px);
+    }
+
+    .nav-link.active {
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      padding: 2.5rem 3rem;
+      max-width: 1050px;
+    }
+
+    /* Hero Banner */
+    .hero-banner {
+      background: linear-gradient(135deg, rgba(20, 29, 51, 0.8) 0%, rgba(13, 19, 34, 0.95) 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2.75rem 2.5rem;
+      margin-bottom: 3rem;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .hero-banner::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -20%;
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .badge-hero {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent-cyan);
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: 2.5rem;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #ffffff 30%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+      line-height: 1.6;
+      max-width: 820px;
+    }
+
+    /* Section Styling */
+    section {
+      margin-bottom: 3.5rem;
+      scroll-margin-top: 2rem;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .section-header h2 {
+      font-family: var(--font-display);
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* Cards & Grids */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+      margin-top: 1.25rem;
+    }
+
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .card:hover {
+      border-color: var(--border-color-hover);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .card-icon {
+      font-size: 1.75rem;
+      margin-bottom: 0.75rem;
+      display: inline-block;
+    }
+
+    .card h3 {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      color: #fff;
+      margin-bottom: 0.5rem;
+    }
+
+    .card p {
+      color: var(--text-secondary);
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+
+    /* Stage Badges */
+    .stage-card {
+      border-left-width: 4px;
+    }
+    .stage-1 { border-left-color: var(--accent-emerald); }
+    .stage-2 { border-left-color: var(--accent-amber); }
+    .stage-3 { border-left-color: var(--accent-cyan); }
+    .stage-4 { border-left-color: var(--accent-purple); }
+    .stage-5 { border-left-color: var(--accent-rose); }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      margin: 1.5rem 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+      text-align: left;
+    }
+
+    th {
+      background: var(--bg-surface-elevated);
+      color: #fff;
+      font-weight: 600;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 0.95rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-secondary);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-primary);
+    }
+
+    .table-badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+
+    /* Elimination Deep Dive Box */
+    .elimination-box {
+      background: linear-gradient(135deg, rgba(13, 19, 34, 0.95) 0%, rgba(20, 29, 51, 0.8) 100%);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 14px;
+      padding: 1.75rem;
+      margin: 1.5rem 0;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.08);
+    }
+
+    .elimination-box h3 {
+      font-family: var(--font-display);
+      color: var(--accent-cyan);
+      font-size: 1.3rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Code Blocks & Terminals */
+    .code-wrapper {
+      background: #090d16;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      margin: 1rem 0;
+      overflow: hidden;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 1rem;
+      background: var(--bg-surface-elevated);
+      border-bottom: 1px solid var(--border-color);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      color: #fff;
+      background: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+      color: #000;
+    }
+
+    pre {
+      padding: 1.15rem 1.25rem;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      line-height: 1.55;
+      color: #e2e8f0;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.08);
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+    }
+
+    pre code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+
+    /* Callout Alert */
+    .callout {
+      display: flex;
+      gap: 1rem;
+      padding: 1.25rem;
+      border-radius: 10px;
+      margin: 1.25rem 0;
+      background: rgba(56, 189, 248, 0.05);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .callout-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .callout-content {
+      font-size: 0.92rem;
+      color: var(--text-primary);
+    }
+
+    .callout-warning {
+      background: rgba(251, 113, 133, 0.06);
+      border-color: rgba(251, 113, 133, 0.3);
+    }
+
+    /* Interactive Simulator Widget */
+    .widget-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .widget-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .btn-toggle {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.88rem;
+      transition: all 0.2s;
+    }
+
+    .btn-toggle.active, .btn-toggle:hover {
+      background: var(--accent-cyan);
+      color: #000;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    .widget-result {
+      padding: 1rem;
+      background: #090d16;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+    }
+
+    /* Filter Search */
+    .search-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: #fff;
+      font-family: var(--font-main);
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .app-container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+      }
+      .main-content {
+        padding: 1.5rem;
+      }
+      .hero-title {
+        font-size: 1.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Navigation Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">⚛️</div>
+        <div class="brand-text">
+          <h2>QuantumSim</h2>
+          <span>For Dummies Guide</span>
+        </div>
+      </div>
+
+      <ul class="nav-list" id="sidebar-nav">
+        <li><a href="#big-picture" class="nav-link">🎯 30-Sec Big Picture</a></li>
+        <li><a href="#stages" class="nav-link">🗺️ Stages 1 through 5</a></li>
+        <li><a href="#lego-blocks" class="nav-link">🧩 Project Structure</a></li>
+        <li><a href="#key-concepts" class="nav-link">🔑 Key Concepts & Analogies</a></li>
+        <li><a href="#state-elimination" class="nav-link">❌ State Elimination (Deep Dive)</a></li>
+        <li><a href="#files-guide" class="nav-link">📁 Files & Modules Guide</a></li>
+        <li><a href="#how-to-run" class="nav-link">⚡ How to Run Everything</a></li>
+        <li><a href="#cheat-sheet" class="nav-link">🎓 Summary Cheat Sheet</a></li>
+      </ul>
+
+      <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color); font-size: 0.78rem; color: var(--text-muted);">
+        Interactive documentation for SIH 2026 Quantum Digital Signature.
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- Hero Banner -->
+      <div class="hero-banner">
+        <div class="badge-hero">🚀 Quantum Communication & QDS Guide</div>
+        <h1 class="hero-title">Quantum Communication Simulator</h1>
+        <p class="hero-subtitle">
+          A plain-English, math-backed handbook for understanding Quantum Key Distribution (QKD), Quantum Digital Signatures (QDS), State Elimination, and Quantum Teleportation.
+        </p>
+      </div>
+
+      <!-- Section: The 30-Second Big Picture -->
+      <section id="big-picture">
+        <div class="section-header">
+          <h2>🎯 The 30-Second Big Picture</h2>
+        </div>
+        <p style="color: var(--text-secondary); margin-bottom: 1.25rem;">
+          Imagine you want to send a super-secure digital signature over the internet:
+        </p>
+        
+        <div class="card-grid">
+          <div class="card">
+            <span class="card-icon">💻</span>
+            <h3>1. Normal (Classical) Computing</h3>
+            <p>You send 0s and 1s through electrical wires or Wi-Fi. If a hacker taps the wire, they can silently copy your data without leaving a single trace. Furthermore, future quantum supercomputers running <em>Shor's Algorithm</em> will easily break standard RSA/ECDSA cryptography!</p>
+          </div>
+
+          <div class="card">
+            <span class="card-icon">✨</span>
+            <h3>2. Quantum Computing</h3>
+            <p>Instead of regular electrical pulses, you turn your signature bits into <strong>fragile quantum particles of light (photons/qubits)</strong>.</p>
+          </div>
+
+          <div class="card">
+            <span class="card-icon">🚨</span>
+            <h3>3. The Golden Rule of Quantum</h3>
+            <p>If an eavesdropper (Eve) tries to peek at or measure a quantum particle in transit, <strong>she physically alters its quantum state</strong>. This corrupts the data, leaving obvious physical fingerprints that are impossible to hide!</p>
+          </div>
+
+          <div class="card">
+            <span class="card-icon">🛡️</span>
+            <h3>4. Information-Theoretic Security</h3>
+            <p>Our security is not based on solving hard math puzzles (which computers might solve one day). It is guaranteed by the <strong>laws of physics</strong> (Heisenberg's Uncertainty Principle and the Quantum No-Cloning Theorem).</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Project Stages -->
+      <section id="stages">
+        <div class="section-header">
+          <h2>🗺️ What This Project Covers (Stages 1 through 5)</h2>
+        </div>
+
+        <div class="card-grid">
+          <div class="card stage-card stage-1">
+            <span class="card-icon">🟢</span>
+            <h3>Stage 1: Basic Quantum Loop</h3>
+            <p>Alice sends BB84 qubits to Bob over a quantum channel. We measure the Quantum Bit Error Rate (QBER) to catch eavesdroppers (Eve) immediately.</p>
+          </div>
+
+          <div class="card stage-card stage-2">
+            <span class="card-icon">🟡</span>
+            <h3>Stage 2: Noise & Privacy Hashing</h3>
+            <p>Real fiber cables have physical noise. We use <strong>Cascade Error Correction</strong> (fixing flipped bits like a game of 20 Questions) and <strong>Privacy Amplification</strong> (shrinking keys with universal hashing so Eve ends up with zero information).</p>
+          </div>
+
+          <div class="card stage-card stage-3">
+            <span class="card-icon">🔵</span>
+            <h3>Stage 3: Prepare-and-Measure QDS</h3>
+            <p>Alice signs a document using quantum states. Bob and Charlie swap copies (<strong>Keep or Forward symmetrisation</strong>) and perform <strong>State Elimination</strong> (ruling out impossible states) to prove Alice signed it and stop anyone from forging or denying it.</p>
+          </div>
+
+          <div class="card stage-card stage-4">
+            <span class="card-icon">🟣</span>
+            <h3>Stage 4: Multi-Vector Threat Simulator</h3>
+            <p>Simulating real-world cyberattacks (forgeries, dishonest verifiers framing Alice, repudiation, and replay attacks) and catching them using a <strong>100% deterministic (No AI/ML) threat detection engine</strong>.</p>
+          </div>
+
+          <div class="card stage-card stage-5">
+            <span class="card-icon">🔴</span>
+            <h3>Stage 5: Quantum Teleportation</h3>
+            <p>Teleporting quantum signature tokens using entangled <strong>Bell pairs</strong>, <strong>Bell-State Measurements (BSM)</strong>, and <strong>Pauli feed-forward corrections</strong> ($X^{m_2} Z^{m_1}$), backed by <strong>Chernoff-Hoeffding mathematical security bounds</strong>!</p>
+          </div>
+
+          <div class="card">
+            <span class="card-icon">🌐</span>
+            <h3>Distributed Socket Daemons</h3>
+            <p>A multi-process network of 5 autonomous daemons talking over TCP sockets (Alice Signer, Bob Verifier, Charlie Verifier, Channel Router Proxy, and Threat Detector).</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Directory Structure -->
+      <section id="lego-blocks">
+        <div class="section-header">
+          <h2>🧩 The Project Lego Blocks (Directory Guide)</h2>
+        </div>
+
+        <div class="code-wrapper">
+          <div class="code-header">
+            <span>Project Architecture Directory Tree</span>
+            <button class="copy-btn" onclick="copyCode(this, 'tree-code')">Copy</button>
+          </div>
+          <pre id="tree-code"><code>src/quantum_sim/
+├── core/         ---> 🎯 "The Qubit Launcher" (Qiskit circuits, Bell pairs & Teleportation)
+├── channel/      ---> 🌐 "The Fiber Cable, Noise & Hacker" (Simulates cables, noise & attacks)
+├── nodes/        ---> 👤 "The People" (Classes for Alice, Bob & Charlie)
+├── protocols/    ---> 📜 "The Rulebook" (Point-to-point, WDKA QDS, & Teleportation QDS pipelines)
+├── attacks/      ---> 🦹 "The Threat Engine" (External forgeries, insider attacks, and repudiation)
+├── detection/    ---> 🛡️ "The Detective" (Deterministic threat classifier & security certificates)
+├── network/      ---> 🔌 "The Distributed Grid" (5 asynchronous TCP socket daemons)
+└── utils/        ---> 🧮 "The Calculator" (Sifting, QBER metrics, Error Correction, & Chernoff Math Bounds)</code></pre>
+        </div>
+      </section>
+
+      <!-- Section: Key Concepts -->
+      <section id="key-concepts">
+        <div class="section-header">
+          <h2>🔑 Key Concepts Explained with Real-World Analogies</h2>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.25rem;">
+          <h3>1. Classical Bit vs. Quantum Bit (Qubit)</h3>
+          <p>
+            * <strong>Normal Bit</strong>: A regular light switch. It is strictly <strong>OFF (0)</strong> or <strong>ON (1)</strong>.<br>
+            * <strong>Qubit</strong>: A spinning coin on a table. While spinning, it is in a <strong>superposition</strong> (both Heads and Tails at the exact same time!). Once you slap your hand on it to look (measurement), it collapses into either 0 or 1.
+          </p>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.25rem;">
+          <h3>2. Quantum Bases (Polarized Sunglasses 🕶️)</h3>
+          <p>To send a qubit, Alice shoots polarized light through special filters:</p>
+          <ul style="margin: 0.75rem 0 0.75rem 1.5rem; color: var(--text-secondary);">
+            <li><strong>Z-Basis (Straight Grid ➕)</strong>: Vertical light = <code>0</code>, Horizontal light = <code>1</code>.</li>
+            <li><strong>X-Basis (Diagonal Grid ✖️)</strong>: Diagonal left light = <code>0</code>, Diagonal right light = <code>1</code>.</li>
+          </ul>
+          <div class="callout">
+            <div class="callout-icon">💡</div>
+            <div class="callout-content">
+              <strong>The Physics Rule:</strong><br>
+              • If Bob wears the <strong>SAME</strong> sunglasses grid as Alice &rarr; Bob gets the <strong>EXACT SAME bit (100% match)</strong>.<br>
+              • If Bob wears the <strong>WRONG</strong> sunglasses grid &rarr; The photon gets scrambled! Bob gets a <strong>random 50/50 coin flip</strong>, and the original state is permanently destroyed.
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.25rem;">
+          <h3>3. Sifting & Sifted Key Length (The Post-Transmission Phone Call 📞)</h3>
+          <p>
+            After sending qubits, Alice and Bob call each other over standard internet/phone to compare sunglasses grids:<br>
+            <em>"For Qubit #1, I used Z-basis. What did you use?"</em><br>
+            &bull; Both used Z-basis? &rarr; <strong style="color: var(--accent-emerald);">KEEP THE BIT!</strong><br>
+            &bull; Alice used Z, Bob used X? &rarr; <strong style="color: var(--accent-rose);">THROW IT AWAY!</strong><br><br>
+            📐 <strong>Sifted Key Length</strong>: The number of bits kept after throwing away mismatched guesses. Because Bob guesses randomly, he matches Alice ~50% of the time. If Alice sends 200 qubits, their sifted key length will be around ~100 bits.
+          </p>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.25rem;">
+          <h3>4. QBER (Quantum Bit Error Rate — The Hacker Alarm 🚨)</h3>
+          <p>Alice and Bob compare a small random sample of their sifted bits:</p>
+          <ul style="margin: 0.75rem 0 0.75rem 1.5rem; color: var(--text-secondary);">
+            <li><strong>QBER = 0%</strong>: Perfect, pristine channel with zero noise and no eavesdropper.</li>
+            <li><strong>QBER = 1% - 5%</strong>: Normal physical noise (e.g., dust or thermal fluctuations in fiber).</li>
+            <li><strong>QBER &ge; 15% (theoretical 25%)</strong>: <span style="color: var(--accent-rose); font-weight: 700;">Hacker Alert!</span> Eve is intercepting and resending qubits mid-fiber, collapsing their quantum states and triggering alarms.</li>
+          </ul>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.25rem;">
+          <h3>5. Cascade Error Correction (The 20-Questions Game 🧩)</h3>
+          <p>
+            Even without hackers, tiny temperature fluctuations in fiber cables flip bits occasionally.<br>
+            &bull; Alice and Bob divide their sifted keys into blocks and compare their <strong>parity</strong> (is the sum of bits odd or even?).<br>
+            &bull; If a block parity doesn't match, they know an odd number of errors occurred. They bisect the block (divide in half) repeatedly — like playing <strong>"20 Questions"</strong> — until they pinpoint the exact flipped bit and flip it back!
+          </p>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.25rem;">
+          <h3>6. Privacy Amplification (The Shrink Wrap 🔒)</h3>
+          <p>
+            During error correction, Eve might have overheard some parity information over the phone line.<br>
+            &bull; Alice and Bob pass their reconciled key through <strong>Universal Hashing</strong> (multiplying by a random matrix).<br>
+            &bull; This compresses the key down (e.g., from 100 bits to 64 bits), mathematically squeezing out any residual information Eve might have gained until her knowledge is virtually zero.
+          </p>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.25rem;">
+          <h3>7. Symmetrisation (Keep or Forward 🔄)</h3>
+          <p>
+            To stop Alice from cheating by sending different quantum states to Bob and Charlie, Bob and Charlie randomly <strong>Keep</strong> half of their tokens and <strong>Forward</strong> the other half to each other.<br>
+            Because Alice doesn't know who holds which tokens, she cannot bias her signature to cheat one receiver over the other!
+          </p>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.25rem;">
+          <h3>8. Quantum Teleportation & Pauli Corrections (Stage 5 🚀)</h3>
+          <p>How do you send a quantum state across a noisy or untrusted fiber without physically shooting the fragile particle across the line? <strong>Quantum Teleportation!</strong></p>
+          <ul style="margin: 0.75rem 0 0.75rem 1.5rem; color: var(--text-secondary);">
+            <li>🎲 <strong>Entangled Bell Pairs</strong>: Alice and Bob share an entangled pair of qubits $|\Phi^+\rangle = \frac{|00\rangle + |11\rangle}{\sqrt{2}}$. What happens to Alice's qubit instantly influences Bob's qubit!</li>
+            <li>🔬 <strong>Bell-State Measurement (BSM)</strong>: Alice takes her secret signature qubit and her half of the twin die, performs a joint quantum measurement (<code>CX</code> + <code>H</code>), and gets two classical numbers $(m_1, m_2)$. This measurement destroys the original particle on Alice's side.</li>
+            <li>🎛️ <strong>Pauli Feed-Forward Corrections</strong>: Alice sends $(m_1, m_2)$ over normal Wi-Fi to Bob. Bob turns his quantum dial ($X^{m_2} Z^{m_1}$) on his half of the twin die. Instantly, Bob's qubit transforms into the <strong>exact replica of Alice's original signature qubit</strong>!</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>9. Chernoff-Hoeffding Security Bounds (The Mathematical Seatbelt 🛡️)</h3>
+          <p>Instead of guessing safety thresholds, we use <strong>Chernoff-Hoeffding Statistical Bounds</strong>:</p>
+          <div style="background: #090d16; padding: 1rem; border-radius: 8px; margin: 0.75rem 0; text-align: center; font-size: 1.15rem; color: var(--accent-cyan);">
+            $$P_{\text{forge}} \le e^{-2\delta^2 L}$$
+          </div>
+          <p style="color: var(--text-secondary);">
+            &bull; <strong>Strict Proof</strong>: Bound on the probability of an attacker ever succeeding in forging a signature.<br>
+            &bull; <strong>Dynamic Safety Thresholds ($s_a$ & $s_v$)</strong>: Automatically sets the passing grade ($s_a$) and failing grade ($s_v$) based on measured channel noise.<br>
+            &bull; <strong>Security Bits</strong>: Computes cryptographic strength (e.g., 128-bit or 256-bit security).
+          </p>
+        </div>
+      </section>
+
+      <!-- Section: State Elimination Deep Dive -->
+      <section id="state-elimination">
+        <div class="section-header">
+          <h2>❌ State Elimination — Process of Elimination (Deep Dive)</h2>
+        </div>
+
+        <div class="elimination-box">
+          <h3><span>🔍</span> Why Elimination is the Core of QDS</h3>
+          <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+            According to the <strong>Quantum No-Cloning Theorem</strong> and <strong>Heisenberg Uncertainty Principle</strong>, if you receive an unknown qubit chosen from non-orthogonal states ($|0\rangle, |1\rangle, |+\rangle, |-\rangle$), you <strong>cannot</strong> determine with 100% certainty what state it IS.
+          </p>
+          <p style="color: #fff; font-weight: 500; margin-bottom: 1.25rem;">
+            However, quantum mechanics provides one absolute, deterministic truth: measuring in a chosen basis tells you what state it <span style="color: var(--accent-rose); font-weight: 700;">CANNOT POSSIBLY BE</span> (the eliminated state)!
+          </p>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Receiver's Chosen Basis</th>
+                  <th>Measurement Result</th>
+                  <th>State Ruled Out (Eliminated)</th>
+                  <th>Mathematical Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>$Z$-Basis</strong> (0)</td>
+                  <td><span class="table-badge">Result: 0 (|0⟩)</span></td>
+                  <td><strong style="color: var(--accent-rose);">|1⟩ is Eliminated</strong></td>
+                  <td>$\lvert\langle 0|1\rangle\rvert^2 = 0$ &mdash; A $|1\rangle$ state can NEVER yield 0 in $Z$-basis.</td>
+                </tr>
+                <tr>
+                  <td><strong>$Z$-Basis</strong> (0)</td>
+                  <td><span class="table-badge">Result: 1 (|1⟩)</span></td>
+                  <td><strong style="color: var(--accent-rose);">|0⟩ is Eliminated</strong></td>
+                  <td>$\lvert\langle 1|0\rangle\rvert^2 = 0$ &mdash; A $|0\rangle$ state can NEVER yield 1 in $Z$-basis.</td>
+                </tr>
+                <tr>
+                  <td><strong>$X$-Basis</strong> (1)</td>
+                  <td><span class="table-badge">Result: 0 (|+⟩)</span></td>
+                  <td><strong style="color: var(--accent-rose);">|−⟩ is Eliminated</strong></td>
+                  <td>$\lvert\langle +|-\rangle\rvert^2 = 0$ &mdash; A $|-\rangle$ state can NEVER yield 0 in $X$-basis.</td>
+                </tr>
+                <tr>
+                  <td><strong>$X$-Basis</strong> (1)</td>
+                  <td><span class="table-badge">Result: 1 (|−⟩)</span></td>
+                  <td><strong style="color: var(--accent-rose);">|+⟩ is Eliminated</strong></td>
+                  <td>$\lvert\langle -|+\rangle\rvert^2 = 0$ &mdash; A $|+\rangle$ state can NEVER yield 1 in $X$-basis.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h4 style="font-family: var(--font-display); color: #fff; margin: 1.5rem 0 0.5rem 0;">💻 Implementation in <code style="color: var(--accent-cyan);">src/quantum_sim/protocols/qds.py</code></h4>
+          <div class="code-wrapper">
+            <div class="code-header">
+              <span>_measure_and_eliminate logic</span>
+              <button class="copy-btn" onclick="copyCode(this, 'elim-code')">Copy</button>
+            </div>
+            <pre id="elim-code"><code># State elimination rule in QDSProtocol
+if meas_basis == 0:  # Z basis
+    # Outcome 0 rules out |1>
+    # Outcome 1 rules out |0>
+    return '|1⟩' if out_bit == 0 else '|0⟩'
+else:  # X basis
+    # Outcome 0 (+ in X basis) rules out |->
+    # Outcome 1 (- in X basis) rules out |+>
+    return '|−⟩' if out_bit == 0 else '|+⟩'</code></pre>
+          </div>
+
+          <!-- Interactive Elimination Simulator Widget -->
+          <div class="widget-box">
+            <h4 style="color: var(--accent-cyan); margin-bottom: 0.75rem;">🧪 Try It: Interactive State Elimination Simulator</h4>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 1rem;">
+              Select a measurement basis and an observed outcome to see which quantum state is eliminated:
+            </p>
+            <div class="widget-controls">
+              <div>
+                <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:0.3rem;">1. Choose Basis:</label>
+                <button class="btn-toggle active" id="btn-basis-z" onclick="setSimBasis('Z')">Z-Basis (➕ 0/1)</button>
+                <button class="btn-toggle" id="btn-basis-x" onclick="setSimBasis('X')">X-Basis (✖️ +/-)</button>
+              </div>
+              <div>
+                <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:0.3rem;">2. Measured Bit:</label>
+                <button class="btn-toggle active" id="btn-bit-0" onclick="setSimBit(0)">Bit 0</button>
+                <button class="btn-toggle" id="btn-bit-1" onclick="setSimBit(1)">Bit 1</button>
+              </div>
+            </div>
+            <div class="widget-result" id="sim-result">
+              Eliminated State: <strong style="color: var(--accent-rose); font-size: 1.1rem;">|1⟩</strong> &mdash; Alice could NOT have sent |1⟩!
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Files Directory Guide -->
+      <section id="files-guide">
+        <div class="section-header">
+          <h2>📁 What Every File Does in Plain English</h2>
+        </div>
+
+        <input type="text" id="file-search" class="search-input" placeholder="🔍 Search file name or feature (e.g. teleportation, noise, cascade)..." onkeyup="filterFiles()" />
+
+        <div class="table-container">
+          <table id="files-table">
+            <thead>
+              <tr>
+                <th style="width: 38%;">File Path</th>
+                <th>What it Actually Does</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>src/quantum_sim/core/circuit.py</code></td>
+                <td>Builds Qiskit circuits: prepares BB84 states, entangled Bell pairs, and 3-qubit teleportation circuits with Pauli corrections.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/channel/noise.py</code></td>
+                <td>Simulates real-world fiber noise (bit-flip, phase-flip, and depolarizing noise).</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/channel/attacks.py</code></td>
+                <td>Simulates Eve catching qubits mid-fiber, measuring them, and resending them.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/channel/base.py</code></td>
+                <td>Represents the physical fiber optic cable connecting nodes.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/nodes/node.py</code></td>
+                <td>Creates <code>Alice</code>, <code>Bob</code>, and <code>Charlie</code> network actor classes.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/protocols/point_to_point.py</code></td>
+                <td>Runs Stage 1 basic point-to-point BB84 transmission.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/protocols/secure_point_to_point.py</code></td>
+                <td>Runs Stage 2 secure point-to-point protocol (Cascade error correction + privacy hashing).</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/protocols/qds.py</code></td>
+                <td>Runs Stage 3 WDKA prepare-and-measure 3-party QDS protocol with state elimination.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/protocols/teleportation_qds.py</code></td>
+                <td>Runs Stage 5 <strong>Teleportation-Based QDS</strong> with Bell pairs, BSM, and Pauli corrections.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/attacks/qds_threats.py</code></td>
+                <td>Threat engine simulating signature forgeries, dishonest verifiers, repudiation, and replay attacks.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/detection/engine.py</code></td>
+                <td>Detective engine classifying cyber threats deterministically and issuing security certificates.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/utils/metrics.py</code></td>
+                <td>Extracts bits from Qiskit measurement counts and calculates QBER.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/utils/post_processing.py</code></td>
+                <td>Performs Cascade parity error correction and universal hash key compression.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/utils/freshness.py</code></td>
+                <td>Anti-replay validator tracking cryptographic nonces and timestamps.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/utils/security_analysis.py</code></td>
+                <td>Calculates Chernoff-Hoeffding security bounds, optimal thresholds ($s_a, s_v$), and certificates.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/network/socket_node.py</code></td>
+                <td>Base TCP asynchronous socket server/client.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/network/messages.py</code></td>
+                <td>Standard JSON communication message formats for the network daemons.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/network/channel_proxy.py</code></td>
+                <td><strong>Port 8000</strong>: Simulates the physical quantum router and attacker proxy.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/network/alice_daemon.py</code></td>
+                <td><strong>Port 8001</strong>: Alice signer background service.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/network/verifier_daemon.py</code></td>
+                <td><strong>Ports 8002 & 8003</strong>: Bob and Charlie verifier background services.</td>
+              </tr>
+              <tr>
+                <td><code>src/quantum_sim/network/detector_daemon.py</code></td>
+                <td><strong>Port 8004</strong>: Central cyber threat monitoring and diagnostic daemon.</td>
+              </tr>
+              <tr>
+                <td><code>launch_network.py / launch_cluster.bat</code></td>
+                <td>Orchestrator scripts that launch all 5 socket daemons simultaneously.</td>
+              </tr>
+              <tr>
+                <td><code>examples/stage1_demo.py</code></td>
+                <td>Demo: BB84 state transmission and catching Eve intercepting qubits.</td>
+              </tr>
+              <tr>
+                <td><code>examples/stage2_demo.py</code></td>
+                <td>Demo: Fiber noise, Cascade error correction, and privacy amplification.</td>
+              </tr>
+              <tr>
+                <td><code>examples/stage3_demo.py</code></td>
+                <td>Demo: Prepare-and-measure 3-party QDS signature generation and verification.</td>
+              </tr>
+              <tr>
+                <td><code>examples/stage4_demo.py</code></td>
+                <td>Demo: Multi-vector cyber threat attacks and deterministic detection engine verdicts.</td>
+              </tr>
+              <tr>
+                <td><code>examples/stage5_teleportation_demo.py</code></td>
+                <td>Demo: Teleportation QDS with live Chernoff-Hoeffding mathematical security bounds.</td>
+              </tr>
+              <tr>
+                <td><code>examples/trigger_client.py</code></td>
+                <td>CLI tool to send a signing trigger command to the live distributed socket cluster.</td>
+              </tr>
+              <tr>
+                <td><code>visualizer/index.html</code></td>
+                <td>Interactive browser visualizer with animated circuits, attack lab, and live plots.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Section: How to Run -->
+      <section id="how-to-run">
+        <div class="section-header">
+          <h2>⚡ How to Run Everything (Step-by-Step)</h2>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.25rem;">
+          <h3>1. Install Dependencies</h3>
+          <div class="code-wrapper">
+            <div class="code-header">
+              <span>PowerShell</span>
+              <button class="copy-btn" onclick="copyCode(this, 'c-inst')">Copy</button>
+            </div>
+            <pre id="c-inst"><code>pip install -r requirements.txt</code></pre>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.25rem;">
+          <h3>2. Run All Automated Tests</h3>
+          <div class="code-wrapper">
+            <div class="code-header">
+              <span>PowerShell</span>
+              <button class="copy-btn" onclick="copyCode(this, 'c-test')">Copy</button>
+            </div>
+            <pre id="c-test"><code>pytest</code></pre>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.25rem;">
+          <h3>3. Run CLI Demos (Stages 1 to 5)</h3>
+          <div class="code-wrapper">
+            <div class="code-header">
+              <span>PowerShell</span>
+              <button class="copy-btn" onclick="copyCode(this, 'c-demos')">Copy</button>
+            </div>
+            <pre id="c-demos"><code># Stage 1: Basic Quantum Loop & Intercept Attack
+python examples/stage1_demo.py
+
+# Stage 2: Noise, Error Correction & Privacy Hashing
+python examples/stage2_demo.py
+
+# Stage 3: Prepare-and-Measure QDS
+python examples/stage3_demo.py
+
+# Stage 4: Threat Simulation & Diagnostic Detective
+python examples/stage4_demo.py
+
+# Stage 5: Teleportation QDS & Chernoff Bounds
+python examples/stage5_teleportation_demo.py</code></pre>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 1.25rem;">
+          <h3>4. Run the 5-Daemon Distributed Socket Network</h3>
+          <div class="code-wrapper">
+            <div class="code-header">
+              <span>PowerShell (Terminal 1 - Launch Cluster)</span>
+              <button class="copy-btn" onclick="copyCode(this, 'c-cluster')">Copy</button>
+            </div>
+            <pre id="c-cluster"><code># Method A: Using Python
+python launch_network.py
+
+# Method B: Using Windows Batch file (opens 5 separate windows)
+.\launch_cluster.bat</code></pre>
+          </div>
+          <div class="code-wrapper">
+            <div class="code-header">
+              <span>PowerShell (Terminal 2 - Trigger Signing Session)</span>
+              <button class="copy-btn" onclick="copyCode(this, 'c-trig')">Copy</button>
+            </div>
+            <pre id="c-trig"><code>python examples/trigger_client.py --message 1 --length 128</code></pre>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>5. Interactive Browser Visualizer</h3>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            Double-click or open <code>visualizer/index.html</code> in any browser to explore animated quantum circuits, an attack lab, a live detection dashboard, and interactive Chernoff-Hoeffding security plots.
+          </p>
+        </div>
+      </section>
+
+      <!-- Section: Cheat Sheet -->
+      <section id="cheat-sheet">
+        <div class="section-header">
+          <h2>🎓 Summary Cheat Sheet</h2>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 30%;">Question</th>
+                <th>Short Plain-English Answer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Why Quantum?</strong></td>
+                <td>Quantum states cannot be copied (<em>No-Cloning Theorem</em>) and looking at them creates errors (<em>Uncertainty Principle</em>).</td>
+              </tr>
+              <tr>
+                <td><strong>What is QDS?</strong></td>
+                <td>A digital signature that cannot be forged, altered, or denied, backed directly by quantum physics.</td>
+              </tr>
+              <tr>
+                <td><strong>Why Teleportation?</strong></td>
+                <td>Avoids sending fragile signature qubits over raw fibers by using entangled Bell pairs and Pauli corrections ($X^{m_2} Z^{m_1}$).</td>
+              </tr>
+              <tr>
+                <td><strong>What is Symmetrisation?</strong></td>
+                <td>Bob and Charlie randomly swap tokens so Alice doesn't know who has what, preventing her from cheating one verifier over the other.</td>
+              </tr>
+              <tr>
+                <td><strong>What are Chernoff Bounds?</strong></td>
+                <td>A rigorous mathematical formula proving that the chance of an attacker breaking the signature is virtually zero ($P_{\text{forge}} \le e^{-2\delta^2 L}$).</td>
+              </tr>
+              <tr>
+                <td><strong>Is this using AI?</strong></td>
+                <td>No! The detection engine is 100% deterministic, fully explainable, and based directly on quantum statistics and physics principles.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    // Copy button helper
+    function copyCode(button, targetId) {
+      const code = document.getElementById(targetId).innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        const originalText = button.innerText;
+        button.innerText = 'Copied!';
+        button.style.background = '#34d399';
+        button.style.color = '#000';
+        setTimeout(() => {
+          button.innerText = originalText;
+          button.style.background = '';
+          button.style.color = '';
+        }, 1800);
+      });
+    }
+
+    // Interactive Elimination Simulator
+    let currentBasis = 'Z';
+    let currentBit = 0;
+
+    function setSimBasis(basis) {
+      currentBasis = basis;
+      document.getElementById('btn-basis-z').classList.toggle('active', basis === 'Z');
+      document.getElementById('btn-basis-x').classList.toggle('active', basis === 'X');
+      updateEliminationResult();
+    }
+
+    function setSimBit(bit) {
+      currentBit = bit;
+      document.getElementById('btn-bit-0').classList.toggle('active', bit === 0);
+      document.getElementById('btn-bit-1').classList.toggle('active', bit === 1);
+      updateEliminationResult();
+    }
+
+    function updateEliminationResult() {
+      const resultEl = document.getElementById('sim-result');
+      let eliminated = '';
+      let explanation = '';
+
+      if (currentBasis === 'Z') {
+        if (currentBit === 0) {
+          eliminated = '|1⟩';
+          explanation = 'Alice could NOT have sent |1⟩ (because a |1⟩ in Z-basis has 0% chance of measuring 0).';
+        } else {
+          eliminated = '|0⟩';
+          explanation = 'Alice could NOT have sent |0⟩ (because a |0⟩ in Z-basis has 0% chance of measuring 1).';
+        }
+      } else { // X basis
+        if (currentBit === 0) {
+          eliminated = '|−⟩';
+          explanation = 'Alice could NOT have sent |−⟩ (because |−⟩ in X-basis has 0% chance of measuring + / 0).';
+        } else {
+          eliminated = '|+⟩';
+          explanation = 'Alice could NOT have sent |+⟩ (because |+⟩ in X-basis has 0% chance of measuring - / 1).';
+        }
+      }
+
+      resultEl.innerHTML = `Eliminated State: <strong style="color: var(--accent-rose); font-size: 1.15rem;">${eliminated}</strong> &mdash; ${explanation}`;
+    }
+
+    // Filter table by search query
+    function filterFiles() {
+      const query = document.getElementById('file-search').value.toLowerCase();
+      const rows = document.querySelectorAll('#files-table tbody tr');
+
+      rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(query) ? '' : 'none';
+      });
+    }
+
+    // Active Sidebar Highlighter on Scroll
+    window.addEventListener('scroll', () => {
+      const sections = document.querySelectorAll('section');
+      const navLinks = document.querySelectorAll('.nav-link');
+      let currentSectionId = '';
+
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop - 120;
+        if (window.scrollY >= sectionTop) {
+          currentSectionId = section.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === `#${currentSectionId}`) {
+          link.classList.add('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

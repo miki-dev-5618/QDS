@@ -1,0 +1,141 @@
+/* ==========================================================================
+   QUANTUM CIRCUIT & PAULI MATH (SIMPLIFIED EDITORIAL)
+   ========================================================================== */
+
+.circuit-math-layout {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .circuit-math-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.circuit-viewer-card h3, .math-explainer-card h3 {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 16px;
+}
+
+/* Wire Diagram */
+.circuit-wire-diagram {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  padding: 16px 20px;
+  margin: 14px 0;
+}
+
+.wire-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.wire-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-main);
+  min-width: 90px;
+  font-weight: 600;
+}
+
+.wire-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border-medium);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  position: relative;
+}
+
+.gate {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-none);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  z-index: 1;
+}
+
+.gate-prep { background: var(--bg-surface); }
+.gate-h { background: var(--accent-purple-bg); color: var(--accent-purple); border-color: var(--accent-purple-border); }
+.gate-ctrl { color: var(--text-main); font-size: 13px; border: none; background: transparent; }
+.gate-target { color: var(--text-main); font-size: 13px; border: none; background: transparent; }
+.gate-meas { background: var(--accent-amber-bg); color: var(--accent-amber); border-color: var(--accent-amber-border); }
+.gate-pauli-x { background: var(--accent-green-bg); color: var(--accent-green); border-color: var(--accent-green-border); }
+.gate-pauli-z { background: var(--accent-blue-bg); color: var(--accent-blue); border-color: var(--accent-blue-border); }
+.wire-gap { width: 14px; }
+
+/* Syndrome Truth Table */
+.syndrome-table-box {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.syndrome-table-box h4 {
+  font-family: var(--font-serif);
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.syndrome-table-box table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  margin-top: 6px;
+  border: 1px solid var(--border-subtle);
+}
+
+.syndrome-table-box th {
+  text-align: left;
+  padding: 6px 10px;
+  background: var(--bg-inset);
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-light);
+}
+
+.syndrome-table-box td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-light);
+  border-right: 1px solid var(--border-light);
+  color: var(--text-muted);
+}
+
+/* KaTeX Math Explainer Cards */
+.math-explainer-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.math-card {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  padding: 10px 14px;
+}
+
+.math-card h4 {
+  font-family: var(--font-serif);
+  font-size: 12px;
+  color: var(--text-main);
+  margin-bottom: 2px;
+}
+
+.math-eq {
+  font-size: 12px;
+  color: var(--text-main);
+  overflow-x: auto;
+}
