@@ -80,7 +80,7 @@ def test_socket_qds_eve_intercept():
 
         try:
             rng = np.random.default_rng(42)
-            alice.generate_signatures(n_bits=24, rng=rng)
+            alice.generate_signatures(n_bits=32, rng=rng)
 
             await alice.distribute_states_to_verifiers()
             await asyncio.sleep(0.05)

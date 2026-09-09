@@ -145,6 +145,12 @@ class QDSDetectionEngine:
                 security_certificate=cert
             )
 
+        # Calculate dynamic confidence intervals for finite-length signatures
+        sigma_insider = QDSSecurityBounds.standard_error(0.25, total_len)
+        sigma_forger = QDSSecurityBounds.standard_error(0.50, total_len)
+        insider_upper_bound = min(0.42, 0.25 + 1.645 * sigma_insider)
+        insider_lower_bound = max(cert.acceptance_threshold_sa, 0.25 - 1.645 * sigma_insider)
+
         # 5. Authentic transmission (0 contradictions on clean channel)
         if bob_mismatches == 0 and charlie_mismatches == 0:
             return ThreatReport(
@@ -163,9 +169,9 @@ class QDSDetectionEngine:
                 security_certificate=cert
             )
 
-
-        # 5. Dishonest Verifier Forgery (Insider crafts signature using own eliminated states -> error in [0.15, 0.38])
-        if (min_rate <= cert.acceptance_threshold_sa and 0.15 <= max_rate <= 0.38) or context_hint == "dishonest_verifier":
+        # 6. Dishonest Verifier Forgery (Insider crafts signature using own eliminated states -> error clustered near 25%)
+        # Characterized by: one verifier (the insider) has zero/low errors, other verifier detects ~25% errors
+        if (min_rate <= cert.acceptance_threshold_sa and insider_lower_bound <= max_rate <= insider_upper_bound) or context_hint == "dishonest_verifier":
             return ThreatReport(
                 classification=ThreatClassification.DISHONEST_VERIFIER_FORGERY,
                 confidence_score=0.94,
@@ -179,14 +185,14 @@ class QDSDetectionEngine:
                 verdict="ALERT: Dishonest Verifier Forgery Attempt Detected",
                 details=(
                     f"Recipient detected signature contradictions ({max_rate*100:.1f}%) clustered around theoretical "
-                    "insider error bound (~25%). Insider attempted forgery using partial quantum elimination knowledge."
+                    f"insider error bound (~25% ± {sigma_insider*100:.1f}%). Insider attempted forgery using partial quantum elimination knowledge."
                 ),
                 is_threat_detected=True,
                 security_certificate=cert
             )
 
-        # 6. Repudiation / Asymmetric Divergence (Alice sends discordant/flipped states -> error > 0.38 or high divergence)
-        if rate_diff >= 0.25 or (min_rate <= cert.acceptance_threshold_sa and max_rate > 0.38):
+        # 7. Repudiation / Asymmetric Divergence (Alice sends discordant/flipped states -> high inter-verifier divergence)
+        if rate_diff >= 0.25 or (min_rate <= cert.acceptance_threshold_sa and max_rate > insider_upper_bound):
             return ThreatReport(
                 classification=ThreatClassification.REPUDIATION_ATTEMPT,
                 confidence_score=min(1.0, 0.70 + rate_diff),
@@ -206,10 +212,7 @@ class QDSDetectionEngine:
                 security_certificate=cert
             )
 
-
-
-
-        # 7. Channel Noise
+        # 8. Channel Noise (Errors within allowable Chernoff acceptance margin sa)
         if max_rate <= cert.acceptance_threshold_sa:
             return ThreatReport(
                 classification=ThreatClassification.CHANNEL_NOISE,
@@ -227,7 +230,7 @@ class QDSDetectionEngine:
                 security_certificate=cert
             )
 
-        # 8. External Blind Forgery (~50% error)
+        # 9. External Blind Forgery (Both verifiers detect ~50% error)
         return ThreatReport(
             classification=ThreatClassification.EXTERNAL_FORGERY,
             confidence_score=min(1.0, 0.60 + max_rate),

@@ -72,6 +72,32 @@
       </button>
     </nav>
 
+    <!-- Interactive Tour & Protocol Mode Controller -->
+    <div class="glass-card tour-banner">
+      <div class="tour-left">
+        <span class="tour-badge">🎯 LIVE DEMO SUITE</span>
+        <div class="tour-desc">
+          <strong>Interactive Attack Simulation Tour:</strong> Auto-cycles through all 7 threat scenarios with real-time diagnostics.
+        </div>
+      </div>
+      <div class="tour-center">
+        <label for="protocol-mode-select"><strong>Protocol:</strong></label>
+        <select id="protocol-mode-select" class="protocol-select">
+          <option value="teleportation" selected>⚛️ Teleportation-Based QDS (Bell Pairs + Pauli Feed-Forward)</option>
+          <option value="direct">📡 Direct BB84 QDS (Wallden-Amiri State Distribution)</option>
+        </select>
+      </div>
+      <div class="tour-controls">
+        <button id="btn-start-tour" class="btn btn-tour">
+          <span class="icon">▶️</span> Start Auto-Tour
+        </button>
+        <button id="btn-pause-tour" class="btn btn-outline" style="display:none;">
+          <span class="icon">⏸️</span> Pause Tour
+        </button>
+        <span id="tour-step-tag" class="val-tag text-cyan">Tour Ready</span>
+      </div>
+    </div>
+
     <!-- MAIN CONTENT CONTAINERS -->
     <main class="main-content">
 

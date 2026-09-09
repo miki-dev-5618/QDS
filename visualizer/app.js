@@ -180,7 +180,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetEps = parseFloat(state.chTargetEps);
 
     const bounds = calculateSecurityBounds(L, e0);
-    const lMin = Math.ceil(Math.log(1.0 / targetEps) / (2.0 * (bounds.delta ** 2)));
+    const lMinForge = Math.ceil(Math.log(1.0 / targetEps) / (2.0 * (bounds.delta ** 2)));
+    const lMinRep = Math.ceil(Math.log(2.0 / targetEps) / (0.5 * (bounds.delta ** 2)));
+    const lMin = Math.max(lMinForge, lMinRep);
 
     chCalcSa.textContent = `${(bounds.sa * 100).toFixed(2)}%`;
     chCalcSv.textContent = `${(bounds.sv * 100).toFixed(2)}%`;
@@ -749,6 +751,86 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Security Certificate JSON copied to clipboard!');
     });
   });
+
+  // =========================================================================
+  // 6. AUTO-TOUR & PROTOCOL SELECTOR CONTROLLER
+  // =========================================================================
+  const btnStartTour = document.getElementById('btn-start-tour');
+  const btnPauseTour = document.getElementById('btn-pause-tour');
+  const tourStepTag = document.getElementById('tour-step-tag');
+  const protocolModeSelect = document.getElementById('protocol-mode-select');
+
+  const tourScenarios = [
+    { id: 'authentic', name: '1/7 Authentic Acceptance' },
+    { id: 'external_forgery', name: '2/7 External Forgery Alert' },
+    { id: 'dishonest_verifier', name: '3/7 Dishonest Verifier Alert' },
+    { id: 'mitm_intercept', name: '4/7 MITM Interception Alert' },
+    { id: 'repudiation', name: '5/7 Repudiation Alert' },
+    { id: 'replay_attack', name: '6/7 Replay Attack Alert' },
+    { id: 'channel_noise', name: '7/7 Benign Channel Noise' }
+  ];
+
+  let tourInterval = null;
+  let tourIndex = 0;
+
+  function runTourStep() {
+    const item = tourScenarios[tourIndex];
+    state.activeAttack = item.id;
+    if (tourStepTag) tourStepTag.textContent = item.name;
+
+    // Highlight card
+    attackCards.forEach(card => {
+      const radio = card.querySelector('input[type="radio"]');
+      if (radio && radio.value === item.id) {
+        card.classList.add('active');
+        radio.checked = true;
+      } else {
+        card.classList.remove('active');
+      }
+    });
+
+    executeThreatSimulation();
+
+    tourIndex = (tourIndex + 1) % tourScenarios.length;
+  }
+
+  if (btnStartTour) {
+    btnStartTour.addEventListener('click', () => {
+      // Switch to Threat Lab Tab
+      const threatTabBtn = document.querySelector('[data-tab="tab-threats"]');
+      if (threatTabBtn) threatTabBtn.click();
+
+      btnStartTour.style.display = 'none';
+      if (btnPauseTour) btnPauseTour.style.display = 'inline-flex';
+
+      runTourStep();
+      tourInterval = setInterval(runTourStep, 3200);
+    });
+  }
+
+  if (btnPauseTour) {
+    btnPauseTour.addEventListener('click', () => {
+      clearInterval(tourInterval);
+      tourInterval = null;
+      btnPauseTour.style.display = 'none';
+      if (btnStartTour) btnStartTour.style.display = 'inline-flex';
+      if (tourStepTag) tourStepTag.textContent = 'Tour Paused';
+    });
+  }
+
+  if (protocolModeSelect) {
+    protocolModeSelect.addEventListener('change', (e) => {
+      const mode = e.target.value;
+      const isTeleport = mode === 'teleportation';
+      const badge = document.querySelector('.header-stats .stat-val');
+      if (badge) {
+        badge.textContent = isTeleport ? 'Bell-State Teleportation' : 'Wallden-Amiri Direct QDS';
+      }
+      generateRandomTeleportationState();
+      updateTeleportationUI();
+      executeThreatSimulation();
+    });
+  }
 
   // Init
   generateRandomTeleportationState();

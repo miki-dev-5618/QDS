@@ -1212,6 +1212,90 @@ canvas {
   padding-top: 18px;
 }
 
+/* ==========================================================================
+   AUTO-TOUR BANNER & PROTOCOL SWITCHER
+   ========================================================================== */
+.tour-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  padding: 12px 20px;
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 41, 59, 0.9));
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 240, 255, 0.1);
+}
+
+.tour-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tour-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--cyan-core), var(--purple-core));
+  color: #050b14;
+}
+
+.tour-desc {
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+.tour-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.protocol-select {
+  background: rgba(10, 15, 29, 0.8);
+  color: var(--cyan-core);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.85rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.protocol-select:focus {
+  border-color: var(--cyan-core);
+  box-shadow: 0 0 10px var(--cyan-glow);
+}
+
+.tour-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-tour {
+  background: linear-gradient(135deg, #00f0ff, #3b82f6);
+  color: #050b14;
+  font-weight: 700;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+  transition: all 0.2s ease;
+}
+
+.btn-tour:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.7);
+}
+
 /* Responsive adjustments */
 @media (max-width: 1100px) {
   .architecture-grid, .threat-lab-layout, .chernoff-layout, .circuit-math-layout {
@@ -1219,5 +1303,9 @@ canvas {
   }
   .engine-metrics-row, .chart-footer-metrics {
     grid-template-columns: 1fr 1fr;
+  }
+  .tour-banner {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

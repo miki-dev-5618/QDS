@@ -37,6 +37,18 @@ def test_min_signature_length():
 
     assert l1 > 0
     assert l2 > l1
+    # Repudiation bound requires larger L due to factor 0.5 vs 2.0
+    l_rep = math.ceil(math.log(2.0 / eps2) / (0.5 * (delta ** 2)))
+    assert l2 >= l_rep
+
+
+def test_standard_error_calculation():
+    sigma_16 = QDSSecurityBounds.standard_error(p=0.25, L=16)
+    sigma_64 = QDSSecurityBounds.standard_error(p=0.25, L=64)
+
+    assert sigma_16 > 0
+    assert sigma_64 < sigma_16
+    assert math.isclose(sigma_16, math.sqrt(0.25 * 0.75 / 16), rel_tol=1e-5)
 
 
 def test_security_certificate_generation():

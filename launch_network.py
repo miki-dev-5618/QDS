@@ -55,13 +55,14 @@ class DistributedNetworkRunner:
         self,
         n_bits: int = 16,
         attack_type: str = "none",
+        protocol_mode: str = "teleportation",
         rng: np.random.Generator = None
     ):
         if rng is None:
             rng = np.random.default_rng(42)
 
         print("-" * 80)
-        print(f" >>> EXECUTING QDS PROTOCOL OVER SOCKETS [Scenario: {attack_type.upper()}]")
+        print(f" >>> EXECUTING {protocol_mode.upper()} QDS PROTOCOL OVER SOCKETS [Scenario: {attack_type.upper()}]")
         print("-" * 80)
 
         # 1. Configure Channel Attack if requested
@@ -73,7 +74,7 @@ class DistributedNetworkRunner:
         # 2. Step 1: Alice generates private signatures
         self.alice.generate_signatures(n_bits=n_bits, rng=rng)
 
-        # 3. Step 2: Distribution over sockets
+        # 3. Step 2: Distribution over sockets (Teleportation or Direct)
         asym_positions = list(range(n_bits // 2)) if attack_type == "repudiation" else None
         await self.alice.distribute_states_to_verifiers(asymmetric_charlie_positions=asym_positions)
         await asyncio.sleep(0.05)
@@ -113,20 +114,24 @@ async def main():
     runner = DistributedNetworkRunner()
     await runner.start()
 
-    if len(sys.argv) > 1 and sys.argv[1] in ["--batch", "-b", "all"]:
-        print("Running full automated socket network test suite:\n")
-        await runner.run_protocol_cycle(n_bits=16, attack_type="none")
-        await runner.run_protocol_cycle(n_bits=16, attack_type="eve_forgery")
-        await runner.run_protocol_cycle(n_bits=16, attack_type="dishonest_verifier")
-        await runner.run_protocol_cycle(n_bits=16, attack_type="eve_intercept")
-        await runner.run_protocol_cycle(n_bits=16, attack_type="repudiation")
+    protocol_mode = "teleportation"
+    if "--direct" in sys.argv:
+        protocol_mode = "direct"
+
+    if len(sys.argv) > 1 and any(arg in ["--batch", "-b", "all"] for arg in sys.argv):
+        print(f"Running full automated socket network test suite (Mode: {protocol_mode.upper()}):\n")
+        await runner.run_protocol_cycle(n_bits=16, attack_type="none", protocol_mode=protocol_mode)
+        await runner.run_protocol_cycle(n_bits=16, attack_type="eve_forgery", protocol_mode=protocol_mode)
+        await runner.run_protocol_cycle(n_bits=16, attack_type="dishonest_verifier", protocol_mode=protocol_mode)
+        await runner.run_protocol_cycle(n_bits=16, attack_type="eve_intercept", protocol_mode=protocol_mode)
+        await runner.run_protocol_cycle(n_bits=16, attack_type="repudiation", protocol_mode=protocol_mode)
         await runner.stop()
         return
 
     try:
         while True:
             print("+------------------------------------------------------------------------------+")
-            print("| DISTRIBUTED QUANTUM SOCKET NETWORK (MULTI-PORT PROCESS CONTROLLER):          |")
+            print(f"| DISTRIBUTED QUANTUM SOCKET NETWORK [{protocol_mode.upper()} QDS]:            |")
             print("+------------------------------------------------------------------------------+")
             print("| [1] AUTHENTIC: Alice signs message k=0 -> Bob & Charlie verify via Sockets  |")
             print("| [2] EVE FORGERY: External attacker sends forged signature over network       |")
@@ -134,29 +139,33 @@ async def main():
             print("| [4] EVE MITM: Channel Router intercepts & collapses qubits in transit        |")
             print("| [5] REPUDIATION: Alice transmits asymmetric states to verifiers              |")
             print("| [6] BATCH TEST: Run all socket cycles sequentially                           |")
+            print("| [7] TOGGLE PROTOCOL: Switch Teleportation QDS <-> Direct QDS                 |")
             print("| [0] EXIT & SHUTDOWN DAEMONS                                                  |")
             print("+------------------------------------------------------------------------------+")
             
             try:
-                choice = input("Enter choice [0-6]: ").strip()
+                choice = input("Enter choice [0-7]: ").strip()
             except (KeyboardInterrupt, EOFError):
                 break
 
             if choice == "0":
                 break
             elif choice == "1":
-                await runner.run_protocol_cycle(attack_type="none")
+                await runner.run_protocol_cycle(attack_type="none", protocol_mode=protocol_mode)
             elif choice == "2":
-                await runner.run_protocol_cycle(attack_type="eve_forgery")
+                await runner.run_protocol_cycle(attack_type="eve_forgery", protocol_mode=protocol_mode)
             elif choice == "3":
-                await runner.run_protocol_cycle(attack_type="dishonest_verifier")
+                await runner.run_protocol_cycle(attack_type="dishonest_verifier", protocol_mode=protocol_mode)
             elif choice == "4":
-                await runner.run_protocol_cycle(attack_type="eve_intercept")
+                await runner.run_protocol_cycle(attack_type="eve_intercept", protocol_mode=protocol_mode)
             elif choice == "5":
-                await runner.run_protocol_cycle(attack_type="repudiation")
+                await runner.run_protocol_cycle(attack_type="repudiation", protocol_mode=protocol_mode)
             elif choice == "6":
                 for att in ["none", "eve_forgery", "dishonest_verifier", "eve_intercept", "repudiation"]:
-                    await runner.run_protocol_cycle(attack_type=att)
+                    await runner.run_protocol_cycle(attack_type=att, protocol_mode=protocol_mode)
+            elif choice == "7":
+                protocol_mode = "direct" if protocol_mode == "teleportation" else "teleportation"
+                print(f"\n[CONFIG] Protocol mode switched to: {protocol_mode.upper()} QDS\n")
             else:
                 print(f"Invalid option '{choice}'.")
 

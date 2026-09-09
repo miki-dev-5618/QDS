@@ -100,6 +100,8 @@ class VerifierDaemon(AsyncSocketNode):
         if rng is None:
             rng = np.random.default_rng()
 
+        self.eliminated_states = [[] for _ in range(self.n_bits)]
+
         for i in range(self.n_bits):
             copies = len(self.held_states[i])
             if copies == 1:

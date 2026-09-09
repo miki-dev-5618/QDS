@@ -78,11 +78,15 @@ def build_teleportation_step_circuit(
     qc.measure(1, cr_bsm[1]) # m2 (X-correction syndrome)
     qc.barrier()
     
-    # 4. Pauli feed-forward corrections on Receiver's qubit q2
-    # In Qiskit, conditional execution or dynamic circuits apply corrections:
-    # If m2 == 1 -> X(q2); if m1 == 1 -> Z(q2)
-    qc.cx(1, 2) # X correction controlled by q1 pre-measurement / syndrome
-    qc.cz(0, 2) # Z correction controlled by q0 pre-measurement / syndrome
+    # 4. Classical feed-forward Pauli corrections on Receiver's qubit q2
+    # In distributed quantum teleportation, Alice sends classical bits (m1, m2) to Receiver.
+    # Receiver applies single-qubit Pauli corrections locally:
+    # If m2 == 1 -> apply X to q2
+    # If m1 == 1 -> apply Z to q2
+    with qc.if_test((cr_bsm[1], 1)):
+        qc.x(2)
+    with qc.if_test((cr_bsm[0], 1)):
+        qc.z(2)
     qc.barrier()
     
     # 5. Receiver projective measurement in desired basis

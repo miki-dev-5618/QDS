@@ -86,18 +86,40 @@ class QDSSecurityBounds:
         return min(1.0, 2.0 * math.exp(exponent))
 
     @staticmethod
-    def min_signature_length(target_epsilon: float = 1e-6, delta: float = 0.07) -> int:
+    def standard_error(p: float, L: int) -> float:
         """
-        Calculates minimum signature length L required to achieve target security parameter epsilon:
-        L >= ln(1 / target_epsilon) / (2 * delta^2)
+        Calculates standard error for a Bernoulli parameter p over sample size L:
+        sigma = sqrt(p * (1 - p) / L)
+        """
+        if L <= 0:
+            return 0.5
+        p_clamped = max(0.0, min(1.0, p))
+        return math.sqrt((p_clamped * (1.0 - p_clamped)) / L)
+
+    @staticmethod
+    def min_signature_length(
+        target_epsilon: float = 1e-6,
+        delta: float = 0.07,
+        gap: Optional[float] = None
+    ) -> int:
+        """
+        Calculates minimum signature length L required to achieve target security parameter epsilon
+        against both forgery and dishonest signer repudiation:
+        L_forge >= ln(1 / target_epsilon) / (2 * delta^2)
+        L_rep   >= ln(2 / target_epsilon) / (0.5 * gap^2)
+        L_min   = max(L_forge, L_rep)
         """
         if target_epsilon <= 0:
             raise ValueError("target_epsilon must be positive.")
         if delta <= 0:
             raise ValueError("delta must be positive.")
         
-        required_L = math.ceil(math.log(1.0 / target_epsilon) / (2.0 * (delta ** 2)))
-        return max(1, required_L)
+        effective_gap = gap if (gap is not None and gap > 0) else delta
+        
+        required_L_forge = math.ceil(math.log(1.0 / target_epsilon) / (2.0 * (delta ** 2)))
+        required_L_rep = math.ceil(math.log(2.0 / target_epsilon) / (0.5 * (effective_gap ** 2)))
+        
+        return max(1, required_L_forge, required_L_rep)
 
     @classmethod
     def generate_security_certificate(

@@ -35,12 +35,14 @@ class DetectorDaemon(AsyncSocketNode):
         if "Bob" in self.pending_reports[k] and "Charlie" in self.pending_reports[k]:
             b_data = self.pending_reports[k]["Bob"]
             c_data = self.pending_reports[k]["Charlie"]
+            qber = b_data.get("channel_qber") or c_data.get("channel_qber")
 
             report = self.engine.analyze(
                 bob_mismatches=b_data["mismatches"],
                 bob_total=b_data["total_checked"],
                 charlie_mismatches=c_data["mismatches"],
-                charlie_total=c_data["total_checked"]
+                charlie_total=c_data["total_checked"],
+                channel_qber=qber
             )
             self.last_report = report
             self._print_verdict(k, report)
