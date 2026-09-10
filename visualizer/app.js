@@ -1,6 +1,6 @@
 /**
  * ==========================================================================
- * QUANTUM DIGITAL SIGNATURE & CYBER THREAT DETECTION VISUALIZER ENGINE
+ * HEDWIG: QUANTUM DIGITAL SIGNATURE & CYBER THREAT DETECTION VISUALIZER ENGINE
  * ==========================================================================
  */
 
@@ -721,6 +721,8 @@ document.addEventListener('DOMContentLoaded', () => {
   btnExportCert.addEventListener('click', () => {
     const bounds = calculateSecurityBounds(state.chLength, state.chNoise);
     const cert = {
+      project: "HEDWIG",
+      framework: "HEDWIG Quantum Digital Signature (QDS) Platform",
       protocol: "Teleportation-Based Quantum Digital Signature (QDS)",
       security_proof: "Chernoff-Hoeffding Insecurity Bound (Amiri & Wallden et al.)",
       parameters: {

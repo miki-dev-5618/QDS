@@ -51,6 +51,37 @@
   letter-spacing: -0.02em;
   color: var(--text-main);
   line-height: 1.2;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.brand-divider {
+  font-family: var(--font-mono);
+  font-weight: 300;
+  font-size: 18px;
+  color: var(--border-medium);
+}
+
+.brand-sub {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 20px;
+  color: var(--text-muted);
+}
+
+.brand-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: var(--text-main);
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: var(--radius-none);
+  align-self: center;
 }
 
 .app-subtitle {

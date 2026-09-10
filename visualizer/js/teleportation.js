@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * Teleportation-Based Quantum Digital Signature Simulation Logic
+ * HEDWIG: Teleportation-Based Quantum Digital Signature Simulation Logic
  * ============================================================================
  */
 
