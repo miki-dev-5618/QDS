@@ -43,7 +43,8 @@ Judges usually probe four angles: feasibility, novelty, technical depth, and rea
 > "Instead of a verifier storing your actual secret key — which is a juicy target for insider theft — they store a record of quantum states that are provably *inconsistent* with a valid signature. To verify, they check the signature against that 'impossible' list rather than against a secret. That means even a verifier can't forge or leak your key, because they never had it in the first place."
 
 **Q: What's the role of the Pauli feed-forward gates?**
-> "In quantum teleportation, after the Bell-pair measurement, the receiver's qubit ends up in a state that's off by an unknown Pauli correction (X, Z, or both). The feed-forward gates apply that correction based on the measurement outcome, reconstructing the original signature state faithfully on the receiver's side without ever moving the original qubit across the channel."
+> Instead of keeping your secret key, the verifier stores a list of quantum states that can’t be part of a valid signature. To verify a signature, they compare it with this list. Since the verifier never has your secret key, they can’t steal it, leak it, or use it to create fake signatures.
+
 
 **Q: How does 'keep-or-forward symmetrisation' actually stop repudiation?**
 > "After receiving a token, each verifier randomly chooses to either keep it or forward it to another verifier. Because the signer can't predict or control this random choice, they can't selectively convince one verifier while denying it to another — any attempt to cheat gets exposed through the random cross-checking between verifiers."
