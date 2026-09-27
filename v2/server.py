@@ -113,7 +113,14 @@ class SignAndSendRequest(BaseModel):
     claimed_sender: str = "Alice"
 
 
-# Routes - Pages
+# Routes - Health & Root
+@app.head("/")
+@app.head("/health")
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
+
 @app.get("/", response_class=RedirectResponse)
 async def root():
     return RedirectResponse(url="/login")
@@ -121,23 +128,27 @@ async def root():
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="login.html")
 
 
 @app.get("/admin", response_class=HTMLResponse)
 @app.get("/alice", response_class=HTMLResponse)
 async def admin_page(request: Request):
-    return templates.TemplateResponse("admin.html", {"request": request, "active_threat": state.active_threat_setting})
+    return templates.TemplateResponse(
+        request=request,
+        name="admin.html",
+        context={"active_threat": state.active_threat_setting}
+    )
 
 
 @app.get("/bob", response_class=HTMLResponse)
 async def bob_page(request: Request):
-    return templates.TemplateResponse("bob.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="bob.html")
 
 
 @app.get("/charlie", response_class=HTMLResponse)
 async def charlie_page(request: Request):
-    return templates.TemplateResponse("charlie.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="charlie.html")
 
 
 # Routes - REST API
