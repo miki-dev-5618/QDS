@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HEDWIG • Bob Verifier Terminal</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand-wrapper">
+      <div class="brand-logo-glow" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);">β</div>
+      <div class="brand-text">
+        <h1>
+          <span>HEDWIG</span>
+          <span style="color:var(--text-dim)">/</span>
+          <span style="color:var(--emerald)">BOB'S VERIFIER TERMINAL</span>
+          <span class="brand-badge" style="color:var(--emerald); border-color:rgba(16,185,129,0.3); background:rgba(16,185,129,0.1);">VERIFIER NODE 1</span>
+        </h1>
+        <p class="brand-sub">Projective Measurement • Orthogonal State Elimination • Chernoff Bounds</p>
+      </div>
+    </div>
+
+    <div class="header-meta">
+      <div class="role-tag">
+        <div class="role-dot" id="connDot"></div>
+        <span id="connText">CONNECTING...</span>
+      </div>
+      <div class="role-tag" style="border-color:rgba(16,185,129,0.3)">
+        <span style="color:var(--emerald); font-weight:700;">NODE: BOB (PRIMARY VERIFIER)</span>
+      </div>
+      <nav class="nav-links">
+        <a href="/admin" target="_blank" class="nav-btn">Alice / Admin ↗</a>
+        <a href="/charlie" target="_blank" class="nav-btn">Charlie (Auditor) ↗</a>
+        <a href="/login" class="nav-btn">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div id="emptyState" class="glass-panel" style="text-align:center; padding:3rem; margin-top:2rem;">
+      <div style="font-size:2.5rem; margin-bottom:1rem; opacity:0.6;">⏳</div>
+      <h3 style="font-size:1.3rem; margin-bottom:0.5rem;">Listening for Quantum Transmissions</h3>
+      <p style="color:var(--text-muted); font-size:0.9rem;">
+        Awaiting Bell state teleportation and classical revelation from Alice...
+      </p>
+    </div>
+
+    <div id="activeContent" style="display:none;">
+      <!-- Big Verification Verdict Banner -->
+      <div id="verdictBanner" class="verdict-banner verified">
+        <div class="verdict-left">
+          <div class="verdict-icon-box" id="verdictIcon">✓</div>
+          <div>
+            <div class="verdict-title" id="verdictTitle">SIGNATURE VERIFIED AUTHENTIC</div>
+            <div class="verdict-subtitle" id="verdictSubtitle">Alice signature states match orthogonal elimination rules.</div>
+          </div>
+        </div>
+        <div class="verdict-stats">
+          <div>
+            <div class="stat-item-val" id="mismatchesVal">0 / 16</div>
+            <div class="stat-item-lbl">Contradictions</div>
+          </div>
+          <div>
+            <div class="stat-item-val" id="qberVal" style="color:var(--amber);">0.0%</div>
+            <div class="stat-item-lbl">Channel QBER</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Verified Plaintext Payload Card -->
+      <div class="glass-panel" style="margin-bottom:1.5rem;">
+        <div class="panel-title">
+          <span><span class="title-icon">📄</span> DECRYPTED & AUTHENTICATED PAYLOAD</span>
+          <span style="font-size:0.75rem; font-family:var(--font-mono); color:var(--emerald);">CRYPTOGRAPHICALLY BOUND</span>
+        </div>
+        <div style="background:var(--bg-input); padding:1rem; border-radius:8px; font-size:1.05rem; border:1px solid var(--border-subtle);" id="verifiedMsgText">
+          --
+        </div>
+      </div>
+
+      <div class="grid-2col">
+        <!-- LEFT: Orthogonal State Elimination Matrix -->
+        <div class="glass-panel">
+          <div class="panel-title">
+            <span><span class="title-icon">📐</span> ORTHOGONAL STATE ELIMINATION MATRIX</span>
+            <span style="font-size:0.75rem; font-family:var(--font-mono); color:var(--text-dim);">PAULI PROJECTIVE RULES</span>
+          </div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">
+            Bob measures received qubits. Any outcome rules out the orthogonal quantum state. If Alice's revealed signature contains an eliminated state, a contradiction is flagged:
+          </p>
+
+          <div class="matrix-table-wrapper" style="max-height: 380px;">
+            <table class="matrix-table">
+              <thead>
+                <tr>
+                  <th>Index</th>
+                  <th>Symmetrisation Held</th>
+                  <th>Eliminated State</th>
+                  <th>Revealed State</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="matrixBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- RIGHT: Chernoff Bounds & Dishonest Bob Trigger -->
+        <div>
+          <!-- Chernoff Security Certificate -->
+          <div class="glass-panel" style="margin-bottom:1.5rem;">
+            <div class="panel-title">
+              <span><span class="title-icon">🛡</span> CHERNOFF-HOEFFDING SECURITY CERTIFICATE</span>
+              <span class="brand-badge">ITS PROOFS</span>
+            </div>
+            <div class="cert-grid" id="certCard"></div>
+          </div>
+
+          <!-- Dishonest Bob Attack Simulation Card -->
+          <div class="glass-panel" style="border-color: rgba(244, 63, 94, 0.25);">
+            <div class="panel-title" style="color:#fda4af;">
+              <span><span class="title-icon">⚔</span> ATTACK SIMULATION: DISHONEST BOB</span>
+              <span class="brand-badge" style="background:rgba(244,63,94,0.15); color:var(--crimson); border-color:rgba(244,63,94,0.3);">JUDGE DEMO</span>
+            </div>
+            <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:1.25rem; line-height:1.4;">
+              Test Bob's ability to forge Alice's signature to Charlie! Bob will craft a counterfeit signature using his own eliminated states. Because Bob does not know Charlie's symmetrised states, Charlie's dashboard will catch the fraud:
+            </p>
+            <button id="btnDishonestForward" class="btn-danger" style="width:100%; font-size:0.9rem;">
+              ⚠️ Attempt Dishonest Forgery to Charlie
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="/static/js/bob.js"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HEDWIG • Quantum Digital Signature Portal</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="login-card">
+      <div class="login-header">
+        <div style="display:flex; justify-content:center; margin-bottom:1rem;">
+          <div class="brand-logo-glow" style="width:52px; height:52px; font-size:1.4rem;">Ψ</div>
+        </div>
+        <h2>HEDWIG // QDS</h2>
+        <p class="brand-sub">Teleportation Quantum Digital Signatures & Threat Detection</p>
+      </div>
+
+      <div style="margin-bottom:0.75rem; font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; font-family:var(--font-mono);">
+        Quick Select Node:
+      </div>
+      <div class="preset-pills">
+        <div class="preset-pill active" data-role="admin">Alice / Admin</div>
+        <div class="preset-pill" data-role="bob">Bob (Verifier 1)</div>
+        <div class="preset-pill" data-role="charlie">Charlie (Verifier 2)</div>
+      </div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label" for="username">NODE IDENTITY</label>
+          <input type="text" id="username" class="form-input" value="admin" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">QUANTUM AUTH TOKEN</label>
+          <input type="password" id="password" class="form-input" value="admin2026" required autocomplete="current-password">
+        </div>
+
+        <div id="errorMsg" style="display:none; color:var(--crimson); font-size:0.82rem; margin-bottom:1rem; font-family:var(--font-mono);"></div>
+
+        <button type="submit" class="btn-primary" id="btnLogin">
+          <span>Authenticate Node</span> →
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/js/auth.js"></script>
+</body>
+</html>

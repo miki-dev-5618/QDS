@@ -1,0 +1,336 @@
+/* Threat Arming Matrix */
+.threat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.threat-card {
+  background: rgba(10, 16, 30, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.threat-card:hover {
+  border-color: rgba(79, 172, 254, 0.4);
+  background: rgba(16, 25, 48, 0.8);
+}
+
+.threat-card.active {
+  border-color: var(--crimson);
+  background: rgba(244, 63, 94, 0.08);
+  box-shadow: 0 0 15px rgba(244, 63, 94, 0.2);
+}
+
+.threat-card.active.authentic {
+  border-color: var(--cyan-glow);
+  background: rgba(0, 242, 254, 0.08);
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+}
+
+.threat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.threat-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.threat-desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+/* Qubit Visualizer Tokens */
+.qubit-tokens-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0.85rem;
+  background: var(--bg-input);
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  max-height: 150px;
+  overflow-y: auto;
+  margin-bottom: 1.25rem;
+}
+
+.qubit-token {
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.token-z0 { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(96, 165, 250, 0.3); }
+.token-z1 { background: rgba(168, 85, 247, 0.15); color: #c084fc; border-color: rgba(192, 132, 252, 0.3); }
+.token-x0 { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
+.token-x1 { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(251, 191, 36, 0.3); }
+
+/* Verification Verdict Banners */
+.verdict-banner {
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid transparent;
+  animation: slide-in 0.3s ease-out;
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.verdict-banner.verified {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.05) 100%);
+  border-color: var(--border-success);
+  box-shadow: 0 0 30px var(--emerald-glow);
+}
+
+.verdict-banner.threat {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.18) 0%, rgba(225, 29, 72, 0.05) 100%);
+  border-color: var(--border-danger);
+  box-shadow: 0 0 30px var(--crimson-glow);
+}
+
+.verdict-left {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.verdict-icon-box {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.verdict-banner.verified .verdict-icon-box {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--emerald);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.verdict-banner.threat .verdict-icon-box {
+  background: rgba(244, 63, 94, 0.2);
+  color: var(--crimson);
+  border: 1px solid rgba(244, 63, 94, 0.4);
+}
+
+.verdict-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.25rem;
+}
+
+.verdict-banner.verified .verdict-title { color: #34d399; }
+.verdict-banner.threat .verdict-title { color: #fb7185; }
+
+.verdict-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.verdict-stats {
+  display: flex;
+  gap: 1.5rem;
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.stat-item-val {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.stat-item-lbl {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* Elimination Matrix Table */
+.matrix-table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-input);
+  margin-bottom: 1.25rem;
+}
+
+.matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.matrix-table th {
+  background: rgba(16, 24, 43, 0.9);
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  color: var(--cyan-glow);
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: 600;
+}
+
+.matrix-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.matrix-table tr.collision-row {
+  background: rgba(244, 63, 94, 0.12);
+}
+
+.matrix-table tr.collision-row td {
+  color: #fda4af;
+}
+
+.elim-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  margin-right: 0.25rem;
+}
+
+/* Chernoff Security Certificate Card */
+.cert-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
+  background: rgba(8, 14, 26, 0.6);
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 1.25rem;
+}
+
+.cert-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-family: var(--font-mono);
+}
+
+.cert-cell-label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.cert-cell-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--cyan-glow);
+}
+
+/* Telemetry Logs Terminal */
+.terminal-window {
+  background: #04060a;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  height: 200px;
+  overflow-y: auto;
+  color: #cbd5e1;
+}
+
+.log-entry {
+  margin-bottom: 0.35rem;
+  word-break: break-all;
+}
+
+.log-ts { color: var(--text-dim); margin-right: 0.5rem; }
+.log-prefix { color: var(--cyan-glow); margin-right: 0.5rem; }
+.log-threat { color: var(--crimson); font-weight: 700; }
+.log-success { color: var(--emerald); font-weight: 600; }
+
+/* Login Portal Page Styles */
+.login-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 2.5rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.login-header h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.preset-pills {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.preset-pill {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preset-pill:hover, .preset-pill.active {
+  border-color: var(--cyan-glow);
+  color: var(--cyan-glow);
+  background: rgba(0, 242, 254, 0.08);
+}
