@@ -10,7 +10,7 @@ HEDWIG simulates a three-party **quantum digital signature (QDS)** system:
 
 No AI or machine learning is used. Every decision is a fixed statistical rule whose counts and p-values are shown.
 
-> **Current version: V2.2** (in [`v2/`](v2/)). For the change history see [`v2/V2.2_IMPLEMENTATION_REPORT.md`](v2/V2.2_IMPLEMENTATION_REPORT.md), and for item-by-item status see [`v2/STATUS.md`](v2/STATUS.md).
+> **Current version: V2.2** (in [`v2/`](v2/)). For the change history see [`v2/V2.2_IMPLEMENTATION_REPORT.md`](v2/V2.2_IMPLEMENTATION_REPORT.md), and for item-by-item status see [`v2/STATUS.md`](v2/STATUS.md). Live deployment: configured for [Render.com](https://render.com) via [`render.yaml`](render.yaml).
 
 ---
 
@@ -19,28 +19,30 @@ No AI or machine learning is used. Every decision is a fixed statistical rule wh
 1. [Repository layout](#1-repository-layout)
 2. [What you need](#2-what-you-need)
 3. [Quick start](#3-quick-start)
-4. [How it works](#4-how-it-works)
-5. [The three dashboards](#5-the-three-dashboards)
-6. [Attacks you can simulate](#6-attacks-you-can-simulate)
-7. [Detection: two statistical tiers](#7-detection-two-statistical-tiers)
-8. [Response: the Quantum Circuit Breaker](#8-response-the-quantum-circuit-breaker)
-9. [Audit records (Q-Cert)](#9-audit-records-q-cert)
-10. [Demo script for judges](#10-demo-script-for-judges)
-11. [Configuration](#11-configuration)
-12. [API reference](#12-api-reference)
-13. [Testing and experiments](#13-testing-and-experiments)
-14. [Measured results](#14-measured-results)
-15. [What we claim, and what we don't](#15-what-we-claim-and-what-we-dont)
-16. [Troubleshooting](#16-troubleshooting)
-17. [Glossary](#17-glossary)
+4. [Cloud deployment (Render)](#4-cloud-deployment-render)
+5. [How it works](#5-how-it-works)
+6. [The three dashboards](#6-the-three-dashboards)
+7. [Attacks you can simulate](#7-attacks-you-can-simulate)
+8. [Detection: two statistical tiers](#8-detection-two-statistical-tiers)
+9. [Response: the Quantum Circuit Breaker](#9-response-the-quantum-circuit-breaker)
+10. [Audit records (Q-Cert)](#10-audit-records-q-cert)
+11. [Demo script for judges](#11-demo-script-for-judges)
+12. [Configuration](#12-configuration)
+13. [API reference](#13-api-reference)
+14. [Testing and experiments](#14-testing-and-experiments)
+15. [Measured results](#15-measured-results)
+16. [What we claim, and what we don't](#16-what-we-claim-and-what-we-dont)
+17. [Troubleshooting](#17-troubleshooting)
+18. [Glossary](#18-glossary)
 
 ---
 
 ## 1. Repository layout
 
 ```
-QDS-main/
-├── README.md                          ← this guide
+QDS/
+├── read-jashan.md                     ← this guide
+├── render.yaml                        ← Render.com blueprint (auto-detects v2/, sets health check)
 ├── HEDWIG_V2_Implementation_and_Innovation_Roadmap.md   ← the plan V2.2 implements
 ├── INNOVATIONS_TEAM_ATHENA_V2.2.md    ← corrected innovation claims (use this for slides)
 ├── INNOVATIONS_TEAM_ATHENA.md         ← original claims, kept for history (contains unsupported claims)
@@ -49,11 +51,13 @@ QDS-main/
 └── v2/                                ← the current system
     ├── server.py                      ← FastAPI web server, API, WebSockets
     ├── auth.py                        ← logins, roles, hashed passwords
+    ├── Procfile                       ← Render start command (uvicorn 0.0.0.0:$PORT)
+    ├── runtime.txt                    ← Python 3.11.10 pin for Render build
     ├── run_v2.bat                     ← one-click Windows launcher
     ├── requirements.txt / -dev.txt / -pq.txt
-    ├── src/quantum_engine/            ← the engine (see §4)
+    ├── src/quantum_engine/            ← the engine (see §5)
     ├── templates/, static/            ← dashboards (HTML/CSS/JS)
-    ├── tests/                         ← 149 automated tests
+    ├── tests/                         ← 150 automated tests
     ├── experiments/                   ← seeded experiments and their results
     ├── tools/verify_audit.py          ← offline audit-record checker
     ├── data/                          ← created at runtime: database and keys (git-ignored)
@@ -146,7 +150,45 @@ To reset everything, stop the server and delete `data/hedwig.db`. If you delete 
 
 ---
 
-## 4. How it works
+## 4. Cloud deployment (Render)
+
+The repository is fully configured for one-click deployment to [Render.com](https://render.com) via the [`render.yaml`](render.yaml) blueprint.
+
+### What's included
+
+| File | Purpose |
+| :--- | :--- |
+| [`render.yaml`](render.yaml) | Render blueprint: root dir = `v2`, build command, start command, health check at `/health` |
+| [`v2/Procfile`](v2/Procfile) | `web: uvicorn server:app --host 0.0.0.0 --port $PORT` |
+| [`v2/runtime.txt`](v2/runtime.txt) | `python-3.11.10` — pins to a version with pre-built `qiskit-aer` wheels (avoids C++ build timeout) |
+| `/health` endpoint | Returns `{"status": "ok", "version": "2.2"}` — used by Render's health probe |
+
+### Deploy steps
+
+1. Push the repo to GitHub (already done on the `new-new-feat` branch).
+2. Log into [Render.com](https://render.com) → **New + → Web Service**.
+3. Connect the repo. Render auto-detects `render.yaml` and fills in the settings.
+4. *(Optional)* Set environment variables in the Render dashboard:
+   - `HEDWIG_USERS_FILE` — upload a `users.json` created with `auth.py add-user` (if not set, demo credentials are used with a warning)
+   - `HEDWIG_AUDIT_PQ` — `off` / `auto` / `require` (default `auto`)
+5. Click **Deploy**.
+
+> [!WARNING]
+> The `data/` folder is **git-ignored** and ephemeral on Render's free tier. Link states and audit records are lost on each redeploy or restart unless you attach a Render Disk or use an external database. Use the service for demos; for persistent audit trails, run locally or on a paid plan with a mounted disk.
+
+### Environment variables for Render
+
+| Variable | Render default | Notes |
+| :--- | :--- | :--- |
+| `PORT` | Set by Render | The app reads this automatically via `os.environ.get("PORT", 8000)` |
+| `HEDWIG_BACKEND` | `qiskit` | Use `statevector` for faster responses (no Qiskit overhead) |
+| `HEDWIG_USERS_FILE` | *(unset)* | Demo accounts active if not set |
+| `HEDWIG_DB` | `v2/data/hedwig.db` | Point to a mounted disk path for persistence |
+| `HEDWIG_AUDIT_PQ` | `auto` | `off` recommended unless you add `dilithium-py` to `requirements.txt` |
+
+---
+
+## 5. How it works
 
 ### 4.1 The protocol in five steps
 
@@ -203,7 +245,7 @@ The attack you choose in the admin console drives an **injector** only. The dete
 
 ---
 
-## 5. The three dashboards
+## 6. The three dashboards
 
 | Page | Who | What you see and can do |
 | :--- | :--- | :--- |
@@ -215,7 +257,7 @@ A banner on every page shows any link that is not OPEN, with the reason, the inc
 
 ---
 
-## 6. Attacks you can simulate
+## 7. Attacks you can simulate
 
 Choose one in the admin console before sending:
 
@@ -234,7 +276,7 @@ Choose one in the admin console before sending:
 
 ---
 
-## 7. Detection: two statistical tiers
+## 8. Detection: two statistical tiers
 
 **Tier 1 — channel test.** The disclosed test tokens give `k` errors out of `n`. The alarm fires if `k` exceeds the smallest threshold with `P(Binomial(n, e0) > threshold) ≤ α`, with `e0 = 2%` honest QBER and `α = 0.01`. The dashboard shows `k/n`, the exact p-value, the exact false-alarm level, and the Chernoff–KL bound beside it.
 
@@ -249,7 +291,7 @@ Tier 2 never rejects a signature by itself; it only explains a rejection. A KL-d
 
 ---
 
-## 8. Response: the Quantum Circuit Breaker
+## 9. Response: the Quantum Circuit Breaker
 
 Each link (`alice->verifiers` and `bob->charlie`) has its own state:
 
@@ -274,7 +316,7 @@ Each link (`alice->verifiers` and `bob->charlie`) has its own state:
 
 ---
 
-## 9. Audit records (Q-Cert)
+## 10. Audit records (Q-Cert)
 
 Every transmission, incident and reset produces a record at the moment it happens. Download one from any dashboard, or with `GET /api/audit/{id}`.
 
@@ -309,7 +351,7 @@ The tool exits with 0 if valid and 1 if invalid, and prints each individual chec
 
 ---
 
-## 10. Demo script for judges
+## 11. Demo script for judges
 
 Use **L = 32 or 64**; L = 16 is deliberately shown to be weak.
 
@@ -322,7 +364,7 @@ Use **L = 32 or 64**; L = 16 is deliberately shown to be weak.
 
 ---
 
-## 11. Configuration
+## 12. Configuration
 
 | Environment variable | Default | Meaning |
 | :--- | :--- | :--- |
@@ -349,7 +391,7 @@ Protocol parameters are in `SecurityParameters` (`security.py`), and response pa
 
 ---
 
-## 12. API reference
+## 13. API reference
 
 All routes except login and the public audit-key/verify routes need a signed-in session. Roles are checked on the server.
 
@@ -376,12 +418,12 @@ All routes except login and the public audit-key/verify routes need a signed-in 
 
 ---
 
-## 13. Testing and experiments
+## 14. Testing and experiments
 
 ```bash
 cd v2
 pip install -r requirements-dev.txt
-python -m pytest tests -q                         # 149 pass (+1 needs requirements-pq.txt)
+python -m pytest tests -q                         # 150 pass
 
 python experiments/run_trials.py --trials 200 --bits 16 32 64       # detection, response, early abort, lock-outs
 python experiments/sweep_tiers.py --trials 200                      # one-tier vs two-tier attribution
@@ -406,7 +448,7 @@ Each experiment writes a Markdown table and a JSON file into `v2/experiments/`. 
 
 ---
 
-## 14. Measured results
+## 15. Measured results
 
 Seed 2026, 200 trials per cell, statevector backend, honest noise p = 0.01. Brackets are 95% confidence intervals.
 
@@ -432,7 +474,7 @@ Full tables:
 
 ---
 
-## 15. What we claim, and what we don't
+## 16. What we claim, and what we don't
 
 **We claim**
 - A working three-party teleportation QDS simulation with independent verifiers.
@@ -453,7 +495,7 @@ See [`INNOVATIONS_TEAM_ATHENA_V2.2.md`](INNOVATIONS_TEAM_ATHENA_V2.2.md) for the
 
 ---
 
-## 16. Troubleshooting
+## 17. Troubleshooting
 
 | Symptom | Fix |
 | :--- | :--- |
@@ -470,7 +512,7 @@ See [`INNOVATIONS_TEAM_ATHENA_V2.2.md`](INNOVATIONS_TEAM_ATHENA_V2.2.md) for the
 
 ---
 
-## 17. Glossary
+## 18. Glossary
 
 | Term | Meaning |
 | :--- | :--- |
