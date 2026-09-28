@@ -197,10 +197,18 @@ class ForwardRequest(BaseModel):
     message_text: Optional[str] = None
 
 
-# ------------------------------------------------------------------ pages
+# ------------------------------------------------------------------ health & pages
+@app.get("/health")
+@app.head("/health")
+@app.head("/")
+async def health_check():
+    return {"status": "ok", "version": "2.2", "simulator": "HEDWIG V2.2"}
+
+
 @app.get("/", response_class=RedirectResponse)
 async def root():
     return RedirectResponse(url="/login")
+
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -490,4 +498,7 @@ async def websocket_endpoint(websocket: WebSocket, role: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8000))
+    host = os.environ.get("HOST", "0.0.0.0")
+    uvicorn.run("server:app", host=host, port=port)
+
