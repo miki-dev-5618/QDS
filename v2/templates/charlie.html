@@ -23,6 +23,10 @@
     </div>
 
     <div class="header-meta">
+      <div class="role-tag" id="cbStatusTag">
+        <span style="font-size:0.75rem; color:var(--text-dim); margin-right:0.3rem;">QCB:</span>
+        <span id="cbStatusBadge" style="color:var(--emerald); font-weight:700;">ARMED</span>
+      </div>
       <div class="role-tag">
         <div class="role-dot" id="connDot"></div>
         <span id="connText">CONNECTING...</span>
@@ -48,6 +52,24 @@
     </div>
 
     <div id="activeContent" style="display:none;">
+
+      <!-- INNOVATION 2: Quantum Circuit Breaker Active Interlock Banner -->
+      <div id="cbBanner" class="circuit-breaker-banner" style="display:none;">
+        <div class="cb-header">
+          <div class="cb-title">
+            <span>⚡ QUANTUM CIRCUIT BREAKER TRIPPED</span>
+          </div>
+          <span class="cb-badge tripped">QUARANTINED (&lt; 2ms)</span>
+        </div>
+        <div class="cb-details" id="cbDetailsText">
+          Active threat auto-quenched. In-flight entangled Bell pair buffers purged from memory to prevent extraction. Virtual quantum channel locked.
+        </div>
+        <div style="font-family:var(--font-mono); font-size:0.75rem; color:#fca5a5; display:flex; justify-content:space-between; align-items:center;">
+          <span id="cbIncidentIdText">INCIDENT ID: INC-QCB-XXXXXXXX</span>
+          <span>MEMORY BUFFER PURGED: TRUE</span>
+        </div>
+      </div>
+
       <!-- Verification Verdict Banner -->
       <div id="verdictBanner" class="verdict-banner verified">
         <div class="verdict-left">
@@ -78,6 +100,12 @@
         <div style="background:var(--bg-input); padding:1rem; border-radius:8px; font-size:1.05rem; border:1px solid var(--border-subtle);" id="verifiedMsgText">
           --
         </div>
+        <!-- INNOVATION 1: Q-THB Tether Indicator -->
+        <div style="margin-top:0.75rem; display:flex; justify-content:space-between; align-items:center; font-family:var(--font-mono); font-size:0.75rem; background:rgba(0,0,0,0.3); padding:0.4rem 0.75rem; border-radius:6px;">
+          <span style="color:var(--text-dim);">Q-THB SHA3-512 TETHER:</span>
+          <span id="charlieQthbDigest" style="color:var(--cyan-glow);">--</span>
+          <span id="charlieQthbStatus" class="brand-badge" style="font-size:0.65rem;">SYNCHRONIZED</span>
+        </div>
       </div>
 
       <div class="grid-2col">
@@ -107,15 +135,42 @@
           </div>
         </div>
 
-        <!-- RIGHT: Chernoff Bounds & Audit Analysis -->
+        <!-- RIGHT: Chernoff Bounds, Dual-Tier Discriminator, Download Q-Cert & Audit Guarantees -->
         <div>
-          <!-- Chernoff Security Certificate -->
-          <div class="glass-panel" style="margin-bottom:1.5rem;">
+          <!-- INNOVATION 3: Dual-Tier Chernoff Discriminator Card -->
+          <div class="dual-tier-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+              <span style="font-size:0.82rem; font-weight:700; color:var(--cyan-glow); font-family:var(--font-mono);">
+                INNOVATION 3: DUAL-TIER NOISE DISCRIMINATOR
+              </span>
+              <span class="brand-badge" style="font-size:0.65rem;">0% AI/ML • ITS BOUNDED</span>
+            </div>
+            <div class="tier-row">
+              <span style="color:var(--text-dim);">Tier 1: Poissonian Noise Filter</span>
+              <span class="tier-tag tier-pass" id="tier1Status">PASS (QBER &le; 3%)</span>
+            </div>
+            <div class="tier-row">
+              <span style="color:var(--text-dim);">Tier 2: Coherent Disturbance</span>
+              <span class="tier-tag tier-pass" id="tier2Status">CLEAN: NO ATTACK</span>
+            </div>
+            <div class="tier-row">
+              <span style="color:var(--text-dim);">False Alarm Bound (P_FA)</span>
+              <span style="color:var(--cyan-glow); font-weight:700;" id="tierFaBound">&lt; 10⁻⁶</span>
+            </div>
+          </div>
+
+          <!-- Chernoff Security Certificate Card -->
+          <div class="glass-panel" style="margin-bottom:1rem;">
             <div class="panel-title">
               <span><span class="title-icon">🛡</span> INDEPENDENT SECURITY CERTIFICATE</span>
               <span class="brand-badge">CHERNOFF PROOFS</span>
             </div>
             <div class="cert-grid" id="certCard"></div>
+
+            <!-- INNOVATION 4: Download Official Q-Cert Button -->
+            <button id="btnDownloadQCert" class="btn-qcert">
+              <span>📥</span> Download Official Q-Cert (.json)
+            </button>
           </div>
 
           <!-- Non-Repudiation & Dishonest Verifier Defense Card -->

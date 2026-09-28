@@ -1,8 +1,10 @@
 let ws = null;
+let currentTxId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   initWebSocket();
   initDishonestButton();
+  initDownloadQCertButton();
 });
 
 function initWebSocket() {
@@ -18,10 +20,15 @@ function initWebSocket() {
   ws.onmessage = (event) => {
     try {
       const msg = JSON.parse(event.data);
-      if (msg.event === 'init_sync' && msg.data.transmissions && msg.data.transmissions.length > 0) {
-        renderTransmission(msg.data.transmissions[msg.data.transmissions.length - 1]);
+      if (msg.event === 'init_sync') {
+        if (msg.data.circuit_breaker) updateCircuitBreakerBadge(msg.data.circuit_breaker.status);
+        if (msg.data.transmissions && msg.data.transmissions.length > 0) {
+          renderTransmission(msg.data.transmissions[msg.data.transmissions.length - 1]);
+        }
       } else if (msg.event === 'new_transmission') {
         renderTransmission(msg.data.transmission);
+      } else if (msg.event === 'circuit_breaker_update') {
+        updateCircuitBreakerBadge(msg.data.status);
       }
     } catch (e) {
       console.error('WS parse error:', e);
@@ -48,6 +55,21 @@ function updateConnectionBadge(online) {
   }
 }
 
+function updateCircuitBreakerBadge(status) {
+  const badge = document.getElementById('cbStatusBadge');
+  const tag = document.getElementById('cbStatusTag');
+  if (badge && tag) {
+    badge.textContent = status;
+    if (status === 'ARMED') {
+      badge.style.color = 'var(--emerald)';
+      tag.style.borderColor = 'rgba(16,185,129,0.3)';
+    } else {
+      badge.style.color = 'var(--crimson)';
+      tag.style.borderColor = 'var(--crimson)';
+    }
+  }
+}
+
 function initDishonestButton() {
   const btn = document.getElementById('btnDishonestForward');
   if (!btn) return;
@@ -69,13 +91,50 @@ function initDishonestButton() {
   });
 }
 
+function initDownloadQCertButton() {
+  const btn = document.getElementById('btnDownloadQCert');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    if (!currentTxId) {
+      alert('No transmission verified yet to generate Q-Cert.');
+      return;
+    }
+    window.location.href = `/api/qcert/${currentTxId}?node=bob`;
+  });
+}
+
 function renderTransmission(tx) {
+  currentTxId = tx.transmission_id;
+
   const emptyState = document.getElementById('emptyState');
   const activeContent = document.getElementById('activeContent');
   if (emptyState) emptyState.style.display = 'none';
   if (activeContent) activeContent.style.display = 'block';
 
-  // 1. Render Verdict Banner
+  const isBobValid = tx.bob.is_valid;
+  const report = tx.threat_report;
+
+  // 1. INNOVATION 2: Quantum Circuit Breaker Active Interlock Banner
+  const cbBanner = document.getElementById('cbBanner');
+  const cbDetails = document.getElementById('cbDetailsText');
+  const cbIncidentId = document.getElementById('cbIncidentIdText');
+
+  if (tx.circuit_breaker && tx.circuit_breaker.status === 'TRIPPED') {
+    updateCircuitBreakerBadge('TRIPPED');
+    if (cbBanner) {
+      cbBanner.style.display = 'block';
+      if (tx.circuit_breaker.incident) {
+        cbDetails.textContent = `Active threat auto-quenched in ${tx.circuit_breaker.incident.quarantine_latency_ms}ms. In-flight entangled Bell pair buffers purged from memory. Virtual quantum channel locked.`;
+        cbIncidentId.textContent = `INCIDENT ID: ${tx.circuit_breaker.incident.incident_id}`;
+      }
+    }
+  } else {
+    updateCircuitBreakerBadge('ARMED');
+    if (cbBanner) cbBanner.style.display = 'none';
+  }
+
+  // 2. Render Verdict Banner
   const banner = document.getElementById('verdictBanner');
   const icon = document.getElementById('verdictIcon');
   const title = document.getElementById('verdictTitle');
@@ -84,15 +143,12 @@ function renderTransmission(tx) {
   const qberVal = document.getElementById('qberVal');
   const msgDisplay = document.getElementById('verifiedMsgText');
 
-  const isBobValid = tx.bob.is_valid;
-  const report = tx.threat_report;
-
   if (banner) {
     banner.className = `verdict-banner ${isBobValid ? 'verified' : 'threat'}`;
     icon.textContent = isBobValid ? '✓' : '⚠️';
     title.textContent = isBobValid ? 'SIGNATURE VERIFIED AUTHENTIC' : 'SECURITY ALERT: THREAT QUENCHED';
     subtitle.textContent = isBobValid 
-      ? 'Alice signature states are consistent with orthogonal elimination table. 0 contradictions.'
+      ? 'Alice signature states match orthogonal elimination rules. Dual-Tier noise test passed.'
       : report.details;
   }
 
@@ -100,7 +156,43 @@ function renderTransmission(tx) {
   if (qberVal) qberVal.textContent = `${(tx.channel.qber * 100).toFixed(1)}%`;
   if (msgDisplay) msgDisplay.textContent = tx.message_text;
 
-  // 2. Render Orthogonal Elimination Matrix
+  // 3. INNOVATION 1: Render Q-THB Status
+  const qthbDigestEl = document.getElementById('bobQthbDigest');
+  const qthbStatusEl = document.getElementById('bobQthbStatus');
+  if (tx.qthb) {
+    if (qthbDigestEl) qthbDigestEl.textContent = tx.qthb.message_digest.slice(0, 24) + '...';
+    if (qthbStatusEl) {
+      if (tx.qthb.is_tampered) {
+        qthbStatusEl.textContent = 'Q-THB DESYNCHRONIZED (TAMPERED)';
+        qthbStatusEl.style.color = 'var(--crimson)';
+        qthbStatusEl.style.borderColor = 'rgba(244,63,94,0.5)';
+      } else {
+        qthbStatusEl.textContent = 'Q-THB SYNCHRONIZED';
+        qthbStatusEl.style.color = 'var(--cyan-glow)';
+        qthbStatusEl.style.borderColor = 'rgba(0,242,254,0.4)';
+      }
+    }
+  }
+
+  // 4. INNOVATION 3: Render Dual-Tier Discriminator
+  if (report.dual_tier_discrimination) {
+    const dt = report.dual_tier_discrimination;
+    const t1El = document.getElementById('tier1Status');
+    const t2El = document.getElementById('tier2Status');
+    const faEl = document.getElementById('tierFaBound');
+
+    if (t1El) {
+      t1El.textContent = dt.tier1_status;
+      t1El.className = dt.tier1_status.includes('PASS') ? 'tier-tag tier-pass' : 'tier-tag tier-alert';
+    }
+    if (t2El) {
+      t2El.textContent = dt.tier2_status;
+      t2El.className = dt.tier2_disturbance_detected ? 'tier-tag tier-alert' : 'tier-tag tier-pass';
+    }
+    if (faEl) faEl.textContent = dt.false_alarm_bound_str;
+  }
+
+  // 5. Render Orthogonal Elimination Matrix
   const tbody = document.getElementById('matrixBody');
   if (tbody) {
     tbody.innerHTML = '';
@@ -131,7 +223,7 @@ function renderTransmission(tx) {
     }
   }
 
-  // 3. Render Chernoff Security Certificate
+  // 6. Render Chernoff Security Certificate
   if (report.certificate) {
     const cert = report.certificate;
     const certCard = document.getElementById('certCard');

@@ -334,3 +334,179 @@
   color: var(--cyan-glow);
   background: rgba(0, 242, 254, 0.08);
 }
+
+/* ==========================================================================
+   INNOVATIONS COMPONENT STYLES (TEAM ATHENA)
+   ========================================================================== */
+
+/* Innovation 1: Q-THB Box */
+.qthb-box {
+  background: rgba(8, 14, 26, 0.9);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.qthb-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+.qthb-row:last-child {
+  margin-bottom: 0;
+}
+
+.qthb-digest {
+  color: var(--cyan-glow);
+  word-break: break-all;
+  font-weight: 600;
+}
+
+.qthb-schedule-pill {
+  display: inline-block;
+  padding: 0.1rem 0.35rem;
+  margin: 0 0.15rem;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.qthb-z { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.4); }
+.qthb-x { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.4); }
+
+/* Innovation 2: Quantum Circuit Breaker (QCB) */
+.circuit-breaker-banner {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.25) 0%, rgba(159, 18, 57, 0.35) 100%);
+  border: 2px solid var(--crimson);
+  box-shadow: 0 0 35px var(--crimson-glow);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  animation: pulse-border 1.5s infinite alternate;
+}
+
+@keyframes pulse-border {
+  from { box-shadow: 0 0 15px rgba(244, 63, 94, 0.3); border-color: rgba(244, 63, 94, 0.6); }
+  to { box-shadow: 0 0 35px rgba(244, 63, 94, 0.7); border-color: rgba(244, 63, 94, 1.0); }
+}
+
+.cb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.cb-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fb7185;
+  letter-spacing: 0.04em;
+}
+
+.cb-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.cb-badge.armed {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--emerald);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+.cb-badge.tripped {
+  background: rgba(244, 63, 94, 0.2);
+  color: var(--crimson);
+  border: 1px solid var(--crimson);
+  animation: pulse-dot 1s infinite;
+}
+
+.cb-details {
+  font-size: 0.82rem;
+  color: #fda4af;
+  line-height: 1.4;
+  margin-bottom: 0.5rem;
+}
+
+.btn-reset-cb {
+  background: rgba(244, 63, 94, 0.2);
+  border: 1px solid var(--crimson);
+  color: #fff;
+  padding: 0.4rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-reset-cb:hover {
+  background: var(--crimson);
+  box-shadow: 0 0 15px rgba(244, 63, 94, 0.5);
+}
+
+/* Innovation 3: Dual-Tier Discriminator Card */
+.dual-tier-card {
+  background: rgba(10, 16, 30, 0.8);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.tier-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+.tier-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.tier-tag {
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+}
+.tier-pass { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+.tier-alert { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
+
+/* Innovation 4: Download Q-Cert Button */
+.btn-qcert {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.15) 0%, rgba(79, 172, 254, 0.25) 100%);
+  color: var(--cyan-glow);
+  border: 1px solid rgba(0, 242, 254, 0.4);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-qcert:hover {
+  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+  color: #070a13;
+  box-shadow: 0 0 25px rgba(0, 242, 254, 0.5);
+  transform: translateY(-1px);
+}

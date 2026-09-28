@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initWebSocket();
   initThreatCards();
   initComposer();
+  initQTHBListener();
   loadHistory();
 });
 
@@ -25,11 +26,17 @@ function initWebSocket() {
       if (msg.event === 'init_sync') {
         if (msg.data.stats) updateStatsDisplay(msg.data.stats);
         if (msg.data.active_threat) setArmedThreatUI(msg.data.active_threat);
+        if (msg.data.circuit_breaker) updateCircuitBreakerUI(msg.data.circuit_breaker.status);
       } else if (msg.event === 'new_transmission') {
         handleNewTransmission(msg.data.transmission);
         if (msg.data.stats) updateStatsDisplay(msg.data.stats);
+        if (msg.data.transmission.circuit_breaker) {
+          updateCircuitBreakerUI(msg.data.transmission.circuit_breaker.status);
+        }
       } else if (msg.event === 'threat_armed') {
         setArmedThreatUI(msg.data.active_threat);
+      } else if (msg.event === 'circuit_breaker_update') {
+        updateCircuitBreakerUI(msg.data.status);
       }
     } catch (e) {
       console.error('WS parse error:', e);
@@ -53,6 +60,21 @@ function updateConnectionBadge(online) {
     } else {
       dot.classList.add('danger');
       text.textContent = 'RECONNECTING';
+    }
+  }
+}
+
+function updateCircuitBreakerUI(status) {
+  const tag = document.getElementById('cbHeaderTag');
+  const badge = document.getElementById('cbHeaderStatus');
+  if (badge && tag) {
+    badge.textContent = status;
+    if (status === 'ARMED') {
+      badge.style.color = 'var(--emerald)';
+      tag.style.borderColor = 'rgba(16,185,129,0.3)';
+    } else {
+      badge.style.color = 'var(--crimson)';
+      tag.style.borderColor = 'var(--crimson)';
     }
   }
 }
@@ -135,6 +157,7 @@ function initComposer() {
 
   bitSelect.addEventListener('change', () => {
     renderDummyTokens(parseInt(bitSelect.value));
+    updateQTHBPreview();
   });
 
   form.addEventListener('submit', async (e) => {
@@ -162,7 +185,8 @@ function initComposer() {
 
       const data = await res.json();
       if (data.status === 'success') {
-        logTerminal('TX', `Dispatched ID: ${data.transmission.transmission_id} | Qubits: ${nBits} | Threat: ${currentThreat}`);
+        const tx = data.transmission;
+        logTerminal('TX', `Dispatched ID: ${tx.transmission_id} | Q-THB: ${tx.qthb.digest_truncated} | Threat: ${currentThreat}`);
       }
     } catch (err) {
       logTerminal('ERR', `Transmission failed: ${err.message}`);
@@ -171,6 +195,54 @@ function initComposer() {
       btn.innerHTML = `<span class="title-icon">⚡</span> Quantum Sign & Transmit Token`;
     }
   });
+}
+
+function initQTHBListener() {
+  const msgArea = document.getElementById('messageText');
+  if (msgArea) {
+    msgArea.addEventListener('input', () => updateQTHBPreview());
+  }
+  updateQTHBPreview();
+}
+
+async function updateQTHBPreview() {
+  const text = (document.getElementById('messageText') && document.getElementById('messageText').value) || ' ';
+  const nBits = parseInt((document.getElementById('bitDepth') && document.getElementById('bitDepth').value) || '16');
+
+  try {
+    const msgBuffer = new TextEncoder().encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-512', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    const digestEl = document.getElementById('qthbDigest');
+    const scheduleEl = document.getElementById('qthbSchedule');
+
+    if (digestEl) {
+      digestEl.textContent = hashHex.slice(0, 20) + '...' + hashHex.slice(-8);
+    }
+
+    if (scheduleEl) {
+      scheduleEl.innerHTML = '';
+      const displayCount = Math.min(nBits, 16);
+      for (let i = 0; i < displayCount; i++) {
+        const basis = (hashArray[i % hashArray.length] % 2 === 0) ? 'Z' : 'X';
+        const pill = document.createElement('span');
+        pill.className = `qthb-schedule-pill ${basis === 'Z' ? 'qthb-z' : 'qthb-x'}`;
+        pill.textContent = basis;
+        scheduleEl.appendChild(pill);
+      }
+      if (nBits > 16) {
+        const extra = document.createElement('span');
+        extra.style.color = 'var(--text-dim)';
+        extra.style.fontSize = '0.7rem';
+        extra.textContent = ` +${nBits - 16} more`;
+        scheduleEl.appendChild(extra);
+      }
+    }
+  } catch (err) {
+    console.error('QTHB preview error:', err);
+  }
 }
 
 function handleNewTransmission(tx) {
@@ -193,11 +265,12 @@ function handleNewTransmission(tx) {
       </span>
     </div>
     <div style="font-size:0.85rem; margin-bottom:0.4rem; color:var(--text-main);">"${tx.message_text}"</div>
-    <div style="display:flex; gap:1rem; font-size:0.75rem; font-family:var(--font-mono); color:var(--text-dim);">
+    <div style="display:flex; gap:1rem; font-size:0.75rem; font-family:var(--font-mono); color:var(--text-dim); flex-wrap:wrap;">
       <span>Bob: ${tx.bob.mismatches} err</span>
       <span>Charlie: ${tx.charlie.mismatches} err</span>
       <span>QBER: ${(tx.channel.qber * 100).toFixed(1)}%</span>
-      <span>${report.classification}</span>
+      <span>Q-THB: ${tx.qthb ? tx.qthb.digest_truncated : 'Active'}</span>
+      <span>QCB: ${tx.circuit_breaker ? tx.circuit_breaker.status : 'ARMED'}</span>
     </div>
   `;
 
@@ -222,6 +295,7 @@ async function loadHistory() {
     const res = await fetch('/api/history');
     const data = await res.json();
     if (data.stats) updateStatsDisplay(data.stats);
+    if (data.circuit_breaker) updateCircuitBreakerUI(data.circuit_breaker.status);
     if (data.transmissions && data.transmissions.length > 0) {
       data.transmissions.slice(-5).forEach(tx => handleNewTransmission(tx));
     }
