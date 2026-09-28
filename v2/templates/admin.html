@@ -23,6 +23,10 @@
     </div>
 
     <div class="header-meta">
+      <div class="role-tag" id="cbHeaderTag" style="border-color:rgba(16,185,129,0.3)">
+        <span style="font-size:0.75rem; color:var(--text-dim); margin-right:0.3rem;">QCB:</span>
+        <span id="cbHeaderStatus" style="color:var(--emerald); font-weight:700;">ARMED</span>
+      </div>
       <div class="role-tag">
         <div class="role-dot" id="connDot"></div>
         <span id="connText">CONNECTING...</span>
@@ -53,6 +57,22 @@
             <div class="form-group">
               <label class="form-label" for="messageText">PLAINTEXT MESSAGE CONTENT</label>
               <textarea id="messageText" class="form-textarea" required placeholder="Enter confidential message...">CRITICAL GRID DISPATCH: Authorize regional energy rerouting sequence #7729</textarea>
+            </div>
+
+            <!-- INNOVATION 1: Q-THB Widget -->
+            <div class="qthb-box">
+              <div class="qthb-row">
+                <span style="color:var(--text-dim); font-size:0.72rem;">INNOVATION 1: QUANTUM-TETHERED HASH BINDING (Q-THB)</span>
+                <span class="brand-badge" style="font-size:0.65rem;">SHA3-512 TETHERED</span>
+              </div>
+              <div class="qthb-row" style="margin-top:0.3rem;">
+                <span style="color:var(--text-dim);">Digest H(M):</span>
+                <span class="qthb-digest" id="qthbDigest">Computing...</span>
+              </div>
+              <div class="qthb-row" style="margin-top:0.3rem;">
+                <span style="color:var(--text-dim);">Basis Schedule B:</span>
+                <span id="qthbSchedule">...</span>
+              </div>
             </div>
 
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">

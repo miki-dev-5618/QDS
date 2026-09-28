@@ -4,7 +4,7 @@ import json
 import time
 from typing import Dict, List, Set, Any, Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, status, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -244,7 +244,49 @@ async def api_dishonest_bob_forward():
 async def api_history():
     return {
         "transmissions": state.transmissions,
-        "stats": state.stats
+        "stats": state.stats,
+        "circuit_breaker": {
+            "status": qds_engine.circuit_breaker.status.value,
+            "incident": qds_engine.circuit_breaker.last_incident.to_dict() if qds_engine.circuit_breaker.last_incident else None
+        }
+    }
+
+
+@app.get("/api/qcert/{transmission_id}")
+async def api_download_qcert(transmission_id: str, node: str = "bob"):
+    """Serves downloadable JSON Q-Cert certificate."""
+    node = node.lower()
+    if transmission_id in qds_engine.stored_qcerts:
+        node_certs = qds_engine.stored_qcerts[transmission_id]
+        cert_doc = node_certs.get(node, node_certs.get("bob"))
+        if cert_doc:
+            content = cert_doc.to_json_str()
+            filename = f"Q-CERT_{transmission_id}_{node.upper()}.json"
+            return Response(
+                content=content,
+                media_type="application/json",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+    raise HTTPException(status_code=404, detail="Q-Cert not found for this transmission.")
+
+
+@app.post("/api/circuit-breaker/reset")
+async def api_reset_circuit_breaker():
+    """Resets the Quantum Circuit Breaker to ARMED state."""
+    qds_engine.circuit_breaker.reset()
+    await manager.broadcast("circuit_breaker_update", {
+        "status": "ARMED",
+        "incident": None
+    })
+    return {"status": "success", "circuit_breaker_status": "ARMED"}
+
+
+@app.get("/api/circuit-breaker/status")
+async def api_circuit_breaker_status():
+    cb = qds_engine.circuit_breaker
+    return {
+        "status": cb.status.value,
+        "last_incident": cb.last_incident.to_dict() if cb.last_incident else None
     }
 
 
@@ -266,13 +308,17 @@ async def websocket_endpoint(websocket: WebSocket, role: str):
 
     await manager.connect(role, websocket)
 
-    # Send initial state sync
+    # Send initial state sync including QCB and stats
     await websocket.send_text(json.dumps({
         "event": "init_sync",
         "data": {
             "role": role,
             "active_threat": state.active_threat_setting,
             "stats": state.stats,
+            "circuit_breaker": {
+                "status": qds_engine.circuit_breaker.status.value,
+                "incident": qds_engine.circuit_breaker.last_incident.to_dict() if qds_engine.circuit_breaker.last_incident else None
+            },
             "transmissions": state.transmissions[-5:] if state.transmissions else []
         }
     }))
