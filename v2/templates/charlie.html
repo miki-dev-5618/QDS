@@ -4,138 +4,162 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HEDWIG • Charlie Auditor Terminal</title>
-  <link rel="stylesheet" href="/static/css/style.css">
-  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/style.css?v=2.3">
+  <link rel="stylesheet" href="/static/css/components.css?v=2.3">
 </head>
-<body>
-  <header class="app-header">
-    <div class="brand-wrapper">
-      <div class="brand-logo-glow" style="background:linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);">γ</div>
-      <div class="brand-text">
-        <h1>
-          <span>HEDWIG</span>
-          <span style="color:var(--text-dim)">/</span>
-          <span style="color:var(--purple)">CHARLIE AUDITOR TERMINAL</span>
-          <span class="brand-badge" style="color:var(--purple); border-color:rgba(168,85,247,0.3); background:rgba(168,85,247,0.1);">VERIFIER NODE 2</span>
-        </h1>
-        <p class="brand-sub">Cross-Symmetrisation Verification • Dishonest Verifier Detection • Non-Repudiation</p>
-      </div>
-    </div>
-
-    <div class="header-meta">
-      <div class="role-tag">
-        <div class="role-dot" id="connDot"></div>
-        <span id="connText">CONNECTING...</span>
-      </div>
-      <div class="role-tag" style="border-color:rgba(168,85,247,0.3)">
-        <span style="color:var(--purple); font-weight:700;">NODE: CHARLIE (AUDITOR)</span>
-      </div>
-      <nav class="nav-links">
-        <a href="/admin" target="_blank" class="nav-btn">Alice / Admin ↗</a>
-        <a href="/bob" target="_blank" class="nav-btn">Bob (Verifier 1) ↗</a>
-        <a href="/login" class="nav-btn">Logout</a>
-      </nav>
-    </div>
-  </header>
-
-  <main class="main-container">
-    <div id="emptyState" class="glass-panel" style="text-align:center; padding:3rem; margin-top:2rem;">
-      <div style="font-size:2.5rem; margin-bottom:1rem; opacity:0.6;">🔍</div>
-      <h3 style="font-size:1.3rem; margin-bottom:0.5rem;">Auditing Network for Signature Transmissions</h3>
-      <p style="color:var(--text-muted); font-size:0.9rem;">
-        Awaiting Keep-or-Forward quantum token swaps and signatures from Alice & Bob...
-      </p>
-    </div>
-
-    <div id="activeContent" style="display:none;">
-      <!-- Verification Verdict Banner -->
-      <div id="verdictBanner" class="verdict-banner verified">
-        <div class="verdict-left">
-          <div class="verdict-icon-box" id="verdictIcon">✓</div>
-          <div>
-            <div class="verdict-title" id="verdictTitle">SIGNATURE AUDITED & VERIFIED</div>
-            <div class="verdict-subtitle" id="verdictSubtitle">Signature consistent with Charlie's independent elimination rules.</div>
-          </div>
-        </div>
-        <div class="verdict-stats">
-          <div>
-            <div class="stat-item-val" id="mismatchesVal">0 / 16</div>
-            <div class="stat-item-lbl">Contradictions</div>
-          </div>
-          <div>
-            <div class="stat-item-val" id="qberVal" style="color:var(--amber);">0.0%</div>
-            <div class="stat-item-lbl">Channel QBER</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Message Payload Display -->
-      <div class="glass-panel" style="margin-bottom:1.5rem;">
-        <div class="panel-title">
-          <span><span class="title-icon">📄</span> AUDITED TRANSMISSION CONTENT</span>
-          <span style="font-size:0.75rem; font-family:var(--font-mono); color:var(--purple);">INDEPENDENT AUDIT</span>
-        </div>
-        <div style="background:var(--bg-input); padding:1rem; border-radius:8px; font-size:1.05rem; border:1px solid var(--border-subtle);" id="verifiedMsgText">
-          --
-        </div>
-      </div>
-
-      <div class="grid-2col">
-        <!-- LEFT: Charlie's Independent Orthogonal State Elimination Matrix -->
-        <div class="glass-panel">
-          <div class="panel-title">
-            <span><span class="title-icon">📐</span> CHARLIE INDEPENDENT ELIMINATION MATRIX</span>
-            <span style="font-size:0.75rem; font-family:var(--font-mono); color:var(--text-dim);">CROSS-CHECK TABLE</span>
-          </div>
-          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">
-            Charlie's measurements on tokens held or received from Bob. Even if Bob crafts a forgery using Bob's table, it clashes with Charlie's independent measurements:
-          </p>
-
-          <div class="matrix-table-wrapper" style="max-height: 380px;">
-            <table class="matrix-table">
-              <thead>
-                <tr>
-                  <th>Index</th>
-                  <th>Symmetrisation Held</th>
-                  <th>Eliminated State</th>
-                  <th>Revealed State</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="matrixBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- RIGHT: Chernoff Bounds & Audit Analysis -->
+<body class="role-charlie">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark" aria-hidden="true">Ψ</div>
         <div>
-          <!-- Chernoff Security Certificate -->
-          <div class="glass-panel" style="margin-bottom:1.5rem;">
-            <div class="panel-title">
-              <span><span class="title-icon">🛡</span> INDEPENDENT SECURITY CERTIFICATE</span>
-              <span class="brand-badge">CHERNOFF PROOFS</span>
-            </div>
-            <div class="cert-grid" id="certCard"></div>
-          </div>
-
-          <!-- Non-Repudiation & Dishonest Verifier Defense Card -->
-          <div class="glass-panel">
-            <div class="panel-title" style="color:var(--purple);">
-              <span><span class="title-icon">🔒</span> AUDIT & INTEGRITY GUARANTEES</span>
-            </div>
-            <p style="font-size:0.82rem; color:var(--text-muted); line-height:1.5;">
-              • <strong>Dishonest Verifier Defense:</strong> Bob cannot forge Alice's signature to Charlie because Bob only knows half the measurement outcomes.
-            </p>
-            <p style="font-size:0.82rem; color:var(--text-muted); line-height:1.5; margin-top:0.5rem;">
-              • <strong>Signer Non-Repudiation:</strong> Alice cannot selectively sign for Bob while denying it to Charlie, because the Keep-or-Forward protocol randomly distributes copies.
-            </p>
-          </div>
+          <div class="brand-name">HEDWIG</div>
+          <div class="brand-tag">Teleportation QDS</div>
         </div>
       </div>
 
-    </div>
-  </main>
+      <nav class="side-nav" aria-label="Nodes">
+        <div class="side-label">Current node</div>
+        <span class="side-link is-current" aria-current="page"><span class="role-avatar charlie" aria-hidden="true">γ</span> Charlie (Auditor)</span>
+        <div class="side-label">Other nodes</div>
+        <a href="/admin" target="_blank" class="side-link"><span class="role-avatar admin" aria-hidden="true">A</span> Alice / Admin <svg class="icon icon-sm ext" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-external"/></svg></a>
+        <a href="/bob" target="_blank" class="side-link"><span class="role-avatar bob" aria-hidden="true">β</span> Bob (Verifier 1) <svg class="icon icon-sm ext" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-external"/></svg></a>
+      </nav>
 
-  <script src="/static/js/charlie.js"></script>
+      <div class="sidebar-foot">
+        <a href="#" class="side-link" data-logout="charlie"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-logout"/></svg> Logout</a>
+      </div>
+    </aside>
+
+    <div class="app-main">
+      <header class="topbar">
+        <div class="page-heading">
+          <h1 class="page-title">
+            <span>Charlie auditor terminal</span>
+            <span class="brand-badge">Verifier node 2</span>
+          </h1>
+          <p class="page-sub">Cross-symmetrisation verification • Dishonest verifier detection • Non-repudiation</p>
+        </div>
+        <div class="topbar-meta">
+          <div class="status-pill">
+            <div class="role-dot" id="connDot"></div>
+            <span id="connText">CONNECTING...</span>
+          </div>
+          <div class="status-pill node">Node: Charlie (auditor)</div>
+        </div>
+      </header>
+
+      <main class="main-container">
+        <div id="channelBanner" class="channel-banner" style="display:none"></div>
+
+        <div id="emptyState" class="panel empty-state">
+          <div class="empty-state-icon" aria-hidden="true"><svg class="icon icon-lg" width="24" height="24"><use href="/static/img/icons.svg?v=2.3#i-search"/></svg></div>
+          <h2>Auditing network for signature transmissions</h2>
+          <p>Awaiting Keep-or-Forward quantum token swaps and signatures from Alice &amp; Bob...</p>
+        </div>
+
+        <div id="activeContent" style="display:none;">
+          <div class="stack">
+            <!-- Verification verdict -->
+            <div id="verdictBanner" class="verdict-banner verified" role="status">
+              <div class="verdict-left">
+                <div class="verdict-icon-box" id="verdictIcon">✓</div>
+                <div>
+                  <div class="verdict-title" id="verdictTitle">SIGNATURE AUDITED & VERIFIED</div>
+                  <div class="verdict-subtitle" id="verdictSubtitle">Signature consistent with Charlie's independent elimination rules.</div>
+                </div>
+              </div>
+              <div class="verdict-stats">
+                <div>
+                  <div class="stat-item-val" id="mismatchesVal">0 / 16</div>
+                  <div class="stat-item-lbl">Mismatches / copies (limit)</div>
+                </div>
+                <div>
+                  <div class="stat-item-val" id="qberVal">0.0%</div>
+                  <div class="stat-item-lbl">Est. QBER (test tokens)</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Received payload -->
+            <section class="panel">
+              <div class="section-head">
+                <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-file-text"/></svg> Audited transmission content</h2>
+                <span class="brand-badge">Received message</span>
+              </div>
+              <div class="payload-box" id="verifiedMsgText">--</div>
+            </section>
+
+            <!-- Checks and audit -->
+            <section class="panel">
+              <div class="section-head">
+                <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-shield-check"/></svg> Verification checks (computed by this verifier)</h2>
+                <span class="brand-badge neutral">No scenario label used</span>
+              </div>
+              <div id="checksList" class="checks-list"></div>
+              <div id="auditRow" class="audit-row"></div>
+            </section>
+
+            <div class="work-grid verifier">
+              <!-- Charlie's independent elimination matrix -->
+              <section class="panel">
+                <div class="section-head">
+                  <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-table"/></svg> Charlie independent elimination matrix</h2>
+                  <span class="brand-badge neutral">Cross-check table</span>
+                </div>
+                <p class="section-note">
+                  Charlie's measurements on tokens held or received from Bob. Even if Bob crafts a forgery using Bob's table, it clashes with Charlie's independent measurements:
+                </p>
+                <div class="matrix-table-wrapper" role="region" aria-label="Elimination matrix" tabindex="0">
+                  <table class="matrix-table">
+                    <thead>
+                      <tr>
+                        <th>Index</th>
+                        <th>Symmetrisation Held</th>
+                        <th>Eliminated State</th>
+                        <th>Revealed State</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="matrixBody"></tbody>
+                  </table>
+                </div>
+              </section>
+
+              <div class="stack">
+                <!-- Bounds -->
+                <section class="panel">
+                  <div class="section-head">
+                    <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-shield-check"/></svg> Hoeffding bounds for this decision</h2>
+                    <span class="brand-badge warn">Illustrative · assumptions below</span>
+                  </div>
+                  <div class="cert-grid" id="certCard"></div>
+                </section>
+
+                <!-- Integrity guarantees -->
+                <section class="panel">
+                  <div class="section-head">
+                    <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-lock"/></svg> Audit &amp; integrity guarantees</h2>
+                  </div>
+                  <div class="integrity-list">
+                    <p>
+                      <strong>Dishonest verifier:</strong> a signature forwarded by Bob is checked against Charlie's own eliminations, which Bob never sees. Detection is probabilistic; the bound panel shows how it scales with signature length.
+                    </p>
+                    <p>
+                      <strong>Signer repudiation:</strong> keep-or-forward assigns copies at random, so inconsistent copies from Alice tend to show up at both verifiers rather than only at Charlie.
+                    </p>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>window.HEDWIG_ROLE = "charlie";</script>
+  <script src="/static/js/common.js?v=2.3"></script>
+  <script src="/static/js/verifier.js?v=2.3"></script>
 </body>
 </html>

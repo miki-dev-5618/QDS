@@ -1,0 +1,163 @@
+{
+  "meta": {
+    "trials": 200,
+    "bits": [
+      32
+    ],
+    "taps": [
+      0.0,
+      0.25,
+      0.5,
+      1.0
+    ],
+    "seed": 2026,
+    "depolarizing": 0.01,
+    "generated": "2026-09-28 19:19:23"
+  },
+  "rows": [
+    {
+      "schedule": "random",
+      "tap_fraction": 0.0,
+      "L": 32,
+      "trials": 200,
+      "tier1_alarm": "0.000 [0.000, 0.019]",
+      "forgeries_attempted": 200,
+      "binding_rejects_forgery": "1.000 [0.981, 1.000]",
+      "quantum_layer_rejects_forgery": "1.000 [0.981, 1.000]",
+      "quantum_layer_would_accept": "0.000 [0.000, 0.019]",
+      "mean_contradiction_rate": 0.2452
+    },
+    {
+      "schedule": "random",
+      "tap_fraction": 0.25,
+      "L": 32,
+      "trials": 200,
+      "tier1_alarm": "0.160 [0.116, 0.217]",
+      "forgeries_attempted": 168,
+      "binding_rejects_forgery": "1.000 [0.978, 1.000]",
+      "quantum_layer_rejects_forgery": "1.000 [0.978, 1.000]",
+      "quantum_layer_would_accept": "0.000 [0.000, 0.022]",
+      "mean_contradiction_rate": 0.2491
+    },
+    {
+      "schedule": "random",
+      "tap_fraction": 0.5,
+      "L": 32,
+      "trials": 200,
+      "tier1_alarm": "0.555 [0.486, 0.622]",
+      "forgeries_attempted": 89,
+      "binding_rejects_forgery": "1.000 [0.959, 1.000]",
+      "quantum_layer_rejects_forgery": "1.000 [0.959, 1.000]",
+      "quantum_layer_would_accept": "0.000 [0.000, 0.041]",
+      "mean_contradiction_rate": 0.2442
+    },
+    {
+      "schedule": "random",
+      "tap_fraction": 1.0,
+      "L": 32,
+      "trials": 200,
+      "tier1_alarm": "0.980 [0.950, 0.992]",
+      "forgeries_attempted": 4,
+      "binding_rejects_forgery": "1.000 [0.510, 1.000]",
+      "quantum_layer_rejects_forgery": "1.000 [0.510, 1.000]",
+      "quantum_layer_would_accept": "0.000 [0.000, 0.490]",
+      "mean_contradiction_rate": 0.2344
+    },
+    {
+      "schedule": "public_hash",
+      "tap_fraction": 0.0,
+      "L": 32,
+      "trials": 200,
+      "tier1_alarm": "0.000 [0.000, 0.019]",
+      "forgeries_attempted": 200,
+      "binding_rejects_forgery": "1.000 [0.981, 1.000]",
+      "quantum_layer_rejects_forgery": "1.000 [0.981, 1.000]",
+      "quantum_layer_would_accept": "0.000 [0.000, 0.019]",
+      "mean_contradiction_rate": 0.2523
+    },
+    {
+      "schedule": "public_hash",
+      "tap_fraction": 0.25,
+      "L": 32,
+      "trials": 200,
+      "tier1_alarm": "0.175 [0.129, 0.234]",
+      "forgeries_attempted": 165,
+      "binding_rejects_forgery": "1.000 [0.977, 1.000]",
+      "quantum_layer_rejects_forgery": "1.000 [0.977, 1.000]",
+      "quantum_layer_would_accept": "0.000 [0.000, 0.023]",
+      "mean_contradiction_rate": 0.1819
+    },
+    {
+      "schedule": "public_hash",
+      "tap_fraction": 0.5,
+      "L": 32,
+      "trials": 200,
+      "tier1_alarm": "0.665 [0.597, 0.727]",
+      "forgeries_attempted": 67,
+      "binding_rejects_forgery": "1.000 [0.946, 1.000]",
+      "quantum_layer_rejects_forgery": "0.985 [0.920, 0.997]",
+      "quantum_layer_would_accept": "0.015 [0.003, 0.080]",
+      "mean_contradiction_rate": 0.1199
+    },
+    {
+      "schedule": "public_hash",
+      "tap_fraction": 1.0,
+      "L": 32,
+      "trials": 200,
+      "tier1_alarm": "0.970 [0.936, 0.986]",
+      "forgeries_attempted": 6,
+      "binding_rejects_forgery": "1.000 [0.610, 1.000]",
+      "quantum_layer_rejects_forgery": "0.167 [0.030, 0.564]",
+      "quantum_layer_would_accept": "0.833 [0.436, 0.970]",
+      "mean_contradiction_rate": 0.0052
+    },
+    {
+      "schedule": "keyed_hmac",
+      "tap_fraction": 0.0,
+      "L": 32,
+      "trials": 200,
+      "tier1_alarm": "0.000 [0.000, 0.019]",
+      "forgeries_attempted": 200,
+      "binding_rejects_forgery": "1.000 [0.981, 1.000]",
+      "quantum_layer_rejects_forgery": "1.000 [0.981, 1.000]",
+      "quantum_layer_would_accept": "0.000 [0.000, 0.019]",
+      "mean_contradiction_rate": 0.2496
+    },
+    {
+      "schedule": "keyed_hmac",
+      "tap_fraction": 0.25,
+      "L": 32,
+      "trials": 200,
+      "tier1_alarm": "0.195 [0.146, 0.255]",
+      "forgeries_attempted": 161,
+      "binding_rejects_forgery": "1.000 [0.977, 1.000]",
+      "quantum_layer_rejects_forgery": "1.000 [0.977, 1.000]",
+      "quantum_layer_would_accept": "0.000 [0.000, 0.023]",
+      "mean_contradiction_rate": 0.2469
+    },
+    {
+      "schedule": "keyed_hmac",
+      "tap_fraction": 0.5,
+      "L": 32,
+      "trials": 200,
+      "tier1_alarm": "0.640 [0.571, 0.703]",
+      "forgeries_attempted": 72,
+      "binding_rejects_forgery": "1.000 [0.949, 1.000]",
+      "quantum_layer_rejects_forgery": "1.000 [0.949, 1.000]",
+      "quantum_layer_would_accept": "0.000 [0.000, 0.051]",
+      "mean_contradiction_rate": 0.2509
+    },
+    {
+      "schedule": "keyed_hmac",
+      "tap_fraction": 1.0,
+      "L": 32,
+      "trials": 200,
+      "tier1_alarm": "0.985 [0.957, 0.995]",
+      "forgeries_attempted": 3,
+      "binding_rejects_forgery": "1.000 [0.438, 1.000]",
+      "quantum_layer_rejects_forgery": "1.000 [0.438, 1.000]",
+      "quantum_layer_would_accept": "0.000 [0.000, 0.562]",
+      "mean_contradiction_rate": 0.2396
+    }
+  ]
+}

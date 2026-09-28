@@ -1,0 +1,741 @@
+{
+  "meta": {
+    "trials": 200,
+    "bits": [
+      16,
+      32,
+      64
+    ],
+    "seed": 2026,
+    "generated": "2026-09-28 19:22:40"
+  },
+  "rows": [
+    {
+      "L": 16,
+      "condition": "honest p=0.005",
+      "truth": "accepted",
+      "trials": 200,
+      "v21": {
+        "accepted": 194,
+        "channel": 0,
+        "signature": 6,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 194,
+        "channel": 0,
+        "signature": 0,
+        "undetermined": 6,
+        "other": 0
+      },
+      "response": {
+        "none": 194,
+        "watch": 6
+      },
+      "v21_correct": "0.970 [0.936, 0.986]",
+      "v22_correct": "0.970 [0.936, 0.986]",
+      "v21_wrong_attribution": "0.030 [0.014, 0.064]",
+      "v22_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_undetermined": "0.030 [0.014, 0.064]",
+      "quarantine": "0.000 [0.000, 0.019]"
+    },
+    {
+      "L": 16,
+      "condition": "honest p=0.01",
+      "truth": "accepted",
+      "trials": 200,
+      "v21": {
+        "accepted": 187,
+        "channel": 0,
+        "signature": 13,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 187,
+        "channel": 0,
+        "signature": 0,
+        "undetermined": 13,
+        "other": 0
+      },
+      "response": {
+        "none": 187,
+        "watch": 13
+      },
+      "v21_correct": "0.935 [0.892, 0.962]",
+      "v22_correct": "0.935 [0.892, 0.962]",
+      "v21_wrong_attribution": "0.065 [0.038, 0.108]",
+      "v22_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_undetermined": "0.065 [0.038, 0.108]",
+      "quarantine": "0.000 [0.000, 0.019]"
+    },
+    {
+      "L": 16,
+      "condition": "honest p=0.03 (QBER=e0)",
+      "truth": "accepted",
+      "trials": 200,
+      "v21": {
+        "accepted": 172,
+        "channel": 1,
+        "signature": 27,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 172,
+        "channel": 2,
+        "signature": 0,
+        "undetermined": 26,
+        "other": 0
+      },
+      "response": {
+        "watch": 28,
+        "none": 172
+      },
+      "v21_correct": "0.860 [0.805, 0.901]",
+      "v22_correct": "0.860 [0.805, 0.901]",
+      "v21_wrong_attribution": "0.140 [0.099, 0.195]",
+      "v22_wrong_attribution": "0.010 [0.003, 0.036]",
+      "v22_undetermined": "0.130 [0.090, 0.184]",
+      "quarantine": "0.000 [0.000, 0.019]"
+    },
+    {
+      "L": 16,
+      "condition": "honest + bursts",
+      "truth": "accepted",
+      "trials": 200,
+      "v21": {
+        "accepted": 160,
+        "channel": 4,
+        "signature": 36,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 160,
+        "channel": 9,
+        "signature": 0,
+        "undetermined": 31,
+        "other": 0
+      },
+      "response": {
+        "none": 160,
+        "watch": 39,
+        "quarantine": 1
+      },
+      "v21_correct": "0.800 [0.739, 0.850]",
+      "v22_correct": "0.800 [0.739, 0.850]",
+      "v21_wrong_attribution": "0.200 [0.150, 0.261]",
+      "v22_wrong_attribution": "0.045 [0.024, 0.083]",
+      "v22_undetermined": "0.155 [0.111, 0.212]",
+      "quarantine": "0.005 [0.001, 0.028]"
+    },
+    {
+      "L": 16,
+      "condition": "intercept 25%",
+      "truth": "channel",
+      "trials": 200,
+      "v21": {
+        "accepted": 88,
+        "channel": 25,
+        "signature": 87,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 88,
+        "channel": 51,
+        "signature": 1,
+        "undetermined": 60,
+        "other": 0
+      },
+      "response": {
+        "none": 88,
+        "watch": 104,
+        "quarantine": 8
+      },
+      "v21_correct": "0.125 [0.086, 0.178]",
+      "v22_correct": "0.255 [0.200, 0.320]",
+      "v21_wrong_attribution": "0.435 [0.368, 0.504]",
+      "v22_wrong_attribution": "0.005 [0.001, 0.028]",
+      "v22_undetermined": "0.300 [0.241, 0.367]",
+      "quarantine": "0.040 [0.020, 0.077]"
+    },
+    {
+      "L": 16,
+      "condition": "intercept 50%",
+      "truth": "channel",
+      "trials": 200,
+      "v21": {
+        "accepted": 40,
+        "channel": 79,
+        "signature": 81,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 40,
+        "channel": 122,
+        "signature": 1,
+        "undetermined": 37,
+        "other": 0
+      },
+      "response": {
+        "quarantine": 50,
+        "watch": 110,
+        "none": 40
+      },
+      "v21_correct": "0.395 [0.330, 0.464]",
+      "v22_correct": "0.610 [0.541, 0.675]",
+      "v21_wrong_attribution": "0.405 [0.339, 0.474]",
+      "v22_wrong_attribution": "0.005 [0.001, 0.028]",
+      "v22_undetermined": "0.185 [0.137, 0.245]",
+      "quarantine": "0.250 [0.195, 0.314]"
+    },
+    {
+      "L": 16,
+      "condition": "intercept 100%",
+      "truth": "channel",
+      "trials": 200,
+      "v21": {
+        "accepted": 1,
+        "channel": 165,
+        "signature": 34,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 1,
+        "channel": 190,
+        "signature": 3,
+        "undetermined": 6,
+        "other": 0
+      },
+      "response": {
+        "quarantine": 140,
+        "watch": 59,
+        "none": 1
+      },
+      "v21_correct": "0.825 [0.766, 0.871]",
+      "v22_correct": "0.950 [0.910, 0.973]",
+      "v21_wrong_attribution": "0.170 [0.124, 0.228]",
+      "v22_wrong_attribution": "0.015 [0.005, 0.043]",
+      "v22_undetermined": "0.030 [0.014, 0.064]",
+      "quarantine": "0.700 [0.633, 0.759]"
+    },
+    {
+      "L": 16,
+      "condition": "dishonest signer",
+      "truth": "signature",
+      "trials": 200,
+      "v21": {
+        "accepted": 4,
+        "channel": 0,
+        "signature": 196,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 4,
+        "channel": 2,
+        "signature": 83,
+        "undetermined": 111,
+        "other": 0
+      },
+      "response": {
+        "watch": 85,
+        "quarantine": 111,
+        "none": 4
+      },
+      "v21_correct": "0.980 [0.950, 0.992]",
+      "v22_correct": "0.415 [0.349, 0.484]",
+      "v21_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_wrong_attribution": "0.010 [0.003, 0.036]",
+      "v22_undetermined": "0.555 [0.486, 0.622]",
+      "quarantine": "0.555 [0.486, 0.622]"
+    },
+    {
+      "L": 32,
+      "condition": "honest p=0.005",
+      "truth": "accepted",
+      "trials": 200,
+      "v21": {
+        "accepted": 199,
+        "channel": 0,
+        "signature": 1,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 199,
+        "channel": 0,
+        "signature": 0,
+        "undetermined": 1,
+        "other": 0
+      },
+      "response": {
+        "none": 199,
+        "watch": 1
+      },
+      "v21_correct": "0.995 [0.972, 0.999]",
+      "v22_correct": "0.995 [0.972, 0.999]",
+      "v21_wrong_attribution": "0.005 [0.001, 0.028]",
+      "v22_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_undetermined": "0.005 [0.001, 0.028]",
+      "quarantine": "0.000 [0.000, 0.019]"
+    },
+    {
+      "L": 32,
+      "condition": "honest p=0.01",
+      "truth": "accepted",
+      "trials": 200,
+      "v21": {
+        "accepted": 200,
+        "channel": 0,
+        "signature": 0,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 200,
+        "channel": 0,
+        "signature": 0,
+        "undetermined": 0,
+        "other": 0
+      },
+      "response": {
+        "none": 200
+      },
+      "v21_correct": "1.000 [0.981, 1.000]",
+      "v22_correct": "1.000 [0.981, 1.000]",
+      "v21_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_undetermined": "0.000 [0.000, 0.019]",
+      "quarantine": "0.000 [0.000, 0.019]"
+    },
+    {
+      "L": 32,
+      "condition": "honest p=0.03 (QBER=e0)",
+      "truth": "accepted",
+      "trials": 200,
+      "v21": {
+        "accepted": 189,
+        "channel": 0,
+        "signature": 11,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 189,
+        "channel": 0,
+        "signature": 0,
+        "undetermined": 11,
+        "other": 0
+      },
+      "response": {
+        "none": 189,
+        "watch": 11
+      },
+      "v21_correct": "0.945 [0.904, 0.969]",
+      "v22_correct": "0.945 [0.904, 0.969]",
+      "v21_wrong_attribution": "0.055 [0.031, 0.096]",
+      "v22_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_undetermined": "0.055 [0.031, 0.096]",
+      "quarantine": "0.000 [0.000, 0.019]"
+    },
+    {
+      "L": 32,
+      "condition": "honest + bursts",
+      "truth": "accepted",
+      "trials": 200,
+      "v21": {
+        "accepted": 167,
+        "channel": 12,
+        "signature": 21,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 167,
+        "channel": 17,
+        "signature": 1,
+        "undetermined": 15,
+        "other": 0
+      },
+      "response": {
+        "none": 167,
+        "watch": 28,
+        "quarantine": 5
+      },
+      "v21_correct": "0.835 [0.777, 0.880]",
+      "v22_correct": "0.835 [0.777, 0.880]",
+      "v21_wrong_attribution": "0.165 [0.120, 0.223]",
+      "v22_wrong_attribution": "0.090 [0.058, 0.138]",
+      "v22_undetermined": "0.075 [0.046, 0.120]",
+      "quarantine": "0.025 [0.011, 0.057]"
+    },
+    {
+      "L": 32,
+      "condition": "intercept 25%",
+      "truth": "channel",
+      "trials": 200,
+      "v21": {
+        "accepted": 89,
+        "channel": 33,
+        "signature": 78,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 89,
+        "channel": 57,
+        "signature": 2,
+        "undetermined": 52,
+        "other": 0
+      },
+      "response": {
+        "none": 89,
+        "watch": 90,
+        "quarantine": 21
+      },
+      "v21_correct": "0.165 [0.120, 0.223]",
+      "v22_correct": "0.285 [0.227, 0.351]",
+      "v21_wrong_attribution": "0.390 [0.325, 0.459]",
+      "v22_wrong_attribution": "0.010 [0.003, 0.036]",
+      "v22_undetermined": "0.260 [0.204, 0.325]",
+      "quarantine": "0.105 [0.070, 0.155]"
+    },
+    {
+      "L": 32,
+      "condition": "intercept 50%",
+      "truth": "channel",
+      "trials": 200,
+      "v21": {
+        "accepted": 17,
+        "channel": 117,
+        "signature": 66,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 17,
+        "channel": 146,
+        "signature": 4,
+        "undetermined": 33,
+        "other": 0
+      },
+      "response": {
+        "quarantine": 110,
+        "none": 17,
+        "watch": 73
+      },
+      "v21_correct": "0.585 [0.516, 0.651]",
+      "v22_correct": "0.730 [0.665, 0.787]",
+      "v21_wrong_attribution": "0.330 [0.269, 0.398]",
+      "v22_wrong_attribution": "0.020 [0.008, 0.050]",
+      "v22_undetermined": "0.165 [0.120, 0.223]",
+      "quarantine": "0.550 [0.481, 0.617]"
+    },
+    {
+      "L": 32,
+      "condition": "intercept 100%",
+      "truth": "channel",
+      "trials": 200,
+      "v21": {
+        "accepted": 0,
+        "channel": 197,
+        "signature": 3,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 0,
+        "channel": 200,
+        "signature": 0,
+        "undetermined": 0,
+        "other": 0
+      },
+      "response": {
+        "quarantine": 189,
+        "watch": 11
+      },
+      "v21_correct": "0.985 [0.957, 0.995]",
+      "v22_correct": "1.000 [0.981, 1.000]",
+      "v21_wrong_attribution": "0.015 [0.005, 0.043]",
+      "v22_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_undetermined": "0.000 [0.000, 0.019]",
+      "quarantine": "0.945 [0.904, 0.969]"
+    },
+    {
+      "L": 32,
+      "condition": "dishonest signer",
+      "truth": "signature",
+      "trials": 200,
+      "v21": {
+        "accepted": 0,
+        "channel": 0,
+        "signature": 200,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 0,
+        "channel": 0,
+        "signature": 188,
+        "undetermined": 12,
+        "other": 0
+      },
+      "response": {
+        "quarantine": 178,
+        "watch": 22
+      },
+      "v21_correct": "1.000 [0.981, 1.000]",
+      "v22_correct": "0.940 [0.898, 0.965]",
+      "v21_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_undetermined": "0.060 [0.035, 0.102]",
+      "quarantine": "0.890 [0.839, 0.926]"
+    },
+    {
+      "L": 64,
+      "condition": "honest p=0.005",
+      "truth": "accepted",
+      "trials": 200,
+      "v21": {
+        "accepted": 200,
+        "channel": 0,
+        "signature": 0,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 200,
+        "channel": 0,
+        "signature": 0,
+        "undetermined": 0,
+        "other": 0
+      },
+      "response": {
+        "none": 200
+      },
+      "v21_correct": "1.000 [0.981, 1.000]",
+      "v22_correct": "1.000 [0.981, 1.000]",
+      "v21_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_undetermined": "0.000 [0.000, 0.019]",
+      "quarantine": "0.000 [0.000, 0.019]"
+    },
+    {
+      "L": 64,
+      "condition": "honest p=0.01",
+      "truth": "accepted",
+      "trials": 200,
+      "v21": {
+        "accepted": 200,
+        "channel": 0,
+        "signature": 0,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 200,
+        "channel": 0,
+        "signature": 0,
+        "undetermined": 0,
+        "other": 0
+      },
+      "response": {
+        "none": 200
+      },
+      "v21_correct": "1.000 [0.981, 1.000]",
+      "v22_correct": "1.000 [0.981, 1.000]",
+      "v21_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_undetermined": "0.000 [0.000, 0.019]",
+      "quarantine": "0.000 [0.000, 0.019]"
+    },
+    {
+      "L": 64,
+      "condition": "honest p=0.03 (QBER=e0)",
+      "truth": "accepted",
+      "trials": 200,
+      "v21": {
+        "accepted": 198,
+        "channel": 2,
+        "signature": 0,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 198,
+        "channel": 2,
+        "signature": 0,
+        "undetermined": 0,
+        "other": 0
+      },
+      "response": {
+        "watch": 2,
+        "none": 198
+      },
+      "v21_correct": "0.990 [0.964, 0.997]",
+      "v22_correct": "0.990 [0.964, 0.997]",
+      "v21_wrong_attribution": "0.010 [0.003, 0.036]",
+      "v22_wrong_attribution": "0.010 [0.003, 0.036]",
+      "v22_undetermined": "0.000 [0.000, 0.019]",
+      "quarantine": "0.000 [0.000, 0.019]"
+    },
+    {
+      "L": 64,
+      "condition": "honest + bursts",
+      "truth": "accepted",
+      "trials": 200,
+      "v21": {
+        "accepted": 177,
+        "channel": 20,
+        "signature": 3,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 177,
+        "channel": 20,
+        "signature": 0,
+        "undetermined": 3,
+        "other": 0
+      },
+      "response": {
+        "none": 177,
+        "watch": 18,
+        "quarantine": 5
+      },
+      "v21_correct": "0.885 [0.833, 0.922]",
+      "v22_correct": "0.885 [0.833, 0.922]",
+      "v21_wrong_attribution": "0.115 [0.078, 0.167]",
+      "v22_wrong_attribution": "0.100 [0.066, 0.149]",
+      "v22_undetermined": "0.015 [0.005, 0.043]",
+      "quarantine": "0.025 [0.011, 0.057]"
+    },
+    {
+      "L": 64,
+      "condition": "intercept 25%",
+      "truth": "channel",
+      "trials": 200,
+      "v21": {
+        "accepted": 79,
+        "channel": 91,
+        "signature": 30,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 79,
+        "channel": 102,
+        "signature": 3,
+        "undetermined": 16,
+        "other": 0
+      },
+      "response": {
+        "none": 79,
+        "quarantine": 39,
+        "watch": 82
+      },
+      "v21_correct": "0.455 [0.387, 0.524]",
+      "v22_correct": "0.510 [0.441, 0.578]",
+      "v21_wrong_attribution": "0.150 [0.107, 0.206]",
+      "v22_wrong_attribution": "0.015 [0.005, 0.043]",
+      "v22_undetermined": "0.080 [0.050, 0.126]",
+      "quarantine": "0.195 [0.146, 0.255]"
+    },
+    {
+      "L": 64,
+      "condition": "intercept 50%",
+      "truth": "channel",
+      "trials": 200,
+      "v21": {
+        "accepted": 4,
+        "channel": 183,
+        "signature": 13,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 4,
+        "channel": 191,
+        "signature": 2,
+        "undetermined": 3,
+        "other": 0
+      },
+      "response": {
+        "quarantine": 160,
+        "watch": 36,
+        "none": 4
+      },
+      "v21_correct": "0.915 [0.868, 0.946]",
+      "v22_correct": "0.955 [0.917, 0.976]",
+      "v21_wrong_attribution": "0.065 [0.038, 0.108]",
+      "v22_wrong_attribution": "0.010 [0.003, 0.036]",
+      "v22_undetermined": "0.015 [0.005, 0.043]",
+      "quarantine": "0.800 [0.739, 0.850]"
+    },
+    {
+      "L": 64,
+      "condition": "intercept 100%",
+      "truth": "channel",
+      "trials": 200,
+      "v21": {
+        "accepted": 0,
+        "channel": 200,
+        "signature": 0,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 0,
+        "channel": 200,
+        "signature": 0,
+        "undetermined": 0,
+        "other": 0
+      },
+      "response": {
+        "quarantine": 200
+      },
+      "v21_correct": "1.000 [0.981, 1.000]",
+      "v22_correct": "1.000 [0.981, 1.000]",
+      "v21_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_undetermined": "0.000 [0.000, 0.019]",
+      "quarantine": "1.000 [0.981, 1.000]"
+    },
+    {
+      "L": 64,
+      "condition": "dishonest signer",
+      "truth": "signature",
+      "trials": 200,
+      "v21": {
+        "accepted": 1,
+        "channel": 0,
+        "signature": 199,
+        "undetermined": 0,
+        "other": 0
+      },
+      "v22": {
+        "accepted": 1,
+        "channel": 0,
+        "signature": 199,
+        "undetermined": 0,
+        "other": 0
+      },
+      "response": {
+        "quarantine": 199,
+        "none": 1
+      },
+      "v21_correct": "0.995 [0.972, 0.999]",
+      "v22_correct": "0.995 [0.972, 0.999]",
+      "v21_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_wrong_attribution": "0.000 [0.000, 0.019]",
+      "v22_undetermined": "0.000 [0.000, 0.019]",
+      "quarantine": "0.995 [0.972, 0.999]"
+    }
+  ]
+}
