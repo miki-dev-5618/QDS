@@ -3,7 +3,9 @@ Quantum Circuit Breaker (QCB): per-link state machine and latency measurement.
 
 Unit of isolation: a *logical link* - the signer's distribution/reveal path
 to its verifiers (``alice->verifiers``) or the verifier-to-verifier transfer
-path (``bob->charlie``). An alert on one link never blocks the other.
+path (``bob->charlie``). A weak alert (WATCH) affects only its own link, but
+once any link is QUARANTINED the breaker refuses every message on every link,
+genuine or not, until an administrator resets it.
 
 States and transitions (every transition is atomic under one lock, logged
 with actor, time, evidence id, old/new state and policy version, and
@@ -13,7 +15,7 @@ persisted when a Store is attached):
                    (Fisher-combined p <= escalate_alpha, or watch_strikes alerts)
     OPEN/WATCH --strong--> QUARANTINED
     WATCH --window expires with no new alert--> OPEN
-    QUARANTINED --admin reset (role + reason)--> RESET_PENDING
+    QUARANTINED --admin reset--> RESET_PENDING
     RESET_PENDING --one fully accepted transmission--> OPEN
     RESET_PENDING --any quantum-evidence alert--> QUARANTINED
 
@@ -112,14 +114,17 @@ class ChannelGuard:
             return self.links[link].state
 
     def check_open(self, link: str):
+        """Refuse all traffic, genuine or not, while any link is quarantined (until an admin reset)."""
         with self._lock:
             self._expire_watch(link)
             st = self.links[link]
-            if st.state not in CARRIES_TRAFFIC:
+            broken = link if st.state not in CARRIES_TRAFFIC else next(
+                (name for name, s in self.links.items() if s.state not in CARRIES_TRAFFIC), None)
+            if broken is not None:
                 st.refused += 1
                 if self.router is not None:
                     self.router.refuse(link)
-                raise ChannelQuarantined(link, st.to_dict())
+                raise ChannelQuarantined(broken, self.links[broken].to_dict())
 
     def apply(self, link: str, decision: ResponseDecision, transmission_id: str, purged: int = 0,
               accepted: bool = False, actor: str = "detector") -> Optional[Dict[str, Any]]:

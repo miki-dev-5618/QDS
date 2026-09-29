@@ -275,8 +275,8 @@ def _refused(q: ChannelQuarantined, started_ns: int, extra: Optional[Dict[str, A
     state.stats["refused_sends"] += 1
     return JSONResponse(status_code=423, content={
         "status": "quarantined", "link": q.link, "detail": q.info, "refusal_us": refusal_us,
-        "message": "Link is quarantined after a qualifying alert. Reset it from the admin console "
-                   "(a reason is required; the link then enters probation).", **(extra or {})})
+        "message": "Circuit is broken after a qualifying alert: all messages are refused until an admin "
+                   "resets it from the admin console (the link then enters probation).", **(extra or {})})
 
 
 @app.post("/api/sign-and-send")
@@ -348,13 +348,11 @@ async def api_arm_threat(payload: Dict[str, str], session: Dict = Depends(requir
 @app.post("/api/channel/reset")
 async def api_channel_reset(payload: Optional[Dict[str, str]] = Body(default=None),
                             session: Dict = Depends(require_role("admin"))):
-    """Authorised reset: needs the admin role and a reason; issues a signed reset record."""
+    """Authorised reset: needs the admin role; issues a signed reset record."""
     link = (payload or {}).get("link") or None
-    reason = ((payload or {}).get("reason") or "").strip()
+    reason = ((payload or {}).get("reason") or "").strip() or "admin reset"
     if link not in (None, LINK_SIGNER, LINK_FORWARD):
         raise HTTPException(400, "Unknown link")
-    if len(reason) < 3:
-        raise HTTPException(400, "A reset reason (at least 3 characters) is required; it is kept in the audit chain.")
     async with engine_lock:
         transitions = qds_engine.guard.request_reset(link, actor=session["username"], reason=reason)
         cert = None

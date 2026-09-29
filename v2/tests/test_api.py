@@ -129,10 +129,10 @@ def test_dishonest_bob_forward_checked_by_charlie(server):
     assert tx["threat_report"]["classification"] == "DISHONEST_VERIFIER_FORGERY"
 
 
-def test_reset_requires_admin_and_reason(server):
+def test_reset_requires_admin_but_no_reason(server):
     admin = client(server, ADMIN)
-    assert admin.post("/api/channel/reset", json={}).status_code == 400
-    assert admin.post("/api/channel/reset", json={"reason": " "}).status_code == 400
+    assert admin.post("/api/channel/reset", json={}).status_code == 200
+    assert admin.post("/api/channel/reset", json={"reason": " "}).status_code == 200
     assert client(server, BOB).post("/api/channel/reset", json={"reason": "please"}).status_code == 403
 
 
