@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HEDWIG • Alice / Admin Command Console</title>
   <link rel="stylesheet" href="/static/css/style.css?v=2.3">
-  <link rel="stylesheet" href="/static/css/components.css?v=2.3">
+  <link rel="stylesheet" href="/static/css/components.css?v=2.4">
 </head>
 <body class="role-admin">
   <div class="app-shell">
@@ -85,6 +85,23 @@
               <div class="form-group">
                 <label class="form-label" for="messageText">Plaintext message content</label>
                 <textarea id="messageText" class="form-textarea" required placeholder="Enter confidential message...">CRITICAL GRID DISPATCH: Authorize regional energy rerouting sequence #7729</textarea>
+              </div>
+
+              <!-- Message hash binding: live preview of the digest committed in the signed context -->
+              <div class="hash-box" aria-live="polite">
+                <div class="hash-row">
+                  <span class="form-label hash-title">Message hash binding</span>
+                  <span class="brand-badge neutral hash-alg">SHA-256 · domain-separated</span>
+                </div>
+                <div class="hash-row">
+                  <span class="hash-key">Digest H(M)</span>
+                  <code class="hash-digest" id="hashDigest" title="SHA-256(&quot;HEDWIG-QDS-v2|message|&quot; || UTF-8(message))">Computing…</code>
+                  <button type="button" class="hash-copy" id="hashCopy" aria-label="Copy full digest">Copy</button>
+                </div>
+                <div class="hash-row">
+                  <span class="hash-key">Last committed</span>
+                  <code class="hash-digest hash-committed" id="hashCommitted">No transmission yet</code>
+                </div>
               </div>
 
               <div class="form-row">
@@ -263,6 +280,6 @@
   </div>
 
   <script src="/static/js/common.js?v=2.3"></script>
-  <script src="/static/js/admin.js?v=2.3"></script>
+  <script src="/static/js/admin.js?v=2.4"></script>
 </body>
 </html>

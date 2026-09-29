@@ -879,3 +879,41 @@
 .cert-grid:empty::before { padding: var(--space-2) 0 0; grid-column: 1 / -1; }
 .checks-list:empty { display: none; }
 .checks-list:empty + .audit-row { margin-top: 0; }
+
+/* ---------- Message hash binding ---------- */
+.hash-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  margin-bottom: var(--space-4);
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+.hash-row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.hash-title { margin: 0; flex: 1; }
+.hash-alg { font-family: var(--font-mono); white-space: nowrap; }
+.hash-key { color: var(--ink-muted); font-size: 13px; white-space: nowrap; min-width: 108px; }
+.hash-digest {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  word-break: break-all;
+}
+.hash-committed.match { color: var(--success-ink); }
+.hash-committed.stale { color: var(--warning-ink); }
+.hash-copy {
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.hash-copy:hover { border-color: var(--field-line); }
+.hash-copy:focus-visible { outline: none; box-shadow: var(--focus-ring); }

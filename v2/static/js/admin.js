@@ -91,6 +91,7 @@ function initComposer() {
   window.renderTokenPreview = renderPreview;
   renderPreview(parseInt(bitSelect.value), null);
   bitSelect.addEventListener('change', () => renderPreview(parseInt(bitSelect.value), null));
+  initHashPreview();
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -118,6 +119,7 @@ function initComposer() {
           logTerminal('TX', `${tx.transmission_id} dispatched | ${tx.n_bits} qubits | injected: ${tx.ground_truth.injected_scenario}`));
         const last = data.transmission;
         if (last.alice) renderPreview(last.alice.state_symbols.length, last.alice.state_symbols);
+        if (last.context) showCommittedDigest(last.context.message_digest);
       }
     } catch (err) {
       logTerminal('ERR', `Transmission failed: ${err.message}`);
@@ -126,6 +128,63 @@ function initComposer() {
       btn.innerHTML = `${icon('zap')} Quantum Sign & Transmit Token`;
     }
   });
+}
+
+// Mirrors binding.message_digest(): SHA-256("HEDWIG-QDS-v2|message|" || UTF-8(message)).
+const MESSAGE_DOMAIN = 'HEDWIG-QDS-v2|message|';
+let currentDigest = null;
+let committedDigest = null;
+
+async function messageDigest(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(MESSAGE_DOMAIN + text));
+  return Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function initHashPreview() {
+  const msgArea = document.getElementById('messageText');
+  const digestEl = document.getElementById('hashDigest');
+  const copyBtn = document.getElementById('hashCopy');
+  if (!crypto.subtle) {   // only available in secure contexts (https or localhost)
+    digestEl.textContent = 'Unavailable: page is not served over HTTPS';
+    copyBtn.hidden = true;
+    return;
+  }
+  let seq = 0;
+  const update = async () => {
+    const mine = ++seq;
+    const hex = await messageDigest(msgArea.value);
+    if (mine !== seq) return;   // a newer keystroke already started
+    currentDigest = hex;
+    digestEl.textContent = hex;
+    markCommittedMatch();
+  };
+  msgArea.addEventListener('input', update);
+  copyBtn.addEventListener('click', async () => {
+    if (!currentDigest) return;
+    try {
+      await navigator.clipboard.writeText(currentDigest);
+      copyBtn.textContent = 'Copied';
+    } catch (e) {
+      copyBtn.textContent = 'Failed';
+    }
+    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1200);
+  });
+  update();
+}
+
+function showCommittedDigest(hex) {
+  committedDigest = hex;
+  document.getElementById('hashCommitted').textContent = hex;
+  markCommittedMatch();
+}
+
+function markCommittedMatch() {
+  const el = document.getElementById('hashCommitted');
+  if (!committedDigest) return;
+  const match = committedDigest === currentDigest;
+  el.classList.toggle('match', match);
+  el.classList.toggle('stale', !match);
+  el.title = match ? 'Matches the message above' : 'Message edited since this was committed';
 }
 
 function verifierSummary(name, v) {
