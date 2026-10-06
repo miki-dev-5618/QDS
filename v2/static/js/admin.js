@@ -112,7 +112,7 @@ function initComposer() {
       }, 'admin');
       if (status === 423) {
         logTerminal('BLOCK', `Refused in ${data.refusal_us} µs: link ${data.link} is quarantined ` +
-          `(${data.detail.reason}; incident ${data.detail.incident_id}). Reset it with a reason to continue.`);
+          `(${data.detail.reason}; incident ${data.detail.incident_id}). All messages are blocked until the circuit is reset.`);
         refreshTopology();
       } else {
         data.transmissions.forEach(tx =>
@@ -255,20 +255,15 @@ function renderLinks(channelState) {
 }
 
 async function resetLinks() {
-  const reason = window.prompt('Reason for resetting the quarantined / watched links (kept in the signed audit chain):');
-  if (!reason || reason.trim().length < 3) {
-    logTerminal('ERR', 'Reset cancelled: a reason of at least 3 characters is required.');
-    return;
-  }
   try {
     const { data } = await api('/api/channel/reset', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: reason.trim() })
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
     }, 'admin');
     renderLinks(data.channel_state);
     refreshTopology();
     const n = (data.transitions || []).length;
     logTerminal('SYS', n
-      ? `${n} link(s) reset by admin ("${reason.trim()}"): quarantined → probation, watch → open. Signed reset record #${data.reset_record.chain_seq}.`
+      ? `${n} link(s) reset by admin: quarantined → probation, watch → open. Signed reset record #${data.reset_record.chain_seq}.`
       : 'No link needed a reset.');
   } catch (err) {
     logTerminal('ERR', `Reset failed: ${err.message}`);

@@ -95,12 +95,16 @@ def test_watch_expires_after_window(clock):
     assert g.apply(LINK_SIGNER, WEAK, "TX-2")["new_state"] == "watch"  # fresh window, not an escalation
 
 
-def test_strong_alert_quarantines_immediately_and_only_that_link(clock):
+def test_strong_alert_quarantines_immediately_and_blocks_all_links(clock):
     g = ChannelGuard(clock=clock)
     g.apply(LINK_FORWARD, STRONG, "TX-1")
+    assert g.state(LINK_SIGNER) == "open"
+    for link in (LINK_SIGNER, LINK_FORWARD):
+        with pytest.raises(ChannelQuarantined):
+            g.check_open(link)
+    g.request_reset(actor="admin")
     g.check_open(LINK_SIGNER)
-    with pytest.raises(ChannelQuarantined):
-        g.check_open(LINK_FORWARD)
+    g.check_open(LINK_FORWARD)
 
 
 def test_probation_failure_requarantines(clock):
