@@ -1,0 +1,5 @@
+# Optional: enables hybrid Ed25519 + ML-DSA-65 (FIPS 204) audit signatures.
+# dilithium-py is a pure-Python reference implementation (not side-channel hardened) - fine for this
+# demonstration. For production use liboqs-python instead; HEDWIG picks it up automatically if installed.
+-r requirements.txt
+dilithium-py>=1.4

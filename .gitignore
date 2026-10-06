@@ -1,0 +1,5 @@
+# Audit signing key and other local runtime data - never commit
+data/
+__pycache__/
+.pytest_cache/
+users.json
