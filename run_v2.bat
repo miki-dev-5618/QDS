@@ -1,8 +1,8 @@
 @echo off
-title HEDWIG V2 - Teleportation QDS & Threat Detection System
+title "HEDWIG V2 - Teleportation QDS & Threat Detection System"
+
 echo ===============================================================================
 echo                HEDWIG V2: TELEPORTATION QDS SECURE COMM SUITE
-echo                 Team ATHENA - Smart India Hackathon (SIH 2026)
 echo ===============================================================================
 echo.
 cd /d "%~dp0"

@@ -1,6 +1,6 @@
 # HEDWIG — Teleportation-Based Quantum Digital Signatures with Threat Detection
 
-**Team ATHENA · Smart India Hackathon 2026 · Problem Statement PS 26141**  
+**Team ATHENA**  
 *Quantum-Inspired Cyber Threat Detection for Digital Signature Security*
 
 ---
