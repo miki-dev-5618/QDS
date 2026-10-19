@@ -63,9 +63,8 @@
 11. [Configuration & Environment Variables](#11-configuration--environment-variables)
 12. [REST API & WebSocket Reference](#12-rest-api--websocket-reference)
 13. [Automated Testing & Empirical Benchmarks](#13-automated-testing--empirical-benchmarks)
-14. [Submission Hygiene & Clean Repo Checklist](#14-submission-hygiene--clean-repo-checklist)
-15. [Troubleshooting & FAQ](#15-troubleshooting--faq)
-16. [Glossary](#16-glossary)
+14. [Troubleshooting & FAQ](#14-troubleshooting--faq)
+15. [Glossary](#15-glossary)
 
 ---
 
@@ -468,20 +467,7 @@ python -m pytest tests -v
 
 ---
 
-## 14. Submission Hygiene & Clean Repo Checklist
-
-Before final submission to the hackathon portal, verify the repository cleanliness:
-
-- [x] **No hardcoded secrets or sensitive keys** in git history (All keys generated dynamically in `data/` and git-ignored).
-- [x] **No compiled bytecode artifacts** (`__pycache__`, `.pyc`, `.pytest_cache` excluded in `.gitignore`).
-- [x] **All 150 automated tests pass** (`python -m pytest tests -q`).
-- [x] **Redundant/Duplicate files cleaned up**:
-  - `message.md` & `read-jashan.md` are consolidated into this master `README.md`.
-  - Stale `v1/` legacy prototype files and temporary scratch files (`1.json`, `PPT GAP.md`) can be safely archived/removed.
-
----
-
-## 15. Troubleshooting & FAQ
+## 14. Troubleshooting & FAQ
 
 - **Q: Why does the dashboard show HTTP 423 (Locked)?**  
   *A:* A link was quarantined due to a detected attack. Click **Reset Links** in `/admin`, provide a mandatory reason, and submit an honest transmission to return the link to `OPEN`.
@@ -492,7 +478,7 @@ Before final submission to the hackathon portal, verify the repository cleanline
 
 ---
 
-## 16. Glossary
+## 15. Glossary
 
 - **QDS (Quantum Digital Signatures):** Signatures offering unforgeability based on the fundamental laws of quantum physics rather than computational hardness.
 - **Bell Pair ($|\Phi^+\rangle$):** Maximally entangled two-qubit quantum state used as a resource channel for quantum teleportation.
