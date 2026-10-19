@@ -23,10 +23,10 @@
 |       |                                                                                                 |
 |       | 1. Prepare Quantum Tokens & Secret Test States                                                  |
 |       | 2. Teleport via Bell Pairs (Qiskit Aer / Statevector) =====> [ Bob & Charlie Verifiers ]       |
-|       | 3. Send Context Commitment (SHA-256 / SHA3-512)              * Symmetrisation Keep/Forward Swap |
-|       |                                                             * Random Basis Elimination Table    |
-|       | 4. Channel Test & Sequential Early Abort Check              * Independent Verification Checks   |
-|       | 5. Reveal Signature & Blinding Nonce                                      |                     |
+|       | 3. Send Commitment: C = SHA-256(Context ‖ Signature ‖ Blinding Salt)                            |
+|       |                                                             * Symmetrisation Keep/Forward Swap |
+|       | 4. Channel Test & Sequential Early Abort Check              * Random Basis Elimination Table    |
+|       | 5. Reveal Phase (Message, Context, Signature & Blinding)    * Independent Verification Checks   |
 |       +---------------------------------------------------------------------------+                     |
 |                                                                                   |                     |
 |                                                                                   v                     |
@@ -86,7 +86,7 @@ ALICE (Signer)                               BOB (Verifier 1)               CHAR
      │    block-by-block (Early Abort if QBER high) │                                 │
      │                                              │                                 │
      │ 3. Send Context Commitment:                  │                                 │
-     │    C = H(Context ‖ Signature ‖ Nonce ‖ Salt) │                                 │
+     │    C = SHA-256(Context ‖ Signature ‖ Salt)  │                                 │
      │ ────────────────────────────────────────────►│ (Stored before reveal)          │
      │                                              │                                 │
      │ 4. Reveal Phase (Only if channel tests pass):│                                 │
@@ -103,7 +103,11 @@ ALICE (Signer)                               BOB (Verifier 1)               CHAR
 2. **Teleportation & Elimination:**
    Tokens travel across simulated Bell channels $(|\Phi^+\rangle = \frac{|00\rangle+|11\rangle}{\sqrt{2}})$ with Bell-state measurements and classical feed-forward Pauli corrections ($X^{m_2} Z^{m_1}$). Verifiers measure received qubits in random bases ($\{|0\rangle,|1\rangle\}$ or $\{|+\rangle,|-\rangle\}$) and record the orthogonal state ruled out.
 3. **Commitment Binding:**
-   Alice publishes a cryptographically bound commitment $C = \text{Hash}(\text{Context} \parallel \text{Signature} \parallel \text{Salt})$ where Context specifies version, session ID, sender, recipient verifiers, nonce, expiry timestamp, and domain-separated message digest.
+   Alice publishes a cryptographically bound commitment:
+   $$C = \text{SHA-256}\left(\text{Domain} \parallel \text{canonical}(\text{Context}) \parallel \text{Signature} \parallel \text{Salt}\right)$$
+   - **Algorithm:** The commitment $C$ is computed with **SHA-256** (with domain separator `HEDWIG-QDS-v2|commitment|`).
+   - **Context Object:** Canonical JSON containing `version`, `session_id`, `sender`, recipient `verifiers`, fresh `nonce`, expiry `timestamp`, and the message digest (`message_digest = SHA-256(Domain || message)` or `SHA3-512`).
+   - **Blinding Salt:** A 256-bit cryptographic random value (`blinding`) revealed only during the reveal phase, guaranteeing that verifiers cannot learn the signature prematurely.
 4. **Channel Testing & Early Abort:**
    Secret test tokens interleaved in the stream are revealed. If error counts exceed the threshold in early stream blocks, transmission aborts immediately to conserve quantum bandwidth and isolate malicious channels.
 5. **Independent Verification:**
@@ -125,9 +129,7 @@ QDS/
 ├── requirements-dev.txt           ← Development & testing suite (pytest, httpx)
 ├── requirements-pq.txt            ← Post-quantum signature provider (ML-DSA-65 / Dilithium)
 ├── README.md                      ← Master technical documentation & guide
-├── STATUS.md                      ← Feature checklist & innovation status
-├── V2.2_IMPLEMENTATION_REPORT.md  ← Detailed architectural changelog & implementation report
-│
+├── LICENSE                        ← MIT License
 ├── src/quantum_engine/            ← Core Quantum & Security Engine
 │   ├── teleportation.py           ← Qiskit Aer & Statevector quantum teleportation circuits
 │   ├── channel.py                 ← Quantum channel simulation (depolarising noise, Eve intercept)
@@ -461,9 +463,14 @@ python -m pytest tests -v
 | **Eve Forgery Detection Rate** | **100.0%** | **100.0%** | **100.0%** |
 | **Dishonest Bob Caught (Overall)** | **100.0%** | **100.0%** | **100.0%** |
 | *(Quantum Elimination Check Alone)* | 88.0% | 95.5% | 98.5% |
-| **Eve Intercept Caught & Identified** | 98.5% (91.0%) | **100.0% (98.5%)** | **100.0% (100.0%)** |
-| **Sequential Early Abort Bandwidth Saved** | 28.5% (33% tokens) | **76.5% (39% tokens)**| **97.5% (46% tokens)**|
-| **Repudiation Caught & Attributed** | 98.5% (36.5% / 61.5%)| **98.5% (90.5% / 7.5%)**| **100.0% (100.0% / 0%)**|
+| **Eve Intercept Caught & Identified**<br>*(Flagged / Identified as Intercept)* | 98.5% (91.0% identified) | **100.0% (98.5% identified)** | **100.0% (100.0% identified)** |
+| **Sequential Early Abort Bandwidth Saved**<br>*(Triggers Abort / Tokens Saved)* | 28.5% (33% tokens) | **76.5% (39% tokens)** | **97.5% (46% tokens)** |
+| **Repudiation Caught & Attributed**<br>*(Total Caught / Repudiation vs. Disturbance)* | 98.5% (36.5% rep. / 61.5% dist.) | **98.5% (90.5% rep. / 7.5% dist.)** | **100.0% (100.0% rep. / 0% dist.)** |
+
+> **Table Notation & Paired Values Legend:**
+> - **Eve Intercept:** Displays `Flagged % (Identified as Eavesdropping %)`. The remainder are captured under general channel disturbance.
+> - **Early Abort:** Displays `Runs Triggering Early Abort % (Average Transmitted Tokens Saved %)`.
+> - **Repudiation:** Displays `Total Detected % (Attributed as Repudiation % / Flagged as Undetermined Disturbance %)`. At low $L=16$, finite-sample variance leads the detector to conservatively classify disturbances before conclusively attributing dishonest signer behavior at $L \ge 32$.
 
 ---
 
@@ -480,7 +487,7 @@ python -m pytest tests -v
 
 ## 15. Glossary
 
-- **QDS (Quantum Digital Signatures):** Signatures offering unforgeability based on the fundamental laws of quantum physics rather than computational hardness.
+- **QDS (Quantum Digital Signatures):** Signatures offering theoretical unforgeability based on the fundamental laws of quantum physics rather than computational hardness *(note: this repository simulates the protocol via classical statevector and circuit emulation, so it does not provide physical quantum-channel security)*.
 - **Bell Pair ($|\Phi^+\rangle$):** Maximally entangled two-qubit quantum state used as a resource channel for quantum teleportation.
 - **Quantum Teleportation:** Technique to transfer an unknown quantum state using a shared Bell pair and classical transmission.
 - **Symmetrisation:** Random swapping of quantum copies between verifiers to prevent the signer from treating verifiers unequally.

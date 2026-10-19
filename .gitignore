@@ -1,6 +1,21 @@
-# Audit signing key and other local runtime data - never commit
+# Runtime state, database & audit signing keys - never commit
 data/
-__pycache__/
-.pytest_cache/
+*.pem
+*.key
+
+# Environment & credentials
+.env
+.env.*
 users.json
+
+# Bytecode & test caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual environments & scratch
+venv/
+.venv/
+env/
 *.xlsx
