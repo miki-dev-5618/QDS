@@ -197,6 +197,7 @@ class SignAndSendRequest(BaseModel):
     readout_p01: Optional[float] = 0.0
     readout_p10: Optional[float] = 0.0
     readout_location: Optional[str] = "both"
+    eta_loss: Optional[float] = 0.0
 
 
 class ForwardRequest(BaseModel):
@@ -305,6 +306,8 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
             p10=req.readout_p10 or 0.0,
             location=req.readout_location or "both",
         )
+    elif req.noise_profile == "lossy" or (req.eta_loss and req.eta_loss > 0):
+        channel = make_lossy_channel(eta_loss=req.eta_loss or 0.1)
 
     published = []
     async with engine_lock:
