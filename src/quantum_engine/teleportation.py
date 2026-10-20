@@ -47,6 +47,9 @@ class TeleportJob:
     meas_basis: int       # verifier's measurement basis
     eve_basis: Optional[int] = None   # None = not intercepted
     noise_pauli: Optional[str] = None  # None, "X", "Y" or "Z"
+    damping_gamma: float = 0.0        # amplitude damping parameter in [0, 1]
+    phase_damping_gamma: float = 0.0  # optional phase damping parameter
+    damping_target: str = "traveling" # "traveling" (q2), "teleported" (q0), "bell_pair" (q1, q2), "all"
 
 
 @dataclass(frozen=True)
@@ -106,10 +109,73 @@ class _ThreeQubitState:
         self.psi = self.psi / np.linalg.norm(self.psi)
         return result
 
+    def apply_kraus(self, kraus_ops: Sequence[np.ndarray], q: int, rng: np.random.Generator):
+        """Apply a single-qubit Kraus channel via quantum trajectory statevector collapse."""
+        if not kraus_ops:
+            return
+        if len(kraus_ops) == 1:
+            self.apply(kraus_ops[0], q)
+            norm = np.linalg.norm(self.psi)
+            if norm > 0:
+                self.psi /= norm
+            return
+        branch_states = []
+        branch_probs = []
+        for K in kraus_ops:
+            branch_psi = self._lift(K, q) @ self.psi
+            prob = float(np.real(branch_psi.conj() @ branch_psi))
+            branch_states.append(branch_psi)
+            branch_probs.append(prob)
+        total_p = sum(branch_probs)
+        if total_p <= 0:
+            return
+        p_arr = np.array(branch_probs) / total_p
+        chosen_idx = int(rng.choice(len(kraus_ops), p=p_arr))
+        chosen_state = branch_states[chosen_idx]
+        norm = np.linalg.norm(chosen_state)
+        self.psi = chosen_state / norm if norm > 0 else chosen_state
+
     def reduced_q2(self) -> np.ndarray:
         """Density matrix of qubit 2 (partial trace over q0, q1)."""
         t = self.psi.reshape(2, 2, 2)  # axes: q2, q1, q0
         return np.einsum("aij,bij->ab", t, t.conj())
+
+
+def get_damping_kraus_ops(gamma: float, phase_gamma: float = 0.0) -> List[np.ndarray]:
+    """
+    Construct Kraus operators for amplitude damping with parameter gamma in [0, 1],
+    optionally combined with phase damping with parameter phase_gamma in [0, 1].
+    """
+    if gamma <= 0.0 and phase_gamma <= 0.0:
+        return [np.eye(2, dtype=complex)]
+
+    gamma = min(1.0, max(0.0, float(gamma)))
+    phase_gamma = min(1.0, max(0.0, float(phase_gamma)))
+
+    # Amplitude damping Kraus operators:
+    # E0 = [[1, 0], [0, sqrt(1 - gamma)]]
+    # E1 = [[0, sqrt(gamma)], [0, 0]]
+    if gamma > 0.0 and phase_gamma <= 0.0:
+        E0 = np.array([[1.0, 0.0], [0.0, np.sqrt(1.0 - gamma)]], dtype=complex)
+        E1 = np.array([[0.0, np.sqrt(gamma)], [0.0, 0.0]], dtype=complex)
+        return [E0, E1]
+
+    # If phase damping is combined:
+    # Phase damping Kraus operators:
+    # P0 = [[1, 0], [0, sqrt(1 - phase_gamma)]]
+    # P1 = [[0, 0], [0, sqrt(phase_gamma)]]
+    if gamma <= 0.0 and phase_gamma > 0.0:
+        P0 = np.array([[1.0, 0.0], [0.0, np.sqrt(1.0 - phase_gamma)]], dtype=complex)
+        P1 = np.array([[0.0, 0.0], [0.0, np.sqrt(phase_gamma)]], dtype=complex)
+        return [P0, P1]
+
+    # Both: compose Pi @ Ej
+    E0 = np.array([[1.0, 0.0], [0.0, np.sqrt(1.0 - gamma)]], dtype=complex)
+    E1 = np.array([[0.0, np.sqrt(gamma)], [0.0, 0.0]], dtype=complex)
+    P0 = np.array([[1.0, 0.0], [0.0, np.sqrt(1.0 - phase_gamma)]], dtype=complex)
+    P1 = np.array([[0.0, 0.0], [0.0, np.sqrt(phase_gamma)]], dtype=complex)
+    ops = [P0 @ E0, P0 @ E1, P1 @ E0, P1 @ E1]
+    return [op for op in ops if np.any(np.abs(op) > 1e-12)]
 
 
 def _prep(state: _ThreeQubitState, bit: int, basis: int):
@@ -135,6 +201,23 @@ def _teleport_statevector(job: TeleportJob, rng: np.random.Generator, measure: b
             s.apply(_H, 2)
     if job.noise_pauli:
         s.apply(_PAULIS[job.noise_pauli], 2)
+    # Amplitude / phase damping noise channel
+    if job.damping_gamma > 0.0 or job.phase_damping_gamma > 0.0:
+        kraus = get_damping_kraus_ops(job.damping_gamma, job.phase_damping_gamma)
+        target = job.damping_target.lower()
+        if target in ("traveling", "travelling", "q2"):
+            s.apply_kraus(kraus, 2, rng)
+        elif target in ("teleported", "token", "q0"):
+            s.apply_kraus(kraus, 0, rng)
+        elif target in ("bell_pair", "q1_q2"):
+            s.apply_kraus(kraus, 1, rng)
+            s.apply_kraus(kraus, 2, rng)
+        elif target in ("all", "all_qubits"):
+            s.apply_kraus(kraus, 0, rng)
+            s.apply_kraus(kraus, 1, rng)
+            s.apply_kraus(kraus, 2, rng)
+        else:
+            s.apply_kraus(kraus, 2, rng)
     # Alice's Bell measurement
     s.cx(0, 1)
     s.apply(_H, 0)
@@ -197,6 +280,24 @@ def build_teleportation_circuit(job: TeleportJob, save_density_matrix: bool = Fa
         qc.y(2)
     elif job.noise_pauli == "Z":
         qc.z(2)
+    if job.damping_gamma > 0.0 or job.phase_damping_gamma > 0.0:
+        target = job.damping_target.lower()
+        kraus = get_damping_kraus_ops(job.damping_gamma, job.phase_damping_gamma)
+        from qiskit.quantum_info import Kraus
+        k_channel = Kraus(kraus)
+        if target in ("traveling", "travelling", "q2"):
+            qc.append(k_channel, [2])
+        elif target in ("teleported", "token", "q0"):
+            qc.append(k_channel, [0])
+        elif target in ("bell_pair", "q1_q2"):
+            qc.append(k_channel, [1])
+            qc.append(k_channel, [2])
+        elif target in ("all", "all_qubits"):
+            qc.append(k_channel, [0])
+            qc.append(k_channel, [1])
+            qc.append(k_channel, [2])
+        else:
+            qc.append(k_channel, [2])
     qc.cx(0, 1)
     qc.h(0)
     qc.measure(0, 0)
@@ -222,9 +323,15 @@ class QiskitTeleportationBackend:
     def run(self, jobs: Sequence[TeleportJob], rng: np.random.Generator) -> List[TeleportOutcome]:
         if not jobs:
             return []
+        has_damping = any(j.damping_gamma > 0.0 or j.phase_damping_gamma > 0.0 for j in jobs)
         circuits = [build_teleportation_circuit(j) for j in jobs]
         seed = int(rng.integers(0, 2**31 - 1))
-        result = self._sim.run(circuits, shots=1, memory=True, seed_simulator=seed).result()
+        if has_damping:
+            from qiskit_aer import AerSimulator
+            sim = AerSimulator(method="density_matrix")
+            result = sim.run(circuits, shots=1, memory=True, seed_simulator=seed).result()
+        else:
+            result = self._sim.run(circuits, shots=1, memory=True, seed_simulator=seed).result()
         outcomes = []
         for i, job in enumerate(jobs):
             bits = result.get_memory(i)[0][::-1]  # clbit 0 first
@@ -270,6 +377,24 @@ def build_deferred_teleportation_circuit(job: TeleportJob):
         qc.y(2)
     elif job.noise_pauli == "Z":
         qc.z(2)
+    if job.damping_gamma > 0.0 or job.phase_damping_gamma > 0.0:
+        target = job.damping_target.lower()
+        kraus = get_damping_kraus_ops(job.damping_gamma, job.phase_damping_gamma)
+        from qiskit.quantum_info import Kraus
+        k_channel = Kraus(kraus)
+        if target in ("traveling", "travelling", "q2"):
+            qc.append(k_channel, [2])
+        elif target in ("teleported", "token", "q0"):
+            qc.append(k_channel, [0])
+        elif target in ("bell_pair", "q1_q2"):
+            qc.append(k_channel, [1])
+            qc.append(k_channel, [2])
+        elif target in ("all", "all_qubits"):
+            qc.append(k_channel, [0])
+            qc.append(k_channel, [1])
+            qc.append(k_channel, [2])
+        else:
+            qc.append(k_channel, [2])
     # Alice's Bell basis rotation
     qc.cx(0, 1)
     qc.h(0)
@@ -453,9 +578,9 @@ class IBMFakeTeleportationBackend:
         state_keys = {(0, 0): "0", (1, 0): "1", (0, 1): "+", (1, 1): "-"}
 
         for job in jobs:
-            # Check intercept-resend or noise Pauli if present
-            if job.eve_basis is not None or job.noise_pauli is not None:
-                # Fallback to statevector simulation for active attack interception
+            # Check intercept-resend, noise Pauli, or damping noise if present
+            if job.eve_basis is not None or job.noise_pauli is not None or job.damping_gamma > 0.0 or job.phase_damping_gamma > 0.0:
+                # Fallback to statevector simulation for active attack interception or direct damping
                 from .teleportation import _teleport_statevector
                 outcomes.append(_teleport_statevector(job, rng))
                 continue

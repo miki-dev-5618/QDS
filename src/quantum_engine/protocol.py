@@ -230,7 +230,19 @@ class TeleportationQDS:
         for block in np.array_split(np.arange(len(stream)), max(1, self.params.abort_chunks)):
             if len(block) == 0:
                 continue
-            jobs = [TeleportJob(stream[i].bit, stream[i].basis, stream[i].meas_basis, *events[i]) for i in block]
+            jobs = [
+                TeleportJob(
+                    stream[i].bit,
+                    stream[i].basis,
+                    stream[i].meas_basis,
+                    events[i][0],
+                    events[i][1],
+                    damping_gamma=(channel.amp_damping_gamma if channel.noise_profile == "amp_damping" or channel.amp_damping_gamma > 0 else 0.0),
+                    phase_damping_gamma=channel.phase_damping_gamma,
+                    damping_target=channel.damping_target,
+                )
+                for i in block
+            ]
             for i, out in zip(block, self.backend.run(jobs, rng)):
                 outcomes.append(out)
                 if stream[i].kind == "test":

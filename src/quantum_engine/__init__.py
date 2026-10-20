@@ -18,7 +18,7 @@ from .threats import ThreatSuite, ThreatType, ThreatScenarioConfig, NoPackageToR
 from .detection import QDSDetectionEngine, ThreatReport, ThreatClassification
 from .discriminator import TierTwoResult, tier_two
 from .security import SecurityParameters
-from .channel import ChannelModel, ChannelTestResult, estimate_channel_qber
+from .channel import ChannelModel, ChannelTestResult, estimate_channel_qber, make_amplitude_damping_channel
 from .binding import SignedContext, SignedPackage, commitment, message_digest
 from .verifier import VerifierNode, VerificationResult, DistributionRecord
 from .policy import ResponsePolicy, ResponseDecision, decide
@@ -37,7 +37,7 @@ __all__ = [
     "QDSDetectionEngine", "ThreatReport", "ThreatClassification",
     "TierTwoResult", "tier_two",
     "SecurityParameters",
-    "ChannelModel", "ChannelTestResult", "estimate_channel_qber",
+    "ChannelModel", "ChannelTestResult", "estimate_channel_qber", "make_amplitude_damping_channel",
     "SignedContext", "SignedPackage", "commitment", "message_digest",
     "VerifierNode", "VerificationResult", "DistributionRecord",
     "ResponsePolicy", "ResponseDecision", "decide",

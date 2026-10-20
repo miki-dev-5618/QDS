@@ -38,14 +38,28 @@ class ChannelModel:
     burst_rate: float = 0.0       # per-token probability that a noise burst starts
     burst_depolarizing: float = 0.5
     burst_length: int = 8         # tokens per burst
-    noise_profile: str = "depolarizing"  # "depolarizing" or "ibm_fake"
+    noise_profile: str = "depolarizing"  # "depolarizing", "ibm_fake", or "amp_damping"
     ibm_backend: Optional[str] = None
     ibm_mode: str = "calibrated"         # "calibrated" or "full"
     effective_error_rate: Optional[float] = None
     calibration_date: Optional[str] = None
+    amp_damping_gamma: float = 0.0       # gamma parameter for amplitude damping in [0, 1]
+    phase_damping_gamma: float = 0.0     # optional phase damping parameter
+    damping_target: str = "traveling"    # "traveling" (qubit 2), "teleported" (qubit 0), "bell_pair" (qubits 1 & 2), "all"
 
     def expected_qber(self) -> float:
         """Matched-basis error probability implied by these parameters (bursts averaged)."""
+        if self.noise_profile == "amp_damping":
+            # For uniform distribution over the 4 BB84 states (|0>, |1>, |+>, |->):
+            # |0> has 0 flip probability under amplitude damping.
+            # |1> flips to |0> with probability gamma.
+            # |+> and |-> in X basis: effective flip rate is approx (1 - sqrt(1 - gamma))/2.
+            # Average Z error = gamma / 2; average X error = (1 - sqrt(1 - gamma))/2.
+            # For small gamma, average mismatch ~ gamma / 4 + (gamma/4) = gamma/2.
+            gamma = self.amp_damping_gamma
+            b = 0.25 * gamma + 0.5 * (0.5 * (1.0 - math.sqrt(max(0.0, 1.0 - gamma))))
+            a = 0.25 * self.intercept_rate
+            return a + b - 2 * a * b
         if self.noise_profile == "ibm_fake" and self.effective_error_rate is not None:
             a = 0.25 * self.intercept_rate
             b = self.effective_error_rate
@@ -93,6 +107,23 @@ def make_ibm_channel(backend_name: Optional[str] = None, mode: str = "calibrated
         effective_error_rate=cal["effective_error_rate"],
         calibration_date=cal["calibration_date"],
         depolarizing=cal["effective_error_rate"],
+    )
+
+
+def make_amplitude_damping_channel(
+    gamma: float,
+    phase_gamma: float = 0.0,
+    damping_target: str = "traveling",
+    intercept_rate: float = 0.0,
+) -> ChannelModel:
+    """Create a ChannelModel with amplitude damping noise."""
+    return ChannelModel(
+        noise_profile="amp_damping",
+        amp_damping_gamma=float(gamma),
+        phase_damping_gamma=float(phase_gamma),
+        damping_target=damping_target,
+        intercept_rate=intercept_rate,
+        depolarizing=0.0,
     )
 
 
