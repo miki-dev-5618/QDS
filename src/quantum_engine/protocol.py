@@ -147,10 +147,15 @@ class TeleportationQDS:
         self.backend = make_backend(backend) if isinstance(backend, str) else backend
         if channel is None:
             import os
-            if os.environ.get("HEDWIG_NOISE_PROFILE") == "ibm_fake" or (isinstance(backend, str) and "ibm_fake" in backend):
+            noise_env = os.environ.get("HEDWIG_NOISE_PROFILE")
+            if noise_env == "ibm_fake" or (isinstance(backend, str) and "ibm_fake" in backend):
                 from .channel import make_ibm_channel
                 mode = "full" if (backend == "ibm_fake_full" or os.environ.get("HEDWIG_IBM_MODE") == "full") else "calibrated"
                 self.default_channel = make_ibm_channel(mode=mode)
+            elif noise_env == "lossy":
+                from .channel import make_lossy_channel
+                eta = float(os.environ.get("HEDWIG_ETA_LOSS", "0.1"))
+                self.default_channel = make_lossy_channel(eta_loss=eta)
             else:
                 self.default_channel = ChannelModel()
         else:
@@ -227,28 +232,35 @@ class TeleportationQDS:
                                          strong_alpha=self.params.strong_alpha).strong_threshold_errors
         outcomes: List[Any] = []
         tested = errors = 0
+        total_lost = 0
         for block in np.array_split(np.arange(len(stream)), max(1, self.params.abort_chunks)):
             if len(block) == 0:
                 continue
-            jobs = [
-                TeleportJob(
-                    stream[i].bit,
-                    stream[i].basis,
-                    stream[i].meas_basis,
-                    events[i][0],
-                    events[i][1],
-                    damping_gamma=(channel.amp_damping_gamma if channel.noise_profile == "amp_damping" or channel.amp_damping_gamma > 0 else 0.0),
-                    phase_damping_gamma=channel.phase_damping_gamma,
-                    damping_target=channel.damping_target,
-                    readout_p01=(channel.readout_p01 if channel.noise_profile == "readout" or channel.readout_p01 > 0 else 0.0),
-                    readout_p10=(channel.readout_p10 if channel.noise_profile == "readout" or channel.readout_p10 > 0 else 0.0),
-                    readout_location=channel.readout_location,
+            jobs = []
+            for i in block:
+                # Lossy profile: token is lost with probability eta_loss (heralded erasure)
+                is_lost = bool(channel.eta_loss > 0.0 and rng.random() < channel.eta_loss)
+                jobs.append(
+                    TeleportJob(
+                        stream[i].bit,
+                        stream[i].basis,
+                        stream[i].meas_basis,
+                        events[i][0],
+                        events[i][1],
+                        damping_gamma=(channel.amp_damping_gamma if channel.noise_profile == "amp_damping" or channel.amp_damping_gamma > 0 else 0.0),
+                        phase_damping_gamma=channel.phase_damping_gamma,
+                        damping_target=channel.damping_target,
+                        readout_p01=(channel.readout_p01 if channel.noise_profile == "readout" or channel.readout_p01 > 0 else 0.0),
+                        readout_p10=(channel.readout_p10 if channel.noise_profile == "readout" or channel.readout_p10 > 0 else 0.0),
+                        readout_location=channel.readout_location,
+                        is_lost=is_lost,
+                    )
                 )
-                for i in block
-            ]
             for i, out in zip(block, self.backend.run(jobs, rng)):
                 outcomes.append(out)
-                if stream[i].kind == "test":
+                if out.is_lost:
+                    total_lost += 1
+                elif stream[i].kind == "test":
                     tested += 1
                     errors += int(out.outcome != stream[i].bit)
             if errors > k_strong and len(outcomes) < len(stream):
@@ -257,17 +269,32 @@ class TeleportationQDS:
         if adversary is not None:
             adversary.observe(stream[:sent], outcomes)
 
+        surviving_tokens = sent - total_lost
+
+        channel_test = estimate_channel_qber(tested, errors, self.params.honest_qber, self.params.false_alarm_alpha,
+                                             planned_count=n_test, strong_alpha=self.params.strong_alpha,
+                                             tokens_sent=sent, tokens_planned=len(stream),
+                                             tokens_received=surviving_tokens, tokens_lost=total_lost)
+
+        insufficient_tokens = bool(
+            not channel_test.alarm
+            and total_lost > 0
+            and len(stream) > 0
+            and surviving_tokens < (self.params.min_surviving_ratio * len(stream))
+        )
+
         eliminated: Dict[str, List[List[Optional[str]]]] = {
             v: [[None] * len(held[v][i]) for i in range(n_bits)] for v in VERIFIERS}
         for s, out in zip(stream[:sent], outcomes):
             if s.kind == "sig":
-                eliminated[s.verifier][s.pos][s.copy] = OrthogonalEliminationEngine.eliminate_state_symbol(
-                    s.meas_basis, out.outcome)
+                if out.is_lost:
+                    # Token lost: heralded erasure, receiver excludes it from eliminated states
+                    eliminated[s.verifier][s.pos][s.copy] = None
+                else:
+                    eliminated[s.verifier][s.pos][s.copy] = OrthogonalEliminationEngine.eliminate_state_symbol(
+                        s.meas_basis, out.outcome)
         eliminated_clean = {v: [[e for e in row if e is not None] for row in eliminated[v]] for v in VERIFIERS}
 
-        channel_test = estimate_channel_qber(tested, errors, self.params.honest_qber, self.params.false_alarm_alpha,
-                                             planned_count=n_test, strong_alpha=self.params.strong_alpha,
-                                             tokens_sent=sent, tokens_planned=len(stream))
         self.router.carry(LINK_SIGNER, sent)
         observation_ms = (time.perf_counter_ns() - t_start) / 1e6
 
@@ -276,6 +303,8 @@ class TeleportationQDS:
                 session_id=ctx.session_id, sender=sender, commitment=commit,
                 eliminated=eliminated_clean[v], held_desc=desc[v],
                 channel_test=channel_test, aborted=channel_test.alarm,
+                insufficient_tokens=insufficient_tokens,
+                tokens_received=surviving_tokens, tokens_planned=len(stream),
             ))
 
         return SigningSession(
@@ -284,6 +313,7 @@ class TeleportationQDS:
             bob_actions=bob_actions, charlie_actions=charlie_actions,
             channel_test=channel_test, channel_model=channel,
             observation_ms=round(observation_ms, 3), tokens_sent=sent, tokens_planned=len(stream),
+            tokens_received=surviving_tokens, insufficient_tokens=insufficient_tokens,
         )
 
     @staticmethod
@@ -308,10 +338,12 @@ class TeleportationQDS:
         session = self.distribute(sender, message, n_bits, rng, channel)
         package = self.reveal(session)
         if session.aborted:
+            note = ("Channel test alarm: signature never revealed." if session.channel_test.alarm
+                    else f"INSUFFICIENT_TOKENS: surviving tokens {session.tokens_received}/{session.tokens_planned} below safety threshold.")
             return Transcript(kind="direct", link=LINK_SIGNER, n_bits=n_bits, package=package, results=[],
                               display={}, session=session, channel_test=session.channel_test,
                               channel_model=session.channel_model,
-                              notes=["Channel test alarm: signature never revealed."])
+                              notes=[note])
         results = self.deliver(package)
         return Transcript(kind="direct", link=LINK_SIGNER, n_bits=n_bits, package=package, results=results,
                           display={r.verifier: r for r in results}, session=session,

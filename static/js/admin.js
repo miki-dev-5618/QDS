@@ -230,9 +230,13 @@ function handleNewTransmission(tx) {
   const outcome = injectedAttack === isThreat
     ? (isThreat ? 'attack detected' : 'honest accepted')
     : (isThreat ? 'FALSE ALARM' : 'ATTACK MISSED');
+  const lossInfo = (tx.channel && tx.channel.tokens_planned)
+    ? ` · tokens received ${tx.channel.tokens_received}/${tx.channel.tokens_planned}`
+    : '';
   const channel = tx.channel
     ? `QBER^ ${(tx.channel.qber_estimate * 100).toFixed(1)}% (${tx.channel.error_count}/${tx.channel.test_count}, alarm >${tx.channel.alarm_threshold_errors}, p=${fmtP(tx.channel.p_value)})` +
-      (tx.channel.early_abort ? ` · EARLY ABORT ${tx.channel.tokens_sent}/${tx.channel.tokens_planned} tokens` : '')
+      (tx.channel.early_abort ? ` · EARLY ABORT ${tx.channel.tokens_sent}/${tx.channel.tokens_planned} tokens` : '') +
+      lossInfo
     : 'no channel test';
   const t2 = report.tier2 && report.tier2.applicable ? `Tier 2: ${report.tier2.attribution}` : '';
   const resp = tx.response ? `${tx.response.response_action} (p=${fmtP(tx.response.evidence_p)})` : tx.enforcement.action;

@@ -53,6 +53,7 @@ class TeleportJob:
     readout_p01: float = 0.0          # P(read=1 | true=0)
     readout_p10: float = 0.0          # P(read=0 | true=1)
     readout_location: str = "both"    # "verifier_measurement", "bell_measurement", "both"
+    is_lost: bool = False             # heralded photon loss (erasure)
 
 
 def apply_readout_bit_flip(bit: int, p01: float, p10: float, rng: np.random.Generator) -> int:
@@ -66,10 +67,11 @@ def apply_readout_bit_flip(bit: int, p01: float, p10: float, rng: np.random.Gene
 
 @dataclass(frozen=True)
 class TeleportOutcome:
-    outcome: int          # verifier's measurement result
+    outcome: int          # verifier's measurement result (-1 if lost/erased)
     m1: int               # Alice's Bell-measurement bits (classical feed-forward)
     m2: int
     eve_outcome: Optional[int] = None
+    is_lost: bool = False
 
 
 def sample_channel_events(
@@ -198,6 +200,8 @@ def _prep(state: _ThreeQubitState, bit: int, basis: int):
 
 
 def _teleport_statevector(job: TeleportJob, rng: np.random.Generator, measure: bool = True):
+    if job.is_lost:
+        return TeleportOutcome(outcome=-1, m1=0, m2=0, eve_outcome=None, is_lost=True)
     s = _ThreeQubitState()
     _prep(s, job.bit, job.basis)
     # Bell pair |Phi+> on q1,q2
@@ -352,16 +356,19 @@ class QiskitTeleportationBackend:
     def run(self, jobs: Sequence[TeleportJob], rng: np.random.Generator) -> List[TeleportOutcome]:
         if not jobs:
             return []
-        has_damping = any(j.damping_gamma > 0.0 or j.phase_damping_gamma > 0.0 for j in jobs)
-        has_readout = any(j.readout_p01 > 0.0 or j.readout_p10 > 0.0 for j in jobs)
-        circuits = [build_teleportation_circuit(j) for j in jobs]
+        active_jobs = [j for j in jobs if not j.is_lost]
+        if not active_jobs:
+            return [TeleportOutcome(outcome=-1, m1=0, m2=0, eve_outcome=None, is_lost=True) for _ in jobs]
+        has_damping = any(j.damping_gamma > 0.0 or j.phase_damping_gamma > 0.0 for j in active_jobs)
+        has_readout = any(j.readout_p01 > 0.0 or j.readout_p10 > 0.0 for j in active_jobs)
+        circuits = [build_teleportation_circuit(j) for j in active_jobs]
         seed = int(rng.integers(0, 2**31 - 1))
         if has_readout:
             from qiskit_aer import AerSimulator
             from qiskit_aer.noise import NoiseModel, ReadoutError
-            p01 = max(j.readout_p01 for j in jobs)
-            p10 = max(j.readout_p10 for j in jobs)
-            loc = jobs[0].readout_location.lower() if jobs else "both"
+            p01 = max(j.readout_p01 for j in active_jobs)
+            p10 = max(j.readout_p10 for j in active_jobs)
+            loc = active_jobs[0].readout_location.lower() if active_jobs else "both"
             ro_error = ReadoutError([[1.0 - p01, p01], [p10, 1.0 - p10]])
             noise_model = NoiseModel()
             if loc in ("verifier_measurement", "verifier"):
@@ -382,8 +389,13 @@ class QiskitTeleportationBackend:
         else:
             result = self._sim.run(circuits, shots=1, memory=True, seed_simulator=seed).result()
         outcomes = []
+        sim_idx = 0
         for i, job in enumerate(jobs):
-            bits = result.get_memory(i)[0][::-1]  # clbit 0 first
+            if job.is_lost:
+                outcomes.append(TeleportOutcome(outcome=-1, m1=0, m2=0, eve_outcome=None, is_lost=True))
+                continue
+            bits = result.get_memory(sim_idx)[0][::-1]  # clbit 0 first
+            sim_idx += 1
             outcomes.append(TeleportOutcome(
                 outcome=int(bits[2]),
                 m1=int(bits[0]),
@@ -604,14 +616,22 @@ class IBMFakeTeleportationBackend:
 
         if self.mode == "full":
             from qiskit import transpile
-            circuits = [build_deferred_teleportation_circuit(j) for j in jobs]
+            active_jobs = [j for j in jobs if not j.is_lost]
+            if not active_jobs:
+                return [TeleportOutcome(outcome=-1, m1=0, m2=0, eve_outcome=None, is_lost=True) for _ in jobs]
+            circuits = [build_deferred_teleportation_circuit(j) for j in active_jobs]
             seed_sim = int(rng.integers(0, 2**31 - 1))
             seed_tr = int(rng.integers(0, 2**31 - 1))
             tcircs = [transpile(qc, backend=self.backend, seed_transpiler=seed_tr) for qc in circuits]
             result = self._sim.run(tcircs, shots=1, memory=True, seed_simulator=seed_sim).result()
             outcomes = []
+            sim_idx = 0
             for i, job in enumerate(jobs):
-                bits = result.get_memory(i)[0][::-1]
+                if job.is_lost:
+                    outcomes.append(TeleportOutcome(outcome=-1, m1=0, m2=0, eve_outcome=None, is_lost=True))
+                    continue
+                bits = result.get_memory(sim_idx)[0][::-1]
+                sim_idx += 1
                 eve_bit = int(bits[3]) if (job.eve_basis is not None and len(bits) > 3) else None
                 outcomes.append(TeleportOutcome(
                     outcome=int(bits[2]),
@@ -627,6 +647,9 @@ class IBMFakeTeleportationBackend:
         state_keys = {(0, 0): "0", (1, 0): "1", (0, 1): "+", (1, 1): "-"}
 
         for job in jobs:
+            if job.is_lost:
+                outcomes.append(TeleportOutcome(outcome=-1, m1=0, m2=0, eve_outcome=None, is_lost=True))
+                continue
             # Check intercept-resend, noise Pauli, damping noise, or readout error if present
             if (
                 job.eve_basis is not None

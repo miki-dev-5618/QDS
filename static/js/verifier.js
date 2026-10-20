@@ -70,9 +70,10 @@ function renderTransmission(tx) {
     : report.details;
   document.getElementById('mismatchesVal').textContent =
     `${v.mismatches} / ${v.total_checked} (≤${v.acceptance_limit})`;
-  document.getElementById('qberVal').textContent = tx.channel
+  const recvStr = v.tokens_planned ? ` · tokens received ${v.tokens_received}/${v.tokens_planned}` : '';
+  document.getElementById('qberVal').textContent = (tx.channel
     ? `${(tx.channel.qber_estimate * 100).toFixed(1)}% (${tx.channel.error_count}/${tx.channel.test_count})`
-    : 'n/a';
+    : 'n/a') + recvStr;
   document.getElementById('verifiedMsgText').textContent = v.received_message;
 
   renderChecks(v);

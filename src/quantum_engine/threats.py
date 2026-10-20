@@ -30,6 +30,7 @@ class ThreatType(str, Enum):
     REPUDIATION = "repudiation"
     REPLAY = "replay"
     IMPERSONATION = "impersonation"
+    EVE_LOSS_EXPLOIT = "eve_loss_exploit"
 
 
 @dataclass
@@ -39,10 +40,35 @@ class ThreatScenarioConfig:
     tampered_message_text: Optional[str] = None
     claimed_sender: str = "alice"
     repudiation_tamper_ratio: float = 0.5
+    loss_exploit_block_rate: float = 0.5
 
 
 class NoPackageToReplay(Exception):
     """Replay needs a previously accepted package observed on the wire."""
+
+
+class EveLossExploitAdversary:
+    """
+    Adversary exploiting channel erasure / loss.
+    Eve intercepts tokens; when her measurement introduces disturbance or when she
+    cannot copy the state reliably, she blocks the token (simulating channel photon loss).
+    Under the fair-sampling assumption, receivers assume photon loss is independent
+    of the quantum state/basis; an adversary exploiting loss selectively breaks fair sampling.
+    """
+    def __init__(self, block_rate: float = 0.5):
+        self.block_rate = block_rate
+        self.events = []
+
+    def tap(self, stream, schedule_public, rng):
+        self.events = []
+        for s in stream:
+            # Eve intercepts in random basis
+            eve_basis = int(rng.integers(0, 2))
+            self.events.append((eve_basis, None))
+        return self.events
+
+    def observe(self, sent, outcomes):
+        pass
 
 
 class ThreatSuite:
@@ -146,6 +172,19 @@ class ThreatSuite:
                                     blinding=new_blinding())
             return cls._delivered(engine, package, n_bits, None,
                                   notes=["Rogue sender transmitted without any distribution stage."])
+
+        if t == ThreatType.EVE_LOSS_EXPLOIT:
+            lossy = ChannelModel(
+                depolarizing=channel.depolarizing,
+                intercept_rate=scenario.channel_intercept_rate,
+                eta_loss=max(channel.eta_loss, scenario.loss_exploit_block_rate),
+                noise_profile="lossy",
+            )
+            session = engine.distribute(sender, message, n_bits, rng, lossy)
+            package = engine.reveal(session)
+            package = package.copy(revealed_signature=cls.generate_eve_counterfeit_signature(n_bits, rng))
+            return cls._delivered(engine, package, n_bits, session,
+                                  notes=["Eve intercepted and blocked poorly measured tokens exploiting loss."])
 
         if t == ThreatType.DISHONEST_BOB:
             session = engine.distribute(sender, message, n_bits, rng, channel)

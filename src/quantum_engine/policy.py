@@ -102,6 +102,9 @@ def decide(report: ThreatReport, policy: ResponsePolicy) -> ResponseDecision:
         return ResponseDecision("reject", "none", "classical", report.evidence_p,
                                 f"{cls.value}: classical check failed; package rejected, link stays as is "
                                 f"(an outsider can trigger this at will).")
+    if cls == ThreatClassification.INSUFFICIENT_TOKENS:
+        return ResponseDecision("reject", "watch", "weak", 1.0,
+                                "INSUFFICIENT_TOKENS: photon loss exceeded threshold; link placed on WATCH (not quarantined).")
     if report.evidence_p <= policy.strong_alpha:
         return ResponseDecision("reject", "quarantine", "strong", report.evidence_p,
                                 f"{cls.value}: evidence p = {report.evidence_p:.2e} <= {policy.strong_alpha} "

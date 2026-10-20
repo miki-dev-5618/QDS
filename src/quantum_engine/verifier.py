@@ -49,6 +49,9 @@ class DistributionRecord:
     channel_test: ChannelTestResult
     aborted: bool                      # channel test raised an alarm
     created: float = field(default_factory=time.time)
+    insufficient_tokens: bool = False  # n_surviving < n_min
+    tokens_received: int = 0
+    tokens_planned: int = 0
 
 
 @dataclass
@@ -81,6 +84,9 @@ class VerificationResult:
     eliminated_states: List[List[str]]
     held_tokens: List[List[str]]
     bounds: Dict[str, Any]
+    insufficient_tokens: bool = False
+    tokens_received: int = 0
+    tokens_planned: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -98,6 +104,10 @@ class VerificationResult:
             "contradiction_indices": self.contradiction_indices,
             "eliminated_states": self.eliminated_states,
             "held_tokens": self.held_tokens,
+            "insufficient_tokens": self.insufficient_tokens,
+            "tokens_received": self.tokens_received,
+            "tokens_planned": self.tokens_planned,
+            "tokens_received_str": f"{self.tokens_received}/{self.tokens_planned}" if self.tokens_planned else "—",
             "checks": {
                 "distribution_record_found": self.record_found,
                 "sender_matches_record": self.sender_matches,
@@ -109,6 +119,7 @@ class VerificationResult:
                 "message_digest_matches": self.digest_matches,
                 "commitment_matches": self.commitment_matches,
                 "binding_pass": self.binding_pass,
+                "sufficient_tokens": not self.insufficient_tokens,
             },
             "reasons": self.reasons,
             "bounds": self.bounds,
@@ -167,6 +178,10 @@ class VerifierNode:
             if aborted:
                 reasons.append("Session aborted at distribution: channel test alarm.")
 
+            insufficient_tokens = bool(record and record.insufficient_tokens)
+            if insufficient_tokens:
+                reasons.append("Session aborted at distribution: INSUFFICIENT_TOKENS (photon loss exceeded tolerance).")
+
             fresh, freshness_reason = self.replay_guard.freshness(ctx.nonce, ctx.timestamp, channel_key)
             if not fresh:
                 reasons.append({
@@ -200,7 +215,7 @@ class VerifierNode:
                 reasons.append("Context/signature do not match the signer's distribution-stage commitment.")
             binding_pass = digest_ok and commit_ok
 
-            accepted = (record_found and sender_matches and addressed and not aborted and fresh
+            accepted = (record_found and sender_matches and addressed and not aborted and not insufficient_tokens and fresh
                         and elimination_pass and binding_pass)
             if accepted and not self.replay_guard.consume(ctx.nonce, channel_key):
                 # Lost a race with a concurrent identical package: the nonce is already spent.
@@ -208,6 +223,9 @@ class VerifierNode:
                 reasons.append("Nonce already consumed by an accepted package (replay).")
             if accepted:
                 self._accepted_sessions.add(ctx.session_id)
+
+        tokens_received = record.tokens_received if record else 0
+        tokens_planned = record.tokens_planned if record else 0
 
         return VerificationResult(
             verifier=self.name,
@@ -236,4 +254,7 @@ class VerifierNode:
             eliminated_states=eliminated,
             held_tokens=record.held_desc if record else [],
             bounds=self.params.bounds(n_checked, mismatches, forwarded),
+            insufficient_tokens=insufficient_tokens,
+            tokens_received=tokens_received,
+            tokens_planned=tokens_planned,
         )

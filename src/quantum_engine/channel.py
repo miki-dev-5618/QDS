@@ -49,9 +49,17 @@ class ChannelModel:
     readout_p01: float = 0.0             # P(meas=1 | state=0)
     readout_p10: float = 0.0             # P(meas=0 | state=1)
     readout_location: str = "both"       # "verifier_measurement", "bell_measurement", or "both"
+    eta_loss: float = 0.0                # probability of photon loss (erasure) in [0, 0.5]
 
     def expected_qber(self) -> float:
         """Matched-basis error probability implied by these parameters (bursts averaged)."""
+        if self.noise_profile == "lossy":
+            # Erasure is heralded and excluded from mismatch counting, so baseline QBER is depolarizing
+            f = self.burst_fraction()
+            dep = (1 - f) * self.depolarizing + f * self.burst_depolarizing
+            a = 0.25 * self.intercept_rate
+            b = 2.0 * dep / 3.0
+            return a + b - 2 * a * b
         if self.noise_profile == "readout":
             p_m = 0.5 * self.readout_p01 + 0.5 * self.readout_p10
             loc = self.readout_location.lower()
@@ -158,6 +166,20 @@ def make_readout_channel(
     )
 
 
+def make_lossy_channel(
+    eta_loss: float = 0.1,
+    depolarizing: float = 0.01,
+    intercept_rate: float = 0.0,
+) -> ChannelModel:
+    """Create a ChannelModel with heralded photon loss (erasure)."""
+    return ChannelModel(
+        noise_profile="lossy",
+        eta_loss=float(eta_loss),
+        depolarizing=depolarizing,
+        intercept_rate=intercept_rate,
+    )
+
+
 
 def binomial_upper_tail(n: int, p: float, k: int) -> float:
     """P(X >= k) for X ~ Binomial(n, p)."""
@@ -231,6 +253,8 @@ class ChannelTestResult:
     early_abort: bool = False
     tokens_sent: int = 0
     tokens_planned: int = 0
+    tokens_received: int = 0
+    tokens_lost: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -253,12 +277,16 @@ def estimate_channel_qber(
     strong_alpha: float = 1e-3,
     tokens_sent: int = 0,
     tokens_planned: int = 0,
+    tokens_received: Optional[int] = None,
+    tokens_lost: Optional[int] = None,
 ) -> ChannelTestResult:
     planned = planned_count or test_count
     k = critical_error_count(planned, honest_qber, alpha)
     k_strong = critical_error_count(planned, honest_qber, strong_alpha)
     lo, hi = wilson_interval(error_count, test_count)
     early = test_count < planned
+    recv = tokens_sent if tokens_received is None else tokens_received
+    lost = max(0, tokens_sent - recv) if tokens_lost is None else tokens_lost
     return ChannelTestResult(
         test_count=test_count,
         error_count=error_count,
@@ -278,4 +306,6 @@ def estimate_channel_qber(
         early_abort=early,
         tokens_sent=tokens_sent,
         tokens_planned=tokens_planned,
+        tokens_received=recv,
+        tokens_lost=lost,
     )
