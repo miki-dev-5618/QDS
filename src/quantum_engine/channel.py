@@ -38,9 +38,18 @@ class ChannelModel:
     burst_rate: float = 0.0       # per-token probability that a noise burst starts
     burst_depolarizing: float = 0.5
     burst_length: int = 8         # tokens per burst
+    noise_profile: str = "depolarizing"  # "depolarizing" or "ibm_fake"
+    ibm_backend: Optional[str] = None
+    ibm_mode: str = "calibrated"         # "calibrated" or "full"
+    effective_error_rate: Optional[float] = None
+    calibration_date: Optional[str] = None
 
     def expected_qber(self) -> float:
         """Matched-basis error probability implied by these parameters (bursts averaged)."""
+        if self.noise_profile == "ibm_fake" and self.effective_error_rate is not None:
+            a = 0.25 * self.intercept_rate
+            b = self.effective_error_rate
+            return a + b - 2 * a * b
         f = self.burst_fraction()
         dep = (1 - f) * self.depolarizing + f * self.burst_depolarizing
         a = 0.25 * self.intercept_rate       # intercept-resend in a random basis
@@ -55,16 +64,37 @@ class ChannelModel:
 
     def sample_events(self, n: int, rng: np.random.Generator) -> List[Tuple[Optional[int], Optional[str]]]:
         """Per-token (eve_basis, noise_pauli) in transmission order."""
+        dep_rate = self.depolarizing
+        if self.noise_profile == "ibm_fake" and self.effective_error_rate is not None:
+            # Map effective error rate (flip probability) back to depolarizing parameter: err = 2/3 * p => p = 1.5 * err
+            dep_rate = min(1.0, 1.5 * self.effective_error_rate)
+
         if self.burst_rate <= 0:
-            return sample_channel_events(n, rng, self.depolarizing, self.intercept_rate)
+            return sample_channel_events(n, rng, dep_rate, self.intercept_rate)
         events, left = [], 0
         for _ in range(n):
             if left == 0 and rng.random() < self.burst_rate:
                 left = self.burst_length
-            dep = self.burst_depolarizing if left > 0 else self.depolarizing
+            dep = self.burst_depolarizing if left > 0 else dep_rate
             left = max(0, left - 1)
             events.extend(sample_channel_events(1, rng, dep, self.intercept_rate))
         return events
+
+
+def make_ibm_channel(backend_name: Optional[str] = None, mode: str = "calibrated", shots: int = 5000) -> ChannelModel:
+    """Create a ChannelModel configured with IBM fake backend calibration data."""
+    from .teleportation import calibrate_ibm_backend, get_fake_backend
+    backend = get_fake_backend(backend_name)
+    cal = calibrate_ibm_backend(backend_name=backend.name, shots=shots)
+    return ChannelModel(
+        noise_profile="ibm_fake",
+        ibm_backend=cal["backend_name"],
+        ibm_mode=mode,
+        effective_error_rate=cal["effective_error_rate"],
+        calibration_date=cal["calibration_date"],
+        depolarizing=cal["effective_error_rate"],
+    )
+
 
 
 def binomial_upper_tail(n: int, p: float, k: int) -> float:

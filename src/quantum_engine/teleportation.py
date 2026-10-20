@@ -212,8 +212,6 @@ def build_teleportation_circuit(job: TeleportJob, save_density_matrix: bool = Fa
         qc.h(2)
     qc.measure(2, 2)
     return qc
-
-
 class QiskitTeleportationBackend:
     name = "qiskit"
 
@@ -239,9 +237,253 @@ class QiskitTeleportationBackend:
         return outcomes
 
 
-def make_backend(name: str = "qiskit"):
+# --------------------------------------------------------------------------
+# Deferred-measurement teleportation & IBM fake backend integration
+# --------------------------------------------------------------------------
+def build_deferred_teleportation_circuit(job: TeleportJob):
+    """
+    Deferred-measurement teleportation circuit without mid-circuit classical feed-forward.
+    Replaces conditional classical feed-forward with coherent CX and CZ gates prior
+    to measurement, allowing the exact circuit to execute on real IBM hardware.
+    """
+    from qiskit import QuantumCircuit
+
+    qc = QuantumCircuit(3, 4 if job.eve_basis is not None else 3)
+    if job.bit:
+        qc.x(0)
+    if job.basis:
+        qc.h(0)
+    # Bell pair preparation on q1, q2
+    qc.h(1)
+    qc.cx(1, 2)
+    # Optional Eve eavesdropping on travelling qubit q2
+    if job.eve_basis is not None:
+        if job.eve_basis:
+            qc.h(2)
+        qc.measure(2, 3)
+        if job.eve_basis:
+            qc.h(2)
+    # Channel Pauli noise
+    if job.noise_pauli == "X":
+        qc.x(2)
+    elif job.noise_pauli == "Y":
+        qc.y(2)
+    elif job.noise_pauli == "Z":
+        qc.z(2)
+    # Alice's Bell basis rotation
+    qc.cx(0, 1)
+    qc.h(0)
+    # Coherent deferred feed-forward (controlled gates):
+    # m2 (from q1) controls X on q2 -> CX(1, 2)
+    # m1 (from q0) controls Z on q2 -> CZ(0, 2)
+    qc.cx(1, 2)
+    qc.cz(0, 2)
+    # Measurements at circuit termination
+    qc.measure(0, 0)
+    qc.measure(1, 1)
+    if job.meas_basis:
+        qc.h(2)
+    qc.measure(2, 2)
+    return qc
+
+
+def get_fake_backend(backend_name: Optional[str] = None):
+    """
+    Resolve and return a fake backend. Configurable via HEDWIG_IBM_FAKE_BACKEND.
+    Supports qiskit_ibm_runtime.fake_provider if installed, otherwise uses
+    qiskit.providers.fake_provider.GenericBackendV2.
+    """
+    import os
+    target = backend_name or os.environ.get("HEDWIG_IBM_FAKE_BACKEND")
+
+    # 1. Try qiskit_ibm_runtime.fake_provider if available
+    try:
+        from qiskit_ibm_runtime import fake_provider  # type: ignore
+        if target and hasattr(fake_provider, target):
+            cls = getattr(fake_provider, target)
+            return cls()
+        for cand in ["FakeManila", "FakeSherbrooke", "FakeBrisbane", "FakeTorino"]:
+            if hasattr(fake_provider, cand):
+                return getattr(fake_provider, cand)()
+    except ImportError:
+        pass
+
+    # 2. Try qiskit.providers.fake_provider
+    try:
+        from qiskit.providers.fake_provider import GenericBackendV2
+        return GenericBackendV2(num_qubits=5, seed=42)
+    except ImportError:
+        pass
+
+    raise RuntimeError("No fake backend provider found. Please install qiskit or qiskit-ibm-runtime.")
+
+
+def calibrate_ibm_backend(
+    backend_name: Optional[str] = None,
+    shots: int = 5000,
+    cache_dir: str = "experiments/calibration",
+    force: bool = False,
+    seed: int = 42,
+) -> dict:
+    """
+    Calibrate the IBM fake backend by running deferred teleportation circuits on AerSimulator
+    (~5,000 shots per state) to estimate effective per-token error and confusion matrix.
+    Saves calibration to experiments/calibration/ibm_<backend>.json.
+    """
+    import json
+    import os
+    import time
+    from qiskit import transpile
+    from qiskit_aer import AerSimulator
+    from qiskit_aer.noise import NoiseModel
+
+    backend = get_fake_backend(backend_name)
+    safe_name = backend.name.lower().replace(" ", "_")
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_file = os.path.join(cache_dir, f"ibm_{safe_name}.json")
+
+    if os.path.exists(cache_file) and not force:
+        with open(cache_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    noise_model = NoiseModel.from_backend(backend)
+    sim = AerSimulator(noise_model=noise_model)
+
+    # 4 input states: |0> (bit=0, basis=0), |1> (bit=1, basis=0),
+    #                 |+> (bit=0, basis=1), |-> (bit=1, basis=1)
+    test_states = [
+        ("0", 0, 0),
+        ("1", 1, 0),
+        ("+", 0, 1),
+        ("-", 1, 1),
+    ]
+
+    confusion_matrix = {}
+    error_rates = []
+
+    for label, bit, basis in test_states:
+        job = TeleportJob(bit=bit, basis=basis, meas_basis=basis)
+        qc = build_deferred_teleportation_circuit(job)
+        tqc = transpile(qc, backend=backend, seed_transpiler=seed)
+        counts = sim.run(tqc, shots=shots, seed_simulator=seed).result().get_counts()
+
+        total = sum(counts.values())
+        correct = 0
+        p0 = p1 = 0.0
+        for bitstring, count in counts.items():
+            bits = bitstring.replace(" ", "")[::-1]
+            out = int(bits[2])
+            if out == 0:
+                p0 += count
+            else:
+                p1 += count
+            if out == bit:
+                correct += count
+
+        err_rate = (total - correct) / total
+        error_rates.append(err_rate)
+        confusion_matrix[label] = {
+            "p0": round(p0 / total, 4),
+            "p1": round(p1 / total, 4),
+            "error_rate": round(err_rate, 4),
+        }
+
+    effective_error_rate = float(np.mean(error_rates))
+    calibration_data = {
+        "backend_name": backend.name,
+        "calibration_date": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+        "shots_per_state": shots,
+        "effective_error_rate": round(effective_error_rate, 4),
+        "fidelity": round(1.0 - effective_error_rate, 4),
+        "confusion_matrix": confusion_matrix,
+    }
+
+    with open(cache_file, "w", encoding="utf-8") as f:
+        json.dump(calibration_data, f, indent=2)
+
+    return calibration_data
+
+
+class IBMFakeTeleportationBackend:
+    name = "ibm_fake"
+
+    def __init__(self, backend_name: Optional[str] = None, mode: str = "calibrated", shots: int = 5000):
+        self.backend = get_fake_backend(backend_name)
+        self.backend_name = self.backend.name
+        self.mode = mode.lower()
+        self.calibration_data = calibrate_ibm_backend(backend_name=self.backend_name, shots=shots)
+        self.effective_error_rate = self.calibration_data["effective_error_rate"]
+        self.calibration_date = self.calibration_data["calibration_date"]
+
+        if self.mode == "full":
+            from qiskit_aer import AerSimulator
+            from qiskit_aer.noise import NoiseModel
+            self._noise_model = NoiseModel.from_backend(self.backend)
+            self._sim = AerSimulator(noise_model=self._noise_model)
+        else:
+            self._noise_model = None
+            self._sim = None
+
+    def run(self, jobs: Sequence[TeleportJob], rng: np.random.Generator) -> List[TeleportOutcome]:
+        if not jobs:
+            return []
+
+        if self.mode == "full":
+            from qiskit import transpile
+            circuits = [build_deferred_teleportation_circuit(j) for j in jobs]
+            seed_sim = int(rng.integers(0, 2**31 - 1))
+            seed_tr = int(rng.integers(0, 2**31 - 1))
+            tcircs = [transpile(qc, backend=self.backend, seed_transpiler=seed_tr) for qc in circuits]
+            result = self._sim.run(tcircs, shots=1, memory=True, seed_simulator=seed_sim).result()
+            outcomes = []
+            for i, job in enumerate(jobs):
+                bits = result.get_memory(i)[0][::-1]
+                eve_bit = int(bits[3]) if (job.eve_basis is not None and len(bits) > 3) else None
+                outcomes.append(TeleportOutcome(
+                    outcome=int(bits[2]),
+                    m1=int(bits[0]),
+                    m2=int(bits[1]),
+                    eve_outcome=eve_bit,
+                ))
+            return outcomes
+
+        # CALIBRATED mode: fast effective channel matching calibration confusion matrix
+        outcomes = []
+        cm = self.calibration_data["confusion_matrix"]
+        state_keys = {(0, 0): "0", (1, 0): "1", (0, 1): "+", (1, 1): "-"}
+
+        for job in jobs:
+            # Check intercept-resend or noise Pauli if present
+            if job.eve_basis is not None or job.noise_pauli is not None:
+                # Fallback to statevector simulation for active attack interception
+                from .teleportation import _teleport_statevector
+                outcomes.append(_teleport_statevector(job, rng))
+                continue
+
+            # Matched basis measurement
+            key = state_keys.get((job.bit, job.basis), "0")
+            p_err = cm[key]["error_rate"]
+            m1 = int(rng.integers(0, 2))
+            m2 = int(rng.integers(0, 2))
+
+            if job.basis == job.meas_basis:
+                flipped = rng.random() < p_err
+                outcome = (1 - job.bit) if flipped else job.bit
+            else:
+                outcome = int(rng.integers(0, 2))
+
+            outcomes.append(TeleportOutcome(outcome=outcome, m1=m1, m2=m2, eve_outcome=None))
+        return outcomes
+
+
+def make_backend(name: str = "qiskit", mode: str = "calibrated"):
     if name == "qiskit":
         return QiskitTeleportationBackend()
     if name == "statevector":
         return StatevectorTeleportationBackend()
+    if name in ("ibm_fake", "ibm_fake_calibrated"):
+        return IBMFakeTeleportationBackend(mode="calibrated")
+    if name == "ibm_fake_full":
+        return IBMFakeTeleportationBackend(mode="full")
     raise ValueError(f"Unknown teleportation backend: {name}")
+
