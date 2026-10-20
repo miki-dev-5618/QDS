@@ -18,9 +18,9 @@ from .threats import ThreatSuite, ThreatType, ThreatScenarioConfig, NoPackageToR
 from .detection import QDSDetectionEngine, ThreatReport, ThreatClassification
 from .discriminator import TierTwoResult, tier_two
 from .security import SecurityParameters
-from .channel import ChannelModel, ChannelTestResult, estimate_channel_qber, make_amplitude_damping_channel
+from .channel import ChannelModel, ChannelTestResult, estimate_channel_qber, make_amplitude_damping_channel, make_readout_channel
 from .binding import SignedContext, SignedPackage, commitment, message_digest
-from .verifier import VerifierNode, VerificationResult, DistributionRecord
+from .verifier import VerifierNode, VerificationResult, DistributionRecord, estimate_readout_mismatch_overhead
 from .policy import ResponsePolicy, ResponseDecision, decide
 from .enforcement import ChannelGuard, ChannelQuarantined, LINK_SIGNER, LINK_FORWARD
 from .router import SimulatedRouter
@@ -37,9 +37,9 @@ __all__ = [
     "QDSDetectionEngine", "ThreatReport", "ThreatClassification",
     "TierTwoResult", "tier_two",
     "SecurityParameters",
-    "ChannelModel", "ChannelTestResult", "estimate_channel_qber", "make_amplitude_damping_channel",
+    "ChannelModel", "ChannelTestResult", "estimate_channel_qber", "make_amplitude_damping_channel", "make_readout_channel",
     "SignedContext", "SignedPackage", "commitment", "message_digest",
-    "VerifierNode", "VerificationResult", "DistributionRecord",
+    "VerifierNode", "VerificationResult", "DistributionRecord", "estimate_readout_mismatch_overhead",
     "ResponsePolicy", "ResponseDecision", "decide",
     "ChannelGuard", "ChannelQuarantined", "LINK_SIGNER", "LINK_FORWARD",
     "SimulatedRouter", "Store",

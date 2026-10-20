@@ -240,6 +240,9 @@ class TeleportationQDS:
                     damping_gamma=(channel.amp_damping_gamma if channel.noise_profile == "amp_damping" or channel.amp_damping_gamma > 0 else 0.0),
                     phase_damping_gamma=channel.phase_damping_gamma,
                     damping_target=channel.damping_target,
+                    readout_p01=(channel.readout_p01 if channel.noise_profile == "readout" or channel.readout_p01 > 0 else 0.0),
+                    readout_p10=(channel.readout_p10 if channel.noise_profile == "readout" or channel.readout_p10 > 0 else 0.0),
+                    readout_location=channel.readout_location,
                 )
                 for i in block
             ]

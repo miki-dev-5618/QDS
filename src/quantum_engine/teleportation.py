@@ -50,6 +50,18 @@ class TeleportJob:
     damping_gamma: float = 0.0        # amplitude damping parameter in [0, 1]
     phase_damping_gamma: float = 0.0  # optional phase damping parameter
     damping_target: str = "traveling" # "traveling" (q2), "teleported" (q0), "bell_pair" (q1, q2), "all"
+    readout_p01: float = 0.0          # P(read=1 | true=0)
+    readout_p10: float = 0.0          # P(read=0 | true=1)
+    readout_location: str = "both"    # "verifier_measurement", "bell_measurement", "both"
+
+
+def apply_readout_bit_flip(bit: int, p01: float, p10: float, rng: np.random.Generator) -> int:
+    """Simulate single-bit asymmetric readout error."""
+    if p01 <= 0.0 and p10 <= 0.0:
+        return bit
+    if bit == 0:
+        return 1 if rng.random() < p01 else 0
+    return 0 if rng.random() < p10 else 1
 
 
 @dataclass(frozen=True)
@@ -223,17 +235,34 @@ def _teleport_statevector(job: TeleportJob, rng: np.random.Generator, measure: b
     s.apply(_H, 0)
     m1 = s.measure(0, rng)
     m2 = s.measure(1, rng)
-    # Classical feed-forward Pauli correction X^m2 Z^m1
-    if m2:
+
+    has_bell_ro = (job.readout_p01 > 0.0 or job.readout_p10 > 0.0) and job.readout_location.lower() in (
+        "bell_measurement", "bell", "both", "all"
+    )
+    if has_bell_ro:
+        m1_eff = apply_readout_bit_flip(m1, job.readout_p01, job.readout_p10, rng)
+        m2_eff = apply_readout_bit_flip(m2, job.readout_p01, job.readout_p10, rng)
+    else:
+        m1_eff, m2_eff = m1, m2
+
+    # Classical feed-forward Pauli correction X^m2 Z^m1 using the bits Alice reported
+    if m2_eff:
         s.apply(_X, 2)
-    if m1:
+    if m1_eff:
         s.apply(_Z, 2)
     if not measure:
-        return s, m1, m2, eve_outcome
+        return s, m1_eff, m2_eff, eve_outcome
     if job.meas_basis:
         s.apply(_H, 2)
     outcome = s.measure(2, rng)
-    return TeleportOutcome(outcome=outcome, m1=m1, m2=m2, eve_outcome=eve_outcome)
+
+    has_ver_ro = (job.readout_p01 > 0.0 or job.readout_p10 > 0.0) and job.readout_location.lower() in (
+        "verifier_measurement", "verifier", "both", "all"
+    )
+    if has_ver_ro:
+        outcome = apply_readout_bit_flip(outcome, job.readout_p01, job.readout_p10, rng)
+
+    return TeleportOutcome(outcome=outcome, m1=m1_eff, m2=m2_eff, eve_outcome=eve_outcome)
 
 
 def teleported_state_fidelity(bit: int, basis: int, rng: np.random.Generator) -> float:
@@ -324,9 +353,29 @@ class QiskitTeleportationBackend:
         if not jobs:
             return []
         has_damping = any(j.damping_gamma > 0.0 or j.phase_damping_gamma > 0.0 for j in jobs)
+        has_readout = any(j.readout_p01 > 0.0 or j.readout_p10 > 0.0 for j in jobs)
         circuits = [build_teleportation_circuit(j) for j in jobs]
         seed = int(rng.integers(0, 2**31 - 1))
-        if has_damping:
+        if has_readout:
+            from qiskit_aer import AerSimulator
+            from qiskit_aer.noise import NoiseModel, ReadoutError
+            p01 = max(j.readout_p01 for j in jobs)
+            p10 = max(j.readout_p10 for j in jobs)
+            loc = jobs[0].readout_location.lower() if jobs else "both"
+            ro_error = ReadoutError([[1.0 - p01, p01], [p10, 1.0 - p10]])
+            noise_model = NoiseModel()
+            if loc in ("verifier_measurement", "verifier"):
+                noise_model.add_readout_error(ro_error, [2])
+            elif loc in ("bell_measurement", "bell"):
+                noise_model.add_readout_error(ro_error, [0])
+                noise_model.add_readout_error(ro_error, [1])
+            else:  # "both" or "all"
+                noise_model.add_readout_error(ro_error, [0])
+                noise_model.add_readout_error(ro_error, [1])
+                noise_model.add_readout_error(ro_error, [2])
+            sim = AerSimulator(noise_model=noise_model, method="density_matrix" if has_damping else "automatic")
+            result = sim.run(circuits, shots=1, memory=True, seed_simulator=seed).result()
+        elif has_damping:
             from qiskit_aer import AerSimulator
             sim = AerSimulator(method="density_matrix")
             result = sim.run(circuits, shots=1, memory=True, seed_simulator=seed).result()
@@ -578,9 +627,16 @@ class IBMFakeTeleportationBackend:
         state_keys = {(0, 0): "0", (1, 0): "1", (0, 1): "+", (1, 1): "-"}
 
         for job in jobs:
-            # Check intercept-resend, noise Pauli, or damping noise if present
-            if job.eve_basis is not None or job.noise_pauli is not None or job.damping_gamma > 0.0 or job.phase_damping_gamma > 0.0:
-                # Fallback to statevector simulation for active attack interception or direct damping
+            # Check intercept-resend, noise Pauli, damping noise, or readout error if present
+            if (
+                job.eve_basis is not None
+                or job.noise_pauli is not None
+                or job.damping_gamma > 0.0
+                or job.phase_damping_gamma > 0.0
+                or job.readout_p01 > 0.0
+                or job.readout_p10 > 0.0
+            ):
+                # Fallback to statevector simulation for active attack interception or direct noise
                 from .teleportation import _teleport_statevector
                 outcomes.append(_teleport_statevector(job, rng))
                 continue

@@ -23,6 +23,22 @@ from .replay import ReplayGuard
 from .security import SecurityParameters
 
 
+def estimate_readout_mismatch_overhead(n_tokens: int, p01: float, p10: float, location: str = "both") -> float:
+    """
+    Theoretical extra mismatch rate introduced by asymmetric detector readout error.
+    - 'verifier_measurement': verifier detector flip rate p_m = (p01 + p10)/2.
+    - 'bell_measurement': Alice Bell measurement bit flips trigger erroneous feed-forward Pauli corrections.
+    - 'both': combined Bell-measurement corruption and verifier detector flips.
+    """
+    p_m = 0.5 * (float(p01) + float(p10))
+    loc = location.lower()
+    if loc in ("verifier_measurement", "verifier"):
+        return p_m
+    elif loc in ("bell_measurement", "bell"):
+        return p_m
+    return p_m * (1.0 - p_m) + (1.0 - p_m) * p_m
+
+
 @dataclass
 class DistributionRecord:
     session_id: str

@@ -38,7 +38,7 @@ class ChannelModel:
     burst_rate: float = 0.0       # per-token probability that a noise burst starts
     burst_depolarizing: float = 0.5
     burst_length: int = 8         # tokens per burst
-    noise_profile: str = "depolarizing"  # "depolarizing", "ibm_fake", or "amp_damping"
+    noise_profile: str = "depolarizing"  # "depolarizing", "ibm_fake", "amp_damping", or "readout"
     ibm_backend: Optional[str] = None
     ibm_mode: str = "calibrated"         # "calibrated" or "full"
     effective_error_rate: Optional[float] = None
@@ -46,9 +46,23 @@ class ChannelModel:
     amp_damping_gamma: float = 0.0       # gamma parameter for amplitude damping in [0, 1]
     phase_damping_gamma: float = 0.0     # optional phase damping parameter
     damping_target: str = "traveling"    # "traveling" (qubit 2), "teleported" (qubit 0), "bell_pair" (qubits 1 & 2), "all"
+    readout_p01: float = 0.0             # P(meas=1 | state=0)
+    readout_p10: float = 0.0             # P(meas=0 | state=1)
+    readout_location: str = "both"       # "verifier_measurement", "bell_measurement", or "both"
 
     def expected_qber(self) -> float:
         """Matched-basis error probability implied by these parameters (bursts averaged)."""
+        if self.noise_profile == "readout":
+            p_m = 0.5 * self.readout_p01 + 0.5 * self.readout_p10
+            loc = self.readout_location.lower()
+            if loc in ("verifier_measurement", "verifier"):
+                b = p_m
+            elif loc in ("bell_measurement", "bell"):
+                b = p_m
+            else:  # "both"
+                b = p_m * (1.0 - p_m) + (1.0 - p_m) * p_m
+            a = 0.25 * self.intercept_rate
+            return a + b - 2 * a * b
         if self.noise_profile == "amp_damping":
             # For uniform distribution over the 4 BB84 states (|0>, |1>, |+>, |->):
             # |0> has 0 flip probability under amplitude damping.
@@ -122,6 +136,23 @@ def make_amplitude_damping_channel(
         amp_damping_gamma=float(gamma),
         phase_damping_gamma=float(phase_gamma),
         damping_target=damping_target,
+        intercept_rate=intercept_rate,
+        depolarizing=0.0,
+    )
+
+
+def make_readout_channel(
+    p01: float = 0.01,
+    p10: float = 0.03,
+    location: str = "both",
+    intercept_rate: float = 0.0,
+) -> ChannelModel:
+    """Create a ChannelModel with asymmetric readout (measurement) noise."""
+    return ChannelModel(
+        noise_profile="readout",
+        readout_p01=float(p01),
+        readout_p10=float(p10),
+        readout_location=location,
         intercept_rate=intercept_rate,
         depolarizing=0.0,
     )
