@@ -49,6 +49,11 @@ class QCertDocument:
     # Digital Seal
     validator_node_signature: str
 
+    # IBM Noise Layer
+    ibm_backend: Optional[str] = None
+    calibration_date: Optional[str] = None
+    effective_error_rate: Optional[float] = None
+
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
@@ -78,7 +83,10 @@ class QCertGenerator:
         eliminated_table: List[List[str]],
         symmetrisation_actions: List[str],
         cb_status: str,
-        cb_incident_id: Optional[str] = None
+        cb_incident_id: Optional[str] = None,
+        ibm_backend: Optional[str] = None,
+        calibration_date: Optional[str] = None,
+        effective_error_rate: Optional[float] = None
     ) -> QCertDocument:
         cert_id = f"QCERT-{uuid.uuid4().hex[:8].upper()}"
         ts_utc = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
@@ -115,6 +123,9 @@ class QCertGenerator:
             bell_state_fidelity=round(fidelity, 4),
             qubit_token_count=n_bits,
             channel_qber=round(channel_qber, 4),
+            ibm_backend=ibm_backend,
+            calibration_date=calibration_date,
+            effective_error_rate=effective_error_rate,
             chernoff_forgery_bound=forgery_bound,
             false_alarm_bound=false_alarm_bound,
             security_level_bits=round(security_bits, 1),

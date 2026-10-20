@@ -157,8 +157,10 @@ QDS/
 │   ├── css/                       ← Modern glassmorphic styles & design tokens
 │   └── js/                        ← Real-time dashboard clients & WebSocket handlers
 ├── templates/                     ← Jinja2 HTML5 Dashboards (admin.html, bob.html, charlie.html, login.html)
-├── tests/                         ← Comprehensive Automated Test Suite (150 test cases)
+├── tests/                         ← Comprehensive Automated Test Suite (155 test cases)
+│   └── test_noise_ibm.py          ← IBM fake noise, deferred circuits & calibration tests
 ├── experiments/                   ← Reproducible Seeded Experiment Suites & Data
+│   └── calibration/               ← IBM backend noise calibration cache (ibm_<backend>.json)
 └── tools/                         ← Standalone Audit Verifier (verify_audit.py)
 ```
 
@@ -411,11 +413,24 @@ To showcase the system during Hackathon presentations, follow this recommended w
 | Variable | Default Value | Options | Description |
 | :--- | :--- | :--- | :--- |
 | `PORT` | `8000` | Integer | Application HTTP port |
-| `HEDWIG_BACKEND` | `qiskit` | `qiskit`, `statevector` | Quantum simulation engine backend |
+| `HEDWIG_BACKEND` | `qiskit` | `qiskit`, `statevector`, `ibm_fake` | Quantum simulation engine backend |
+| `HEDWIG_NOISE_PROFILE` | `depolarizing` | `depolarizing`, `ibm_fake` | Channel noise model profile |
+| `HEDWIG_IBM_FAKE_BACKEND` | *(auto)* | Fake backend name (e.g. `FakeManila`, `FakeSherbrooke`, `GenericBackendV2`) | Target IBM fake backend provider |
+| `HEDWIG_IBM_MODE` | `calibrated` | `calibrated`, `full` | Mode for IBM noise simulation (`full` per-token Aer circuit vs fast pre-calibrated matrix) |
 | `HEDWIG_USERS_FILE` | *(None)* | Path to JSON | Path to PBKDF2 hashed credentials file |
 | `HEDWIG_DB` | `data/hedwig.db`| Path to SQLite DB | Persistent database file path |
 | `HEDWIG_AUDIT_KEY` | `data/audit_ed25519.pem`| Path to PEM | Master audit signing key location |
 | `HEDWIG_AUDIT_PQ` | `auto` | `auto`, `off`, `require`| Post-quantum ML-DSA-65 signature policy |
+
+### 11.1 IBM Fake-Backend Realistic Noise Model
+
+HEDWIG supports realistic quantum computer noise profiles using IBM backend calibration data:
+- **Noise Profile (`ibm_fake`):** Builds a noise model via `NoiseModel.from_backend()` using `qiskit_ibm_runtime.fake_provider` (or built-in `GenericBackendV2`). Configurable via `HEDWIG_IBM_FAKE_BACKEND`.
+- **Deferred-Measurement Teleportation:** Teleportation circuits use coherent controlled gates ($CX$ and $CZ$) rather than mid-circuit feed-forward measurements, ensuring transpilation compatibility with real hardware basis gates.
+- **Simulation Modes:**
+  - `FULL`: Runs transpiled Aer circuits with IBM noise per token (ideal for demos and $L \le 200$).
+  - `CALIBRATED`: Pre-characterizes the backend (~5,000 shots across basis states), persists empirical transition rates to `experiments/calibration/ibm_<backend>.json`, and executes fast token evaluations.
+- **Metadata & Q-Cert Audit:** Backend name, calibration timestamp, and effective error rates are automatically stored in transmission metadata and certified within the Q-Cert audit record.
 
 ---
 
@@ -446,7 +461,7 @@ To showcase the system during Hackathon presentations, follow this recommended w
 
 ### 13.1 Running the Automated Test Suite
 
-The test suite includes **150 automated tests** covering quantum teleportation fidelity, blind threat discrimination, replay defenses, circuit breaker transitions, and hybrid cryptographic signatures:
+The test suite includes **155 automated tests** covering quantum teleportation fidelity, blind threat discrimination, replay defenses, circuit breaker transitions, hybrid cryptographic signatures, and IBM fake-backend noise models:
 
 ```bash
 python -m pytest tests -v

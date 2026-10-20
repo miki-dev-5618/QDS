@@ -74,6 +74,9 @@ class QDSExecutionResult:
     ground_truth: Dict[str, Any] = field(default_factory=dict)
     audit_cert: Optional[Dict[str, Any]] = None
     incident_cert: Optional[Dict[str, Any]] = None
+    ibm_backend: Optional[str] = None
+    calibration_date: Optional[str] = None
+    effective_error_rate: Optional[float] = None
 
     @property
     def channel_qber(self) -> float:
@@ -90,6 +93,9 @@ class QDSExecutionResult:
             "link": t.link,
             "n_bits": t.n_bits,
             "backend": self.backend,
+            "ibm_backend": self.ibm_backend,
+            "calibration_date": self.calibration_date,
+            "effective_error_rate": self.effective_error_rate,
             "message_text": t.package.message,
             "context": t.package.context.to_dict(),
             "package": t.package.to_dict(),
@@ -139,7 +145,16 @@ class TeleportationQDS:
     ):
         self.params = params or SecurityParameters()
         self.backend = make_backend(backend) if isinstance(backend, str) else backend
-        self.default_channel = channel or ChannelModel()
+        if channel is None:
+            import os
+            if os.environ.get("HEDWIG_NOISE_PROFILE") == "ibm_fake" or (isinstance(backend, str) and "ibm_fake" in backend):
+                from .channel import make_ibm_channel
+                mode = "full" if (backend == "ibm_fake_full" or os.environ.get("HEDWIG_IBM_MODE") == "full") else "calibrated"
+                self.default_channel = make_ibm_channel(mode=mode)
+            else:
+                self.default_channel = ChannelModel()
+        else:
+            self.default_channel = channel
         self.clock = clock
         self.store = store or Store(":memory:")
         self.router = SimulatedRouter()
@@ -341,10 +356,18 @@ class TeleportationQDS:
                 "tokens_planned": transcript.channel_test.tokens_planned},
         }
 
+        cm = transcript.channel_model or self.default_channel
+        ibm_backend = getattr(self.backend, "backend_name", None) or getattr(cm, "ibm_backend", None)
+        cal_date = getattr(self.backend, "calibration_date", None) or getattr(cm, "calibration_date", None)
+        eff_err = getattr(self.backend, "effective_error_rate", None) or getattr(cm, "effective_error_rate", None)
+
         result = QDSExecutionResult(
             transmission_id=tx_id, timestamp=time.time(), transcript=transcript, threat_report=report,
             enforcement=enforcement, latency=latency, response=decision, backend=self.backend.name,
             ground_truth=dict(ground_truth or {}),
+            ibm_backend=ibm_backend,
+            calibration_date=cal_date,
+            effective_error_rate=eff_err,
         )
 
         if self.audit is not None:
