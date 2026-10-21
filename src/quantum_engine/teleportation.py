@@ -25,6 +25,7 @@ Two interchangeable backends execute that circuit:
 ``tests/test_teleportation.py`` checks that both agree and that the teleported
 state has unit fidelity on a noiseless channel.
 """
+import math
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
@@ -54,6 +55,7 @@ class TeleportJob:
     readout_p10: float = 0.0          # P(read=0 | true=1)
     readout_location: str = "both"    # "verifier_measurement", "bell_measurement", "both"
     is_lost: bool = False             # heralded photon loss (erasure)
+    cloner_type: Optional[str] = None # None, "universal", or "phase_covariant"
 
 
 def apply_readout_bit_flip(bit: int, p01: float, p10: float, rng: np.random.Generator) -> int:
@@ -215,6 +217,21 @@ def _teleport_statevector(job: TeleportJob, rng: np.random.Generator, measure: b
         eve_outcome = s.measure(2, rng)
         if job.eve_basis:
             s.apply(_H, 2)
+    elif job.cloner_type:
+        from .cloning import simulate_eve_cloning_step
+        # Eve clones the qubit using 1->2 cloner.
+        # Eve measures clone 1 in a randomly chosen basis.
+        # Clone 2 replaces the traveling qubit state.
+        res = simulate_eve_cloning_step(job.bit, job.basis, meas_basis_receiver=job.basis,
+                                        cloner_type=job.cloner_type, rng=rng)
+        eve_outcome = res["eve_outcome"]
+        # If clone 2 suffered a cloner mismatch relative to the input state,
+        # apply bit/phase flip to simulate Clone 2 state
+        if res["is_mismatch"]:
+            if job.basis == 0:
+                s.apply(_X, 2)  # Z-basis bit flip
+            else:
+                s.apply(_Z, 2)  # X-basis phase flip
     if job.noise_pauli:
         s.apply(_PAULIS[job.noise_pauli], 2)
     # Amplitude / phase damping noise channel
@@ -307,6 +324,23 @@ def build_teleportation_circuit(job: TeleportJob, save_density_matrix: bool = Fa
         qc.measure(2, 3)
         if job.eve_basis:
             qc.h(2)
+    elif job.cloner_type:
+        # Cloner operates on traveling qubit + 2 ancillas.
+        # Since circuit has qubits 0, 1, 2, the cloner's effective action on Clone 2
+        # is the state produced for Clone 2.
+        # For BB84/Pauli basis states, the cloner maps state |psi> to reduced density matrix
+        # with fidelity F, which corresponds to bit/phase disturbance of probability (1-F).
+        from .cloning import UNIVERSAL_ERROR, PHASE_COVARIANT_ERROR
+        err = PHASE_COVARIANT_ERROR if job.cloner_type in ("phase_covariant", "bb84", "pc") else UNIVERSAL_ERROR
+        # Apply cloner disturbance to traveling qubit q2:
+        # For Z-basis (basis=0): bit flip X with probability err
+        # For X-basis (basis=1): phase flip Z with probability err
+        # Using a parameterized rotation or kraus/unitary:
+        theta = 2.0 * math.asin(math.sqrt(err))
+        if job.basis == 0:
+            qc.rx(theta, 2)
+        else:
+            qc.rz(theta, 2)
     if job.noise_pauli == "X":
         qc.x(2)
     elif job.noise_pauli == "Y":

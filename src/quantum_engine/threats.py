@@ -31,6 +31,7 @@ class ThreatType(str, Enum):
     REPLAY = "replay"
     IMPERSONATION = "impersonation"
     EVE_LOSS_EXPLOIT = "eve_loss_exploit"
+    EVE_CLONING = "eve_cloning"
 
 
 @dataclass
@@ -41,6 +42,8 @@ class ThreatScenarioConfig:
     claimed_sender: str = "alice"
     repudiation_tamper_ratio: float = 0.5
     loss_exploit_block_rate: float = 0.5
+    cloner_type: str = "universal"       # "universal" or "phase_covariant"
+    cloning_rate: float = 1.0            # fraction of tokens cloned by Eve
 
 
 class NoPackageToReplay(Exception):
@@ -185,6 +188,38 @@ class ThreatSuite:
             package = package.copy(revealed_signature=cls.generate_eve_counterfeit_signature(n_bits, rng))
             return cls._delivered(engine, package, n_bits, session,
                                   notes=["Eve intercepted and blocked poorly measured tokens exploiting loss."])
+
+        if t == ThreatType.EVE_CLONING:
+            from .cloning import simulate_eve_cloning_step
+            # Eve clones tokens with specified cloner
+            cloning_ch = ChannelModel(
+                depolarizing=channel.depolarizing,
+                noise_profile="cloning",
+                cloner_type=scenario.cloner_type,
+                cloning_rate=scenario.cloning_rate,
+            )
+            session = engine.distribute(sender, message, n_bits, rng, cloning_ch)
+            package = engine.reveal(session)
+
+            # Eve uses her measurements on Clone 1 to build a counterfeit signature.
+            # For each position in signature, Eve measured her retained clone.
+            # With probability = cloner fidelity when basis matches, her measurement matches Alice's bit.
+            # When Eve's basis doesn't match Alice's, outcome is random (50%).
+            # Overall accuracy on Alice's bit: 1/2 * F + 1/2 * 0.5.
+            eve_forged_sig = []
+            for b, ba in session.signature:
+                eve_basis = int(rng.integers(0, 2))
+                # Eve measures her clone
+                step = simulate_eve_cloning_step(b, ba, meas_basis_receiver=ba,
+                                                cloner_type=scenario.cloner_type, rng=rng)
+                eve_guess_bit = step["eve_outcome"]
+                eve_forged_sig.append((eve_guess_bit, eve_basis))
+
+            # Eve attempts forgery using her measured clone information
+            forged_package = package.copy(revealed_signature=eve_forged_sig)
+            tr = cls._delivered(engine, forged_package, n_bits, session,
+                                notes=[f"Eve cloned tokens using {scenario.cloner_type} cloner and attempted signature forgery."])
+            return tr
 
         if t == ThreatType.DISHONEST_BOB:
             session = engine.distribute(sender, message, n_bits, rng, channel)
