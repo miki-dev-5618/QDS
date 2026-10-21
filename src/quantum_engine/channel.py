@@ -38,14 +38,50 @@ class ChannelModel:
     burst_rate: float = 0.0       # per-token probability that a noise burst starts
     burst_depolarizing: float = 0.5
     burst_length: int = 8         # tokens per burst
-    noise_profile: str = "depolarizing"  # "depolarizing" or "ibm_fake"
+    noise_profile: str = "depolarizing"  # "depolarizing", "ibm_fake", "amp_damping", or "readout"
     ibm_backend: Optional[str] = None
     ibm_mode: str = "calibrated"         # "calibrated" or "full"
     effective_error_rate: Optional[float] = None
     calibration_date: Optional[str] = None
+    amp_damping_gamma: float = 0.0       # gamma parameter for amplitude damping in [0, 1]
+    phase_damping_gamma: float = 0.0     # optional phase damping parameter
+    damping_target: str = "traveling"    # "traveling" (qubit 2), "teleported" (qubit 0), "bell_pair" (qubits 1 & 2), "all"
+    readout_p01: float = 0.0             # P(meas=1 | state=0)
+    readout_p10: float = 0.0             # P(meas=0 | state=1)
+    readout_location: str = "both"       # "verifier_measurement", "bell_measurement", or "both"
+    eta_loss: float = 0.0                # probability of photon loss (erasure) in [0, 0.5]
 
     def expected_qber(self) -> float:
         """Matched-basis error probability implied by these parameters (bursts averaged)."""
+        if self.noise_profile == "lossy":
+            # Erasure is heralded and excluded from mismatch counting, so baseline QBER is depolarizing
+            f = self.burst_fraction()
+            dep = (1 - f) * self.depolarizing + f * self.burst_depolarizing
+            a = 0.25 * self.intercept_rate
+            b = 2.0 * dep / 3.0
+            return a + b - 2 * a * b
+        if self.noise_profile == "readout":
+            p_m = 0.5 * self.readout_p01 + 0.5 * self.readout_p10
+            loc = self.readout_location.lower()
+            if loc in ("verifier_measurement", "verifier"):
+                b = p_m
+            elif loc in ("bell_measurement", "bell"):
+                b = p_m
+            else:  # "both"
+                b = p_m * (1.0 - p_m) + (1.0 - p_m) * p_m
+            a = 0.25 * self.intercept_rate
+            return a + b - 2 * a * b
+        if self.noise_profile == "amp_damping":
+            # For uniform distribution over the 4 BB84 states (|0>, |1>, |+>, |->):
+            # |0> has 0 flip probability under amplitude damping.
+            # |1> flips to |0> with probability gamma.
+            # |+> and |-> in X basis: effective flip rate is approx (1 - sqrt(1 - gamma))/2.
+            # Average Z error = gamma / 2; average X error = (1 - sqrt(1 - gamma))/2.
+            # For small gamma, average mismatch ~ gamma / 4 + (gamma/4) = gamma/2.
+            gamma = self.amp_damping_gamma
+            b = 0.25 * gamma + 0.5 * (0.5 * (1.0 - math.sqrt(max(0.0, 1.0 - gamma))))
+            a = 0.25 * self.intercept_rate
+            return a + b - 2 * a * b
         if self.noise_profile == "ibm_fake" and self.effective_error_rate is not None:
             a = 0.25 * self.intercept_rate
             b = self.effective_error_rate
@@ -93,6 +129,54 @@ def make_ibm_channel(backend_name: Optional[str] = None, mode: str = "calibrated
         effective_error_rate=cal["effective_error_rate"],
         calibration_date=cal["calibration_date"],
         depolarizing=cal["effective_error_rate"],
+    )
+
+
+def make_amplitude_damping_channel(
+    gamma: float,
+    phase_gamma: float = 0.0,
+    damping_target: str = "traveling",
+    intercept_rate: float = 0.0,
+) -> ChannelModel:
+    """Create a ChannelModel with amplitude damping noise."""
+    return ChannelModel(
+        noise_profile="amp_damping",
+        amp_damping_gamma=float(gamma),
+        phase_damping_gamma=float(phase_gamma),
+        damping_target=damping_target,
+        intercept_rate=intercept_rate,
+        depolarizing=0.0,
+    )
+
+
+def make_readout_channel(
+    p01: float = 0.01,
+    p10: float = 0.03,
+    location: str = "both",
+    intercept_rate: float = 0.0,
+) -> ChannelModel:
+    """Create a ChannelModel with asymmetric readout (measurement) noise."""
+    return ChannelModel(
+        noise_profile="readout",
+        readout_p01=float(p01),
+        readout_p10=float(p10),
+        readout_location=location,
+        intercept_rate=intercept_rate,
+        depolarizing=0.0,
+    )
+
+
+def make_lossy_channel(
+    eta_loss: float = 0.1,
+    depolarizing: float = 0.01,
+    intercept_rate: float = 0.0,
+) -> ChannelModel:
+    """Create a ChannelModel with heralded photon loss (erasure)."""
+    return ChannelModel(
+        noise_profile="lossy",
+        eta_loss=float(eta_loss),
+        depolarizing=depolarizing,
+        intercept_rate=intercept_rate,
     )
 
 
@@ -169,6 +253,8 @@ class ChannelTestResult:
     early_abort: bool = False
     tokens_sent: int = 0
     tokens_planned: int = 0
+    tokens_received: int = 0
+    tokens_lost: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -191,12 +277,16 @@ def estimate_channel_qber(
     strong_alpha: float = 1e-3,
     tokens_sent: int = 0,
     tokens_planned: int = 0,
+    tokens_received: Optional[int] = None,
+    tokens_lost: Optional[int] = None,
 ) -> ChannelTestResult:
     planned = planned_count or test_count
     k = critical_error_count(planned, honest_qber, alpha)
     k_strong = critical_error_count(planned, honest_qber, strong_alpha)
     lo, hi = wilson_interval(error_count, test_count)
     early = test_count < planned
+    recv = tokens_sent if tokens_received is None else tokens_received
+    lost = max(0, tokens_sent - recv) if tokens_lost is None else tokens_lost
     return ChannelTestResult(
         test_count=test_count,
         error_count=error_count,
@@ -216,4 +306,6 @@ def estimate_channel_qber(
         early_abort=early,
         tokens_sent=tokens_sent,
         tokens_planned=tokens_planned,
+        tokens_received=recv,
+        tokens_lost=lost,
     )

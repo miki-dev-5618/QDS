@@ -76,6 +76,7 @@ class SecurityParameters:
     tier2_channel_beta: float = 0.10      # channel-elevation level for Tier 2 attribution
     abort_chunks: int = 4                 # stream blocks between early-abort checks
     watch_test_multiplier: int = 2        # adaptive test allocation while a link is on WATCH
+    min_surviving_ratio: float = 0.6      # abort with INSUFFICIENT_TOKENS if surviving < min_surviving_ratio * planned
 
     def elimination_p_value(self, n: int, mismatches: int) -> float:
         """P(X >= mismatches) for X ~ Bin(n, mu_h): how surprising the count is for an honest run."""
@@ -166,4 +167,5 @@ class SecurityParameters:
             "abort_chunks": self.abort_chunks,
             "watch_test_multiplier": self.watch_test_multiplier,
             "target_failure": self.target_failure,
+            "min_surviving_ratio": self.min_surviving_ratio,
         }

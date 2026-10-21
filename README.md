@@ -297,6 +297,10 @@ HEDWIG includes 8 realistic threat simulation scenarios:
 | **`replay`** | Adversary re-sends a previously accepted signature payload. | Session nonce found in consumed nonce replay registry. | **REPLAY_ATTACK** (Reject; Link remains `OPEN`) |
 | **`impersonation`** | Rogue party attempts verification without a valid distribution record. | Missing session distribution mapping in verifier memory. | **IMPERSONATION_ATTACK** (Reject; Link remains `OPEN`) |
 | **`dishonest_bob`** | Bob tampers with a signature and forwards it to Charlie. | Fails Charlie's forwarded threshold $s_v$ and commitment validation. | **DISHONEST_VERIFIER_FORGERY** (Quarantine `bob->charlie`) |
+| **`eve_loss_exploit`** | Eve intercepts tokens and selectively blocks/drops those where her measurement yielded poor results (disguising attacks as channel loss). | High loss rate; surviving tokens are tested with $n_{\text{surviving}}$. If $n_{\text{surviving}} < n_{\min}$, session halts with `INSUFFICIENT_TOKENS`. If Eve forwards counterfeit states, contradictions trigger `EXTERNAL_FORGERY`. | **INSUFFICIENT_TOKENS** (`WATCH`) or **EXTERNAL_FORGERY** (`QUARANTINE`) |
+
+> **Fair-Sampling Assumption in QDS with Erasure:**
+> In lossy quantum channels, heralded token loss (erasure) is treated as benign physical attenuation rather than an active attack, provided the channel satisfies the *fair-sampling assumption* (loss occurs independently of token state or measurement basis). An adversary exploiting loss (`eve_loss_exploit`) attempts to bypass detection by discarding poorly-measured tokens. HEDWIG prevents this vulnerability by enforcing a minimum surviving token count $n_{\min}$ (e.g., $\ge 60\%$ of planned tokens); if surviving tokens drop below $n_{\min}$, the session aborts with `INSUFFICIENT_TOKENS` and places the link on `WATCH` rather than accepting compromised subsets.
 
 ---
 

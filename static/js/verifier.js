@@ -49,6 +49,12 @@ function renderTransmission(tx) {
     document.getElementById('verdictSubtitle').textContent =
       `${report.verdict} — ${report.details}`;
     document.getElementById('mismatchesVal').textContent = '—';
+    const recvEl = document.getElementById('tokensRecvVal');
+    if (recvEl) {
+      recvEl.textContent = (tx.channel && tx.channel.tokens_planned)
+        ? `${tx.channel.tokens_received} / ${tx.channel.tokens_planned}`
+        : '—';
+    }
     document.getElementById('qberVal').textContent = tx.channel
       ? `${(tx.channel.qber_estimate * 100).toFixed(1)}% (${tx.channel.error_count}/${tx.channel.test_count})` : '—';
     document.getElementById('verifiedMsgText').textContent = tx.message_text;
@@ -70,6 +76,12 @@ function renderTransmission(tx) {
     : report.details;
   document.getElementById('mismatchesVal').textContent =
     `${v.mismatches} / ${v.total_checked} (≤${v.acceptance_limit})`;
+  const recvEl = document.getElementById('tokensRecvVal');
+  if (recvEl) {
+    recvEl.textContent = v.tokens_planned
+      ? `${v.tokens_received} / ${v.tokens_planned}`
+      : ((tx.channel && tx.channel.tokens_planned) ? `${tx.channel.tokens_received} / ${tx.channel.tokens_planned}` : '—');
+  }
   document.getElementById('qberVal').textContent = tx.channel
     ? `${(tx.channel.qber_estimate * 100).toFixed(1)}% (${tx.channel.error_count}/${tx.channel.test_count})`
     : 'n/a';

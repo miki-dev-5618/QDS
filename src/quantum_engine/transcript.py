@@ -22,10 +22,12 @@ class SigningSession:
     observation_ms: float = 0.0        # wall time of the teleport/measure stream (simulator run)
     tokens_sent: int = 0
     tokens_planned: int = 0
+    tokens_received: int = 0
+    insufficient_tokens: bool = False
 
     @property
     def aborted(self) -> bool:
-        return self.channel_test.alarm
+        return self.channel_test.alarm or self.insufficient_tokens
 
 
 @dataclass

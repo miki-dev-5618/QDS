@@ -93,22 +93,43 @@ function initComposer() {
   bitSelect.addEventListener('change', () => renderPreview(parseInt(bitSelect.value), null));
   initHashPreview();
 
+  const noiseProfileSelect = document.getElementById('noiseProfileSelect');
+  const readoutControls = document.getElementById('readoutControls');
+  if (noiseProfileSelect && readoutControls) {
+    noiseProfileSelect.addEventListener('change', () => {
+      readoutControls.style.display = noiseProfileSelect.value === 'readout' ? 'flex' : 'none';
+    });
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnSign');
     const tampered = document.getElementById('tamperedText');
+    const isReadout = noiseProfileSelect && noiseProfileSelect.value === 'readout';
+    const locElem = document.getElementById('readoutLocation');
+    const p01Elem = document.getElementById('readoutP01');
+    const p10Elem = document.getElementById('readoutP10');
+
     btn.disabled = true;
     btn.innerHTML = `${icon('loader', 'spin')} Teleporting & signing...`;
     try {
+      const payload = {
+        message_text: document.getElementById('messageText').value,
+        n_bits: parseInt(bitSelect.value),
+        threat_type: currentThreat,
+        tampered_text: tampered ? tampered.value : null,
+        noise_profile: isReadout ? 'readout' : 'depolarizing',
+      };
+      if (isReadout) {
+        payload.readout_location = locElem ? locElem.value : 'both';
+        payload.readout_p01 = p01Elem ? parseFloat(p01Elem.value) || 0.0 : 0.0;
+        payload.readout_p10 = p10Elem ? parseFloat(p10Elem.value) || 0.0 : 0.0;
+      }
+
       const { status, data } = await api('/api/sign-and-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message_text: document.getElementById('messageText').value,
-          n_bits: parseInt(bitSelect.value),
-          threat_type: currentThreat,
-          tampered_text: tampered ? tampered.value : null
-        })
+        body: JSON.stringify(payload)
       }, 'admin');
       if (status === 423) {
         logTerminal('BLOCK', `Refused in ${data.refusal_us} µs: link ${data.link} is quarantined ` +
@@ -209,9 +230,13 @@ function handleNewTransmission(tx) {
   const outcome = injectedAttack === isThreat
     ? (isThreat ? 'attack detected' : 'honest accepted')
     : (isThreat ? 'FALSE ALARM' : 'ATTACK MISSED');
+  const lossInfo = (tx.channel && tx.channel.tokens_planned)
+    ? ` · tokens received ${tx.channel.tokens_received}/${tx.channel.tokens_planned}`
+    : '';
   const channel = tx.channel
     ? `QBER^ ${(tx.channel.qber_estimate * 100).toFixed(1)}% (${tx.channel.error_count}/${tx.channel.test_count}, alarm >${tx.channel.alarm_threshold_errors}, p=${fmtP(tx.channel.p_value)})` +
-      (tx.channel.early_abort ? ` · EARLY ABORT ${tx.channel.tokens_sent}/${tx.channel.tokens_planned} tokens` : '')
+      (tx.channel.early_abort ? ` · EARLY ABORT ${tx.channel.tokens_sent}/${tx.channel.tokens_planned} tokens` : '') +
+      lossInfo
     : 'no channel test';
   const t2 = report.tier2 && report.tier2.applicable ? `Tier 2: ${report.tier2.attribution}` : '';
   const resp = tx.response ? `${tx.response.response_action} (p=${fmtP(tx.response.evidence_p)})` : tx.enforcement.action;

@@ -19,6 +19,7 @@ if CURRENT_DIR not in sys.path:
 from auth import ROLE_HOME, ROLES, SIGNER_IDENTITY, Authenticator, cookie_name
 from src.quantum_engine import (
     AuditAuthority,
+    ChannelModel,
     ChannelQuarantined,
     NoPackageToReplay,
     Store,
@@ -27,6 +28,7 @@ from src.quantum_engine import (
     ThreatSuite,
     ThreatType,
     build_reset_record,
+    make_readout_channel,
     pq_provider,
     verify_certificate_report,
     verify_chain,
@@ -191,6 +193,11 @@ class SignAndSendRequest(BaseModel):
     n_bits: int = 32
     threat_type: str = "authentic"
     tampered_text: Optional[str] = None
+    noise_profile: Optional[str] = "depolarizing"
+    readout_p01: Optional[float] = 0.0
+    readout_p10: Optional[float] = 0.0
+    readout_location: Optional[str] = "both"
+    eta_loss: Optional[float] = 0.0
 
 
 class ForwardRequest(BaseModel):
@@ -260,9 +267,9 @@ async def api_session(request: Request):
 
 
 # ---------------------------------------------------------- protocol API
-async def _run_and_publish(scenario: ThreatScenarioConfig, message: str, n_bits: int, sender: str):
+async def _run_and_publish(scenario: ThreatScenarioConfig, message: str, n_bits: int, sender: str, channel: Optional[ChannelModel] = None):
     result = await asyncio.to_thread(qds_engine.execute_protocol, message_text=message, n_bits=n_bits,
-                                     sender=sender, scenario=scenario)
+                                     sender=sender, scenario=scenario, channel=channel)
     tx = result.to_dict()
     state.record(tx)
     await manager.broadcast_transmission(tx)
@@ -290,20 +297,32 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
     n_bits = max(8, min(64, req.n_bits))
     scenario = ThreatScenarioConfig(threat_type=t_type, tampered_message_text=req.tampered_text,
                                     claimed_sender=sender)
+
+    # Optional channel noise configuration
+    channel = None
+    if req.noise_profile == "readout" or (req.readout_p01 and req.readout_p01 > 0) or (req.readout_p10 and req.readout_p10 > 0):
+        channel = make_readout_channel(
+            p01=req.readout_p01 or 0.0,
+            p10=req.readout_p10 or 0.0,
+            location=req.readout_location or "both",
+        )
+    elif req.noise_profile == "lossy" or (req.eta_loss and req.eta_loss > 0):
+        channel = make_lossy_channel(eta_loss=req.eta_loss or 0.1)
+
     published = []
     async with engine_lock:
         try:
             try:
-                published.append(await _run_and_publish(scenario, req.message_text, n_bits, sender))
+                published.append(await _run_and_publish(scenario, req.message_text, n_bits, sender, channel=channel))
             except NoPackageToReplay:
                 # Replay needs a genuinely accepted earlier package: send one honestly, then replay it.
-                published.append(await _run_and_publish(ThreatScenarioConfig(), req.message_text, n_bits, sender))
+                published.append(await _run_and_publish(ThreatScenarioConfig(), req.message_text, n_bits, sender, channel=channel))
                 if qds_engine.last_accepted_package is None:
                     return JSONResponse(status_code=409, content={
                         "status": "no_package", "transmissions": published,
                         "message": "The honest preamble was rejected (channel noise), so there is no accepted "
                                    "package to replay yet. Try again."})
-                published.append(await _run_and_publish(scenario, req.message_text, n_bits, sender))
+                published.append(await _run_and_publish(scenario, req.message_text, n_bits, sender, channel=channel))
         except ChannelQuarantined as q:
             return _refused(q, started_ns, {"transmissions": published})
     return {"status": "success", "transmission": published[-1], "transmissions": published, "stats": state.stats}

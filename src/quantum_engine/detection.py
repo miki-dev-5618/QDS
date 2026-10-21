@@ -50,6 +50,7 @@ class ThreatClassification(str, Enum):
     IMPERSONATION_ATTACK = "IMPERSONATION_ATTACK"
     MESSAGE_INTEGRITY_VIOLATION = "MESSAGE_INTEGRITY_VIOLATION"
     UNAUTHORIZED_VERIFICATION = "UNAUTHORIZED_VERIFICATION"
+    INSUFFICIENT_TOKENS = "INSUFFICIENT_TOKENS"
 
 
 BENIGN = {ThreatClassification.BENIGN_AUTHENTIC, ThreatClassification.CHANNEL_NOISE}
@@ -66,6 +67,8 @@ _VERDICTS = {
     ThreatClassification.REPUDIATION_ATTEMPT: "REJECTED: SIGNER'S OWN SIGNATURE CONTRADICTS DISTRIBUTED STATES",
     ThreatClassification.UNDETERMINED_DISTURBANCE:
         "REJECTED: SIGNATURE CONTRADICTS RECORDS; CAUSE UNDETERMINED (CHANNEL OR SIGNER)",
+    ThreatClassification.INSUFFICIENT_TOKENS:
+        "INSUFFICIENT_TOKENS: SURVIVING TOKENS BELOW ACCEPTANCE THRESHOLD DUE TO PHOTON LOSS",
 }
 _TIER2_CHANNEL_VERDICT = "CHANNEL ANOMALY (TIER 2): CONTRADICTIONS EXPLAINED BY ELEVATED CHANNEL DISTURBANCE"
 
@@ -179,6 +182,21 @@ class QDSDetectionEngine:
                           f"{channel_test.alarm_threshold_errors} errors with probability <= "
                           f"{channel_test.false_alarm_alpha} (exact p = {channel_test.p_value:.2e})." + early,
                           "tier1", channel_test.p_value)
+
+        if any(getattr(o, "insufficient_tokens", False) for o in obs) or (
+            channel_test is not None and channel_test.tokens_planned > 0
+            and channel_test.tokens_lost > 0
+            and channel_test.tokens_received < p.min_surviving_ratio * channel_test.tokens_planned
+        ):
+            recv = channel_test.tokens_received if channel_test else (obs[0].tokens_received if obs else 0)
+            plan = channel_test.tokens_planned if channel_test else (obs[0].tokens_planned if obs else 0)
+            return report(
+                ThreatClassification.INSUFFICIENT_TOKENS,
+                f"Surviving tokens ({recv}/{plan}) fell below minimum required ratio ({p.min_surviving_ratio:.0%}) "
+                f"due to heralded channel loss. Transmission aborted for safety without attributing malice.",
+                "photon_loss_herald",
+                1.0,  # not an attack, evidence p = 1.0 (weak/benign severity)
+            )
 
         if any(not o.record_found or not o.sender_matches for o in obs):
             return report(ThreatClassification.IMPERSONATION_ATTACK,
