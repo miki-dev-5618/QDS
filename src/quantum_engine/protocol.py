@@ -12,9 +12,21 @@ Stages
      running test-error count and abort the rest of the stream as soon as the
      count is decisive (sequential early abort, see channel.py). Alice sends
      each verifier a commitment to (context, signature).
+     Evidence allocation (C2) is fixed before anything is sent, from
+     observable inputs only (L, link state, heralded loss of the previous
+     session): the Tier 1 test budget is the smallest count reaching the
+     target detection power, and short signatures get an L-aware reserve of
+     extra signature positions, distributed, symmetrised and measured exactly
+     like the main copies and bound by a separate reserve commitment.
   2. Messaging: Alice reveals (message, context, signature, blinding) - only
      if the channel test passed. An aborted session is never revealed.
   3. Verification: each verifier checks independently (see verifier.py).
+     If a verifier's stage-1 count is borderline it requests the reserve;
+     Alice opens it (states + reserve blinding) only for her own revealed
+     message, signature and context, so a substituted package never gains
+     reserve evidence (and cannot use up the reserve of the genuine one). Each verifier evaluates a session's reserve at most
+     ``max_reserve_openings`` times; no fresh quantum evidence is ever
+     created after reveal.
   4. Assessment: the blind detector (Tier 1 + Tier 2) classifies the
      observations; the response policy chooses none / watch / quarantine; the
      circuit breaker applies it; incident and transaction records are signed
@@ -23,14 +35,14 @@ Stages
 """
 import time
 import uuid
-from collections import deque
+from collections import OrderedDict, deque
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
 from .audit import build_evidence, build_incident_record, build_record, evidence_hash
-from .binding import SignedContext, SignedPackage, commitment, new_blinding
+from .binding import ReserveOpening, SignedContext, SignedPackage, commitment, new_blinding, reserve_commitment
 from .channel import ChannelModel, estimate_channel_qber
 from .detection import QDSDetectionEngine, ThreatReport
 from .elimination import OrthogonalEliminationEngine, SYMBOL_MAP
@@ -113,6 +125,7 @@ class QDSExecutionResult:
             "latency": self.latency,
             "ground_truth": self.ground_truth,
             "notes": t.notes,
+            "allocation": session.allocation if session is not None else None,
             "audit": None if self.audit_cert is None else {
                 "artifact_id": self.transmission_id,
                 "payload_sha256": self.audit_cert["payload_sha256"],
@@ -173,14 +186,22 @@ class TeleportationQDS:
         self.latency = LatencyStats()
         self.last_accepted_package: Optional[SignedPackage] = None
         self.recent_packages: deque = deque(maxlen=50)
+        self.observed_loss = 0.0           # heralded loss fraction of the previous session (observable)
+        self._signer_sessions: "OrderedDict[str, SigningSession]" = OrderedDict()  # Alice's own reserve state
 
     # ------------------------------------------------------------ helpers
+    def allocation_plan(self, n_bits: int) -> Dict[str, Any]:
+        """Evidence budget for the next session, from observable state only (never the injected scenario)."""
+        state = self.guard.state(LINK_SIGNER)
+        suspicious = state in (WATCH, RESET_PENDING)
+        tests = self.params.test_token_plan(n_bits, suspicious, self.observed_loss)
+        reserve = self.params.reserve_plan(n_bits, self.observed_loss)
+        return {"link_state": state, "n_bits": n_bits, "observed_loss": round(self.observed_loss, 4),
+                "test": tests, "reserve": reserve}
+
     def test_token_budget(self, n_bits: int) -> int:
-        """Adaptive test allocation: more test tokens while the signer link is under suspicion."""
-        base = max(self.params.min_test_tokens, n_bits)
-        if self.guard.state(LINK_SIGNER) in (WATCH, RESET_PENDING):
-            base *= self.params.watch_test_multiplier
-        return base
+        """Tier 1 test tokens for the next session (see ``allocation_plan``)."""
+        return self.allocation_plan(n_bits)["test"]["test_tokens"]
 
     # ------------------------------------------------------------------ stages
     def distribute(
@@ -198,27 +219,44 @@ class TeleportationQDS:
         channel = channel or self.default_channel
         t_start = time.perf_counter_ns()
 
+        allocation = self.allocation_plan(n_bits)
         signature = [(int(b), int(ba)) for b, ba in zip(rng.integers(0, 2, n_bits), rng.integers(0, 2, n_bits))]
         bob_copy, charlie_copy = list(signature), list(signature)
         if prepare_copies is not None:  # only a dishonest signer uses this
             bob_copy, charlie_copy = prepare_copies(signature, rng)
+        n_rsv = allocation["reserve"]["reserve_bits"]
+        reserve = [(int(b), int(ba)) for b, ba in zip(rng.integers(0, 2, n_rsv), rng.integers(0, 2, n_rsv))]
+        rsv_bob, rsv_charlie = list(reserve), list(reserve)
+        if prepare_copies is not None and n_rsv:
+            rsv_bob, rsv_charlie = prepare_copies(reserve, rng)
 
         ctx = SignedContext.new(sender, list(VERIFIERS), message, timestamp=self.clock(),
                                 digest_alg=self.params.digest_alg)
         blinding = new_blinding()
         commit = commitment(ctx, signature, blinding)
+        rsv_blinding = new_blinding()
+        rsv_commit = reserve_commitment(ctx, reserve, rsv_blinding) if n_rsv else None
 
         (bob_actions, charlie_actions, bob_held, charlie_held,
          bob_desc, charlie_desc) = SymmetrisationManager.perform_symmetrisation_swap(bob_copy, charlie_copy, rng)
         held = {"bob": bob_held, "charlie": charlie_held}
         desc = {"bob": bob_desc, "charlie": charlie_desc}
+        if n_rsv:
+            _, _, rb_held, rc_held, _, _ = SymmetrisationManager.perform_symmetrisation_swap(rsv_bob, rsv_charlie, rng)
+            rsv_held = {"bob": rb_held, "charlie": rc_held}
+        else:
+            rsv_held = {v: [] for v in VERIFIERS}
 
         slots: List[Slot] = []
         for v in VERIFIERS:
             for i, copies in enumerate(held[v]):
                 for j, (b, ba) in enumerate(copies):
                     slots.append(Slot("sig", v, i, j, b, ba, self.schedule.basis(ctx, v, i, j, rng)))
-        n_test = self.test_token_budget(n_bits)
+            for i, copies in enumerate(rsv_held[v]):
+                for j, (b, ba) in enumerate(copies):
+                    # Reserve copies use basis indices after the main positions so schedules never repeat.
+                    slots.append(Slot("rsv", v, i, j, b, ba, self.schedule.basis(ctx, v, n_bits + i, j, rng)))
+        n_test = allocation["test"]["test_tokens"]
         for j in range(n_test):
             b, ba = int(rng.integers(0, 2)), int(rng.integers(0, 2))
             slots.append(Slot("test", None, j, 0, b, ba, ba))
@@ -293,7 +331,15 @@ class TeleportationQDS:
                 else:
                     eliminated[s.verifier][s.pos][s.copy] = OrthogonalEliminationEngine.eliminate_state_symbol(
                         s.meas_basis, out.outcome)
+        rsv_elim: Dict[str, List[List[Optional[str]]]] = {
+            v: [[None] * len(rsv_held[v][i]) for i in range(n_rsv)] for v in VERIFIERS}
+        for s, out in zip(stream[:sent], outcomes):
+            if s.kind == "rsv" and not out.is_lost:
+                rsv_elim[s.verifier][s.pos][s.copy] = OrthogonalEliminationEngine.eliminate_state_symbol(
+                    s.meas_basis, out.outcome)
         eliminated_clean = {v: [[e for e in row if e is not None] for row in eliminated[v]] for v in VERIFIERS}
+        rsv_clean = {v: [[e for e in row if e is not None] for row in rsv_elim[v]] for v in VERIFIERS}
+        self.observed_loss = (total_lost / sent) if sent else 0.0
 
         self.router.carry(LINK_SIGNER, sent)
         observation_ms = (time.perf_counter_ns() - t_start) / 1e6
@@ -305,25 +351,53 @@ class TeleportationQDS:
                 channel_test=channel_test, aborted=channel_test.alarm,
                 insufficient_tokens=insufficient_tokens,
                 tokens_received=surviving_tokens, tokens_planned=len(stream),
+                reserve_eliminated=rsv_clean[v], reserve_commitment=rsv_commit,
             ))
 
-        return SigningSession(
+        session = SigningSession(
             context=ctx, message=message, signature=signature, blinding=blinding, commitment=commit,
             copies={"bob": bob_copy, "charlie": charlie_copy},
             bob_actions=bob_actions, charlie_actions=charlie_actions,
             channel_test=channel_test, channel_model=channel,
             observation_ms=round(observation_ms, 3), tokens_sent=sent, tokens_planned=len(stream),
             tokens_received=surviving_tokens, insufficient_tokens=insufficient_tokens,
+            reserve=reserve, reserve_blinding=rsv_blinding if n_rsv else None, reserve_commitment=rsv_commit,
+            allocation=allocation,
         )
+        if n_rsv:
+            self._signer_sessions[ctx.session_id] = session
+            while len(self._signer_sessions) > 1000:
+                self._signer_sessions.popitem(last=False)
+        return session
 
     @staticmethod
     def reveal(session: SigningSession) -> SignedPackage:
         return SignedPackage(context=session.context, message=session.message,
                              revealed_signature=list(session.signature), blinding=session.blinding)
 
-    def deliver(self, package: SignedPackage, to=VERIFIERS) -> List[VerificationResult]:
+    @staticmethod
+    def open_reserve(session: Optional[SigningSession], package: SignedPackage) -> Optional[ReserveOpening]:
+        """
+        Alice's answer to a borderline request: the reserve opening, but only for her own revealed
+        message, signature and context. A package with any substituted field gets nothing.
+        """
+        if session is None or not session.reserve or session.reserve_blinding is None:
+            return None
+        if (package.context.to_dict() != session.context.to_dict() or package.message != session.message
+                or [tuple(x) for x in package.revealed_signature] != [tuple(x) for x in session.signature]):
+            return None
+        return ReserveOpening(states=tuple(tuple(x) for x in session.reserve), blinding=session.reserve_blinding)
+
+    def deliver(self, package: SignedPackage, to=VERIFIERS,
+                session: Optional[SigningSession] = None) -> List[VerificationResult]:
         self.guard.check_open(LINK_SIGNER)
         results = [self.verifiers[v].verify(package, "direct") for v in to]
+        for i, r in enumerate(results):
+            if r.reserve_requested:
+                signer = session or self._signer_sessions.get(package.context.session_id)
+                opening = self.open_reserve(signer, package)
+                if opening is not None:   # one bounded second look; the verifier enforces the limit
+                    results[i] = self.verifiers[r.verifier].verify(package.copy(reserve=opening), "direct")
         self.recent_packages.append(package)
         return results
 
@@ -344,7 +418,7 @@ class TeleportationQDS:
                               display={}, session=session, channel_test=session.channel_test,
                               channel_model=session.channel_model,
                               notes=[note])
-        results = self.deliver(package)
+        results = self.deliver(package, session=session)
         return Transcript(kind="direct", link=LINK_SIGNER, n_bits=n_bits, package=package, results=results,
                           display={r.verifier: r for r in results}, session=session,
                           channel_test=session.channel_test, channel_model=session.channel_model)

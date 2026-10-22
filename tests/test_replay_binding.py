@@ -54,7 +54,9 @@ def test_one_byte_change_rejected(engine, rng):
     pkg = _send(engine, rng, "pay 100 to acct 42")
     results = engine.deliver(pkg.copy(message="pay 100 to acct 43"))
     assert _verdicts(results) == [False, False]
-    assert all(r.elimination_pass and not r.digest_matches for r in results)
+    # Only a classical field changed: the quantum check does not reject decisively (the reserve is never
+    # opened for a package the signer did not send, so a borderline count stays inconclusive).
+    assert all(r.elimination_outcome != "fail" and not r.digest_matches for r in results)
 
 
 def test_updating_metadata_cannot_validate_modified_payload(engine, rng):

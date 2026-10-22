@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .binding import SignedContext, SignedPackage
 from .channel import ChannelModel, ChannelTestResult
@@ -24,6 +24,10 @@ class SigningSession:
     tokens_planned: int = 0
     tokens_received: int = 0
     insufficient_tokens: bool = False
+    reserve: List[Tuple[int, int]] = field(default_factory=list)   # precommitted reserve states (signer-private)
+    reserve_blinding: Optional[str] = None
+    reserve_commitment: Optional[str] = None
+    allocation: Dict[str, Any] = field(default_factory=dict)       # evidence budget and its rationale
 
     @property
     def aborted(self) -> bool:
