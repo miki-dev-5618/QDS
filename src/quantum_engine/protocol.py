@@ -292,6 +292,7 @@ class TeleportationQDS:
                         readout_p10=(channel.readout_p10 if channel.noise_profile == "readout" or channel.readout_p10 > 0 else 0.0),
                         readout_location=channel.readout_location,
                         is_lost=is_lost,
+                        cloner_type=(channel.cloner_type if (channel.noise_profile == "cloning" or channel.cloning_rate > 0.0) and rng.random() < channel.cloning_rate else None),
                     )
                 )
             for i, out in zip(block, self.backend.run(jobs, rng)):

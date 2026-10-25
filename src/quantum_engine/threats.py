@@ -31,6 +31,8 @@ class ThreatType(str, Enum):
     REPLAY = "replay"
     IMPERSONATION = "impersonation"
     EVE_LOSS_EXPLOIT = "eve_loss_exploit"
+    EVE_CLONING = "eve_cloning"
+    EVE_PARTIAL_INTERCEPT = "eve_partial_intercept"  # opt-in partial intercept-resend
 
 
 @dataclass
@@ -41,6 +43,9 @@ class ThreatScenarioConfig:
     claimed_sender: str = "alice"
     repudiation_tamper_ratio: float = 0.5
     loss_exploit_block_rate: float = 0.5
+    cloner_type: str = "universal"       # "universal" or "phase_covariant"
+    cloning_rate: float = 1.0            # fraction of tokens cloned by Eve
+    partial_intercept_fraction: float = 0.05  # fraction for EVE_PARTIAL_INTERCEPT in [0.05, 1.0]
 
 
 class NoPackageToReplay(Exception):
@@ -141,6 +146,9 @@ class ThreatSuite:
             tapped = ChannelModel(depolarizing=channel.depolarizing, intercept_rate=scenario.channel_intercept_rate)
             return engine.transmit(sender, message, n_bits, rng, tapped)
 
+        if t == ThreatType.EVE_PARTIAL_INTERCEPT:
+            return cls._eve_partial_intercept(engine, scenario, message, n_bits, sender, rng, channel)
+
         if t == ThreatType.REPUDIATION:
             session = engine.distribute(sender, message, n_bits, rng, channel,
                                         prepare_copies=cls.asymmetric_preparation(scenario.repudiation_tamper_ratio))
@@ -186,6 +194,38 @@ class ThreatSuite:
             return cls._delivered(engine, package, n_bits, session,
                                   notes=["Eve intercepted and blocked poorly measured tokens exploiting loss."])
 
+        if t == ThreatType.EVE_CLONING:
+            from .cloning import simulate_eve_cloning_step
+            # Eve clones tokens with specified cloner
+            cloning_ch = ChannelModel(
+                depolarizing=channel.depolarizing,
+                noise_profile="cloning",
+                cloner_type=scenario.cloner_type,
+                cloning_rate=scenario.cloning_rate,
+            )
+            session = engine.distribute(sender, message, n_bits, rng, cloning_ch)
+            package = engine.reveal(session)
+
+            # Eve uses her measurements on Clone 1 to build a counterfeit signature.
+            # For each position in signature, Eve measured her retained clone.
+            # With probability = cloner fidelity when basis matches, her measurement matches Alice's bit.
+            # When Eve's basis doesn't match Alice's, outcome is random (50%).
+            # Overall accuracy on Alice's bit: 1/2 * F + 1/2 * 0.5.
+            eve_forged_sig = []
+            for b, ba in session.signature:
+                eve_basis = int(rng.integers(0, 2))
+                # Eve measures her clone
+                step = simulate_eve_cloning_step(b, ba, meas_basis_receiver=ba,
+                                                cloner_type=scenario.cloner_type, rng=rng)
+                eve_guess_bit = step["eve_outcome"]
+                eve_forged_sig.append((eve_guess_bit, eve_basis))
+
+            # Eve attempts forgery using her measured clone information
+            forged_package = package.copy(revealed_signature=eve_forged_sig)
+            tr = cls._delivered(engine, forged_package, n_bits, session,
+                                notes=[f"Eve cloned tokens using {scenario.cloner_type} cloner and attempted signature forgery."])
+            return tr
+
         if t == ThreatType.DISHONEST_BOB:
             session = engine.distribute(sender, message, n_bits, rng, channel)
             tr = cls.dishonest_bob_forward(
@@ -195,6 +235,55 @@ class ThreatSuite:
             return tr
 
         raise ValueError(f"Unknown scenario {t}")
+
+    # ------------------------------------------------ partial intercept-resend
+    @staticmethod
+    def _eve_partial_intercept(
+        engine,
+        scenario: "ThreatScenarioConfig",
+        message: str,
+        n_bits: int,
+        sender: str,
+        rng: np.random.Generator,
+        channel: Optional[ChannelModel],
+    ) -> "Transcript":
+        """
+        Opt-in partial intercept-resend attack.
+
+        Eve independently intercepts each transmitted token with probability *f*
+        (per-token Bernoulli sampling), measures it in a randomly chosen basis,
+        and resends the post-measurement state.  Non-intercepted tokens pass
+        through untouched.
+
+        The realised interception count is Binomial(n_stream, f) — it fluctuates
+        around f * n_stream.  The configured fraction *f* is reported as the
+        information-gain proxy (not a mutual-information calculation).
+
+        When f = 1.0, every token is intercepted; this is mathematically
+        equivalent to EVE_INTERCEPT with channel_intercept_rate = 1.0 when the
+        background depolarizing rate is the same.
+
+        Parameters
+        ----------
+        scenario.partial_intercept_fraction : float
+            Must be in [0.05, 1.0] (inclusive).  Values outside this range
+            raise ValueError.
+        """
+        f = scenario.partial_intercept_fraction
+        if not isinstance(f, (int, float)):
+            raise TypeError(
+                f"partial_intercept_fraction must be a float in [0.05, 1.0], got {type(f).__name__!r}"
+            )
+        f = float(f)
+        if f < 0.05 or f > 1.0:
+            raise ValueError(
+                f"partial_intercept_fraction must be in [0.05, 1.0], got {f!r}"
+            )
+        tapped = ChannelModel(
+            depolarizing=channel.depolarizing,
+            intercept_rate=f,
+        )
+        return engine.transmit(sender, message, n_bits, rng, tapped)
 
     @staticmethod
     def _delivered(engine, package, n_bits, session, notes=None) -> Transcript:

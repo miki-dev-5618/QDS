@@ -65,6 +65,10 @@ function setArmedThreatUI(threatType) {
   });
   const tamperedGroup = document.getElementById('tamperedGroup');
   if (tamperedGroup) tamperedGroup.style.display = threatType === 'message_tampering' ? 'block' : 'none';
+  const cloningControls = document.getElementById('cloningControls');
+  if (cloningControls) cloningControls.style.display = threatType === 'eve_cloning' ? 'flex' : 'none';
+  const partialInterceptControls = document.getElementById('partialInterceptControls');
+  if (partialInterceptControls) partialInterceptControls.style.display = threatType === 'eve_partial_intercept' ? 'flex' : 'none';
   const badge = document.getElementById('activeThreatBadge');
   if (badge) {
     badge.textContent = threatType.toUpperCase();
@@ -93,6 +97,22 @@ function initComposer() {
   bitSelect.addEventListener('change', () => renderPreview(parseInt(bitSelect.value), null));
   initHashPreview();
 
+  const cloningRateRange = document.getElementById('cloningRateRange');
+  const cloningRateLabel = document.getElementById('cloningRateLabel');
+  if (cloningRateRange && cloningRateLabel) {
+    cloningRateRange.addEventListener('input', () => {
+      cloningRateLabel.textContent = `${Math.round(parseFloat(cloningRateRange.value) * 100)}%`;
+    });
+  }
+
+  const partialInterceptRange = document.getElementById('partialInterceptRange');
+  const partialInterceptLabel = document.getElementById('partialInterceptLabel');
+  if (partialInterceptRange && partialInterceptLabel) {
+    partialInterceptRange.addEventListener('input', () => {
+      partialInterceptLabel.textContent = `${Math.round(parseFloat(partialInterceptRange.value) * 100)}%`;
+    });
+  }
+
   const noiseProfileSelect = document.getElementById('noiseProfileSelect');
   const readoutControls = document.getElementById('readoutControls');
   if (noiseProfileSelect && readoutControls) {
@@ -120,6 +140,16 @@ function initComposer() {
         tampered_text: tampered ? tampered.value : null,
         noise_profile: isReadout ? 'readout' : 'depolarizing',
       };
+      if (currentThreat === 'eve_cloning') {
+        const clonerElem = document.getElementById('clonerTypeSelect');
+        const rateElem = document.getElementById('cloningRateRange');
+        payload.cloner_type = clonerElem ? clonerElem.value : 'universal';
+        payload.cloning_rate = rateElem ? parseFloat(rateElem.value) || 1.0 : 1.0;
+      }
+      if (currentThreat === 'eve_partial_intercept') {
+        const fractionElem = document.getElementById('partialInterceptRange');
+        payload.partial_intercept_fraction = fractionElem ? parseFloat(fractionElem.value) || 0.05 : 0.05;
+      }
       if (isReadout) {
         payload.readout_location = locElem ? locElem.value : 'both';
         payload.readout_p01 = p01Elem ? parseFloat(p01Elem.value) || 0.0 : 0.0;
