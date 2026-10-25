@@ -8,6 +8,10 @@ Response policy: turn a blind detector report into two separate outputs.
 
 Rules (policy version ``hedwig-qcb/2``):
   * Benign classifications                     -> none.
+  * Inconclusive elimination evidence (count in the borderline band, no
+    reserve able to resolve it)               -> none. The signature is not
+    accepted, but a statistically weak, unattributed observation never
+    escalates the link on its own.
   * Classical rejections (replay, impersonation, message integrity,
     unauthorised verification)                 -> none. Anyone can produce
     them at will by sending garbage, so they must not lock out the honest
@@ -125,6 +129,10 @@ def decide(report: ThreatReport, policy: ResponsePolicy) -> ResponseDecision:
         return ResponseDecision("reject", "none", "classical", report.evidence_p,
                                 f"{cls.value}: classical check failed; package rejected, link stays as is "
                                 f"(an outsider can trigger this at will).")
+    if cls == ThreatClassification.INCONCLUSIVE_EVIDENCE:
+        return ResponseDecision("reject", "none", "inconclusive", report.evidence_p,
+                                "INCONCLUSIVE_EVIDENCE: too little elimination evidence to decide within the risk "
+                                "budget; signature not accepted, link state unchanged.")
     if cls == ThreatClassification.INSUFFICIENT_TOKENS:
         return ResponseDecision("reject", "watch", "weak", 1.0,
                                 "INSUFFICIENT_TOKENS: photon loss exceeded threshold; link placed on WATCH (not quarantined).")

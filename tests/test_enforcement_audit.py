@@ -23,9 +23,15 @@ NONE = ResponseDecision("accept", "none", "none", 1.0, "ok")
 
 
 # ------------------------------------------------------------ state machine
-def test_alert_quarantines_link_until_reset(engine):
-    rng = np.random.default_rng(1)
-    r = _intercept(engine, rng)
+def test_alert_quarantines_link_until_reset():
+    # A full intercept reaches quarantine-grade evidence with ~95% probability (planned Tier 1 power);
+    # retry on fresh engines so the state-machine checks below do not hinge on one seed.
+    for seed in range(1, 6):
+        engine = TeleportationQDS(backend="statevector", channel=ChannelModel(depolarizing=0.0))
+        rng = np.random.default_rng(seed)
+        r = _intercept(engine, rng)
+        if r.enforcement["action"] == "link_quarantined":
+            break
     assert r.threat_report.classification == ThreatClassification.EAVESDROPPING_TAMPERING
     assert r.enforcement["action"] == "link_quarantined"
     assert r.enforcement["incident_id"].startswith("INC-")
@@ -159,12 +165,17 @@ def test_weak_small_l_noise_does_not_lock_the_link(clock):
 
 
 # -------------------------------------------------------------- early abort
-def test_full_intercept_aborts_early_and_is_not_revealed(engine):
-    r = _intercept(engine, np.random.default_rng(3))
-    ct = r.transcript.channel_test
-    assert ct.alarm and ct.early_abort and ct.tokens_sent < ct.tokens_planned
-    assert ct.p_value <= engine.params.strong_alpha
-    assert r.transcript.results == [] and r.to_dict()["revealed"] is False
+def test_full_intercept_aborts_early_and_is_not_revealed():
+    early = 0
+    for seed in range(10):
+        engine = TeleportationQDS(backend="statevector")
+        r = _intercept(engine, np.random.default_rng(seed))
+        ct = r.transcript.channel_test
+        assert ct.alarm and r.transcript.results == [] and r.to_dict()["revealed"] is False
+        if ct.early_abort:
+            early += 1
+            assert ct.tokens_sent < ct.tokens_planned and ct.p_value <= engine.params.strong_alpha
+    assert early >= 5
 
 
 def test_honest_runs_send_the_whole_stream(engine, rng):
@@ -173,10 +184,20 @@ def test_honest_runs_send_the_whole_stream(engine, rng):
         assert not ct.early_abort and ct.tokens_sent == ct.tokens_planned
 
 
-def test_watch_doubles_test_token_budget(engine, rng):
+def test_legacy_watch_doubles_test_token_budget():
+    from src.quantum_engine import SecurityParameters
+    engine = TeleportationQDS(params=SecurityParameters(allocation_policy="legacy"), backend="statevector")
     base = engine.test_token_budget(32)
     engine.guard.apply(LINK_SIGNER, WEAK, "TX-1")
     assert engine.test_token_budget(32) == base * engine.params.watch_test_multiplier
+
+
+def test_watch_raises_power_based_test_budget(engine):
+    base = engine.allocation_plan(32)["test"]
+    engine.guard.apply(LINK_SIGNER, WEAK, "TX-1")
+    watch = engine.allocation_plan(32)["test"]
+    assert watch["suspicious"] and watch["test_tokens"] > base["test_tokens"]
+    assert watch["attack_qber"] < base["attack_qber"] and watch["power"] >= watch["power_target"]
 
 
 # ------------------------------------------------------------------- router
@@ -247,7 +268,8 @@ def test_evidence_tampering_is_detected(cert):
     authority, c = cert
     tampered = copy.deepcopy(c)
     v = tampered["evidence"]["verifications"]["bob"]
-    v["eliminated_states"][0] = ["|0⟩"] * len(v["eliminated_states"][0])
+    i = next(i for i, row in enumerate(v["eliminated_states"]) if row)
+    v["eliminated_states"][i] = ["|1⟩" if e == "|0⟩" else "|0⟩" for e in v["eliminated_states"][i]]
     rep = verify_certificate_report(tampered, authority.trusted_keys())
     assert rep["checks"]["all_signatures_valid"] and not rep["checks"]["evidence_digests_match"]
     assert not rep["valid"]

@@ -16,7 +16,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, List, Optional
 
-from .binding import SignedPackage, commitment, digest_matches
+from .binding import SignedPackage, commitment, digest_matches, reserve_commitment
 from .channel import ChannelTestResult
 from .elimination import OrthogonalEliminationEngine
 from .replay import ReplayGuard
@@ -52,6 +52,13 @@ class DistributionRecord:
     insufficient_tokens: bool = False  # n_surviving < n_min
     tokens_received: int = 0
     tokens_planned: int = 0
+    # Precommitted reserve (C2): measured at distribution like any copy, opened only for a borderline count.
+    reserve_eliminated: List[List[str]] = field(default_factory=list)
+    reserve_commitment: Optional[str] = None
+
+    @property
+    def n_reserve(self) -> int:
+        return sum(len(row) for row in self.reserve_eliminated)
 
 
 @dataclass
@@ -87,6 +94,20 @@ class VerificationResult:
     insufficient_tokens: bool = False
     tokens_received: int = 0
     tokens_planned: int = 0
+    # Staged decision (C1/C2)
+    elimination_outcome: str = "fail"      # "pass" | "fail" | "inconclusive"
+    decision_stage: int = 1                # 1 = main copies only, 2 = reserve opened
+    evidence_status: str = "sufficient"    # "sufficient" | "below_target" (risk budget not met at this n)
+    reserve_available: int = 0             # reserve copies held for this session
+    reserve_requested: bool = False        # borderline at stage 1 and the package carried no reserve opening
+    reserve_checked: int = 0
+    reserve_mismatches: int = 0
+    reserve_binding_ok: Optional[bool] = None
+    elimination_p: float = 1.0             # honest-hypothesis p-value, valid under the staged stopping rule
+
+    @property
+    def inconclusive(self) -> bool:
+        return self.elimination_outcome == "inconclusive"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -108,6 +129,18 @@ class VerificationResult:
             "tokens_received": self.tokens_received,
             "tokens_planned": self.tokens_planned,
             "tokens_received_str": f"{self.tokens_received}/{self.tokens_planned}" if self.tokens_planned else "—",
+            "elimination_outcome": self.elimination_outcome,
+            "decision_stage": self.decision_stage,
+            "evidence_status": self.evidence_status,
+            "reserve": {
+                "available": self.reserve_available,
+                "requested": self.reserve_requested,
+                "opened": self.decision_stage == 2,
+                "checked": self.reserve_checked,
+                "mismatches": self.reserve_mismatches,
+                "binding_ok": self.reserve_binding_ok,
+            },
+            "elimination_p": float(f"{self.elimination_p:.4e}"),
             "checks": {
                 "distribution_record_found": self.record_found,
                 "sender_matches_record": self.sender_matches,
@@ -136,6 +169,7 @@ class VerifierNode:
                                         store=store, owner=name)
         self.max_records = max_records
         self._accepted_sessions: set = set()
+        self._reserve_openings: Dict[tuple, int] = {}
         self._lock = threading.RLock()
 
     # -- distribution stage ------------------------------------------------
@@ -190,18 +224,6 @@ class VerifierNode:
                     "timestamp_in_future": "Timestamp is in the future beyond allowed clock skew.",
                 }[freshness_reason])
 
-            eliminated = record.eliminated if record else []
-            mismatches, n_checked, positions = OrthogonalEliminationEngine.count_mismatches(
-                package.revealed_signature, eliminated)
-            if record and len(package.revealed_signature) != len(eliminated):
-                reasons.append("Revealed signature length differs from distributed token count.")
-            limit = self.params.acceptance_limit(n_checked, forwarded)
-            elimination_pass = (record_found and n_checked > 0 and mismatches <= limit
-                                and len(package.revealed_signature) == len(eliminated))
-            if record_found and not elimination_pass:
-                reasons.append(f"Elimination check failed: {mismatches} mismatches in {n_checked} copies "
-                               f"(limit {limit}).")
-
             digest_ok = digest_matches(package.message, ctx)
             try:
                 commit_ok = bool(record) and commitment(ctx, package.revealed_signature,
@@ -213,7 +235,71 @@ class VerifierNode:
                                f"signed context digest.")
             if record and not commit_ok:
                 reasons.append("Context/signature do not match the signer's distribution-stage commitment.")
-            binding_pass = digest_ok and commit_ok
+
+            eliminated = record.eliminated if record else []
+            mismatches, n_checked, positions = OrthogonalEliminationEngine.count_mismatches(
+                package.revealed_signature, eliminated)
+            length_ok = bool(record) and len(package.revealed_signature) == len(eliminated)
+            if record and not length_ok:
+                reasons.append("Revealed signature length differs from distributed token count.")
+            n_reserve = record.n_reserve if record else 0
+            rule = self.params.elimination_rule(n_checked, forwarded, n_reserve)
+            limit = rule.a1
+            stage, outcome = 1, "fail"
+            reserve_requested, reserve_binding_ok = False, None
+            r_mis = r_checked = 0
+            elim_p = rule.p_value(mismatches) if n_checked else 1.0
+            if record_found and n_checked > 0 and length_ok:
+                outcome = rule.stage1(mismatches)
+                if outcome == "borderline":
+                    outcome = "inconclusive"
+                    # The reserve is only worth (and only spent on) a package that is exactly what the signer
+                    # committed to; anything else is rejected on binding regardless of the count.
+                    if rule.two_stage and not (digest_ok and commit_ok):
+                        pass
+                    elif rule.two_stage and package.reserve is None:
+                        reserve_requested = True
+                    elif rule.two_stage:
+                        key = (ctx.session_id, channel_key)
+                        opened = self._reserve_openings.get(key, 0)
+                        if opened >= self.params.max_reserve_openings:
+                            reasons.append("Reserve already opened for this session on this channel; "
+                                           "no further evidence is accepted (bounded retry).")
+                        else:
+                            self._reserve_openings[key] = opened + 1
+                            stage = 2
+                            states = [tuple(x) for x in package.reserve.states]
+                            try:
+                                reserve_binding_ok = (len(states) == len(record.reserve_eliminated) and
+                                                      reserve_commitment(ctx, states, package.reserve.blinding)
+                                                      == record.reserve_commitment)
+                            except (ValueError, TypeError):
+                                reserve_binding_ok = False
+                            r_mis, r_checked, _ = OrthogonalEliminationEngine.count_mismatches(
+                                states, record.reserve_eliminated)
+                            if reserve_binding_ok:
+                                outcome = rule.stage2(mismatches, r_mis)
+                                elim_p = rule.p_value(mismatches, r_mis)
+                            else:
+                                outcome = "fail"
+                                reasons.append("Reserve opening does not match the signer's distribution-stage "
+                                               "reserve commitment.")
+            elimination_pass = outcome == "pass"
+            if record_found and outcome == "fail" and reserve_binding_ok is not False:
+                if stage == 2:
+                    reasons.append(f"Elimination check failed at stage 2: {mismatches} + {r_mis} mismatches in "
+                                   f"{n_checked} + {r_checked} copies (limit {rule.a2}).")
+                else:
+                    reasons.append(f"Elimination check failed: {mismatches} mismatches in {n_checked} copies "
+                                   f"(limit {limit}).")
+            elif outcome == "inconclusive":
+                more = (" Reserve opening requested from the signer." if reserve_requested else
+                        "" if rule.two_stage else " No reserve evidence is available for this session.")
+                reasons.append(f"Elimination evidence inconclusive: {mismatches} mismatches in {n_checked} copies "
+                               f"lies between the accept limit {rule.a1} and the decisive-reject limit {rule.r1} "
+                               f"at this sample size.{more}")
+
+            binding_pass = digest_ok and commit_ok and reserve_binding_ok is not False
 
             accepted = (record_found and sender_matches and addressed and not aborted and not insufficient_tokens and fresh
                         and elimination_pass and binding_pass)
@@ -253,8 +339,18 @@ class VerifierNode:
             reasons=reasons,
             eliminated_states=eliminated,
             held_tokens=record.held_desc if record else [],
-            bounds=self.params.bounds(n_checked, mismatches, forwarded),
+            bounds=self.params.bounds(n_checked, mismatches, forwarded, rule=rule,
+                                      reserve_mismatches=r_mis if stage == 2 else None),
             insufficient_tokens=insufficient_tokens,
             tokens_received=tokens_received,
             tokens_planned=tokens_planned,
+            elimination_outcome=outcome,
+            decision_stage=stage,
+            evidence_status="sufficient" if rule.sufficient else "below_target",
+            reserve_available=n_reserve,
+            reserve_requested=reserve_requested,
+            reserve_checked=r_checked,
+            reserve_mismatches=r_mis,
+            reserve_binding_ok=reserve_binding_ok,
+            elimination_p=elim_p,
         )

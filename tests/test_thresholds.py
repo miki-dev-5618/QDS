@@ -8,6 +8,7 @@ from src.quantum_engine.binding import commitment, new_blinding
 from src.quantum_engine.channel import binomial_upper_tail, critical_error_count, estimate_channel_qber
 
 P = SecurityParameters()
+LEGACY = SecurityParameters(threshold_policy="legacy")
 
 
 def test_threshold_ordering():
@@ -38,9 +39,11 @@ def test_decision_boundary_matches_displayed_rule(n, forwarded, clock):
     assert not above.accepted and not above.elimination_pass
 
 
-def test_bound_values_follow_their_formulas():
+def test_legacy_bound_values_follow_their_formulas():
     n = 64
+    P = LEGACY
     b = P.bounds(n, 0)
+    assert b["acceptance_limit"] == math.floor(P.s_a * n)
     assert float(b["values"]["false_reject"]) == pytest.approx(math.exp(-2 * (P.s_a - P.mu_honest) ** 2 * n), rel=1e-3)
     assert float(b["values"]["forgery_accept"]) == pytest.approx(
         math.exp(-2 * (P.forger_min_mismatch - P.s_a) ** 2 * n), rel=1e-3)
@@ -48,11 +51,30 @@ def test_bound_values_follow_their_formulas():
         min(1, 2 * math.exp(-((P.s_v - P.s_a) ** 2) * n / 2)), rel=1e-3)
 
 
-def test_small_signatures_do_not_claim_target_security():
+@pytest.mark.parametrize("forwarded", [False, True])
+def test_exact_bound_values_are_the_probabilities_of_the_applied_limit(forwarded):
+    n = 64
+    b = P.bounds(n, 0, forwarded)
+    k = b["acceptance_limit"]
+    assert float(b["values"]["false_reject"]) == pytest.approx(binomial_upper_tail(n, P.mu_honest, k + 1), rel=1e-3)
+    assert float(b["values"]["forgery_accept"]) == pytest.approx(
+        1 - binomial_upper_tail(n, P.forger_min_mismatch, k + 1), rel=1e-3)
+
+
+def test_legacy_small_signatures_do_not_claim_target_security():
     for n in (16, 32, 64, 128):
-        b = P.bounds(n, 0)
+        b = LEGACY.bounds(n, 0)
         assert not b["meets_target"] and b["n_required_for_target"] > n
-    assert P.bounds(P.bounds(16, 0)["n_required_for_target"], 0)["meets_target"]
+    assert LEGACY.bounds(LEGACY.bounds(16, 0)["n_required_for_target"], 0)["meets_target"]
+
+
+def test_exact_small_signatures_do_not_claim_target_security():
+    n_req = P.n_required()
+    for n in (16, 32, n_req - 1):
+        b = P.bounds(n, 0)
+        assert not b["meets_target"] and b["evidence_status"] == "below_target" and b["n_required_for_target"] > n
+    for n in (n_req, 128, 256):
+        assert P.bounds(n, 0)["meets_target"] and P.bounds(n, 0, True)["meets_target"]
 
 
 @pytest.mark.parametrize("n", [16, 32, 64, 200])

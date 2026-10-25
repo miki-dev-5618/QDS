@@ -204,7 +204,7 @@ class ThreatSuite:
                               display={}, session=session, channel_test=session.channel_test,
                               channel_model=session.channel_model,
                               notes=list(notes or []) + ["Channel test alarm: signature never revealed."])
-        results = engine.deliver(package)
+        results = engine.deliver(package, session=session)
         return Transcript(kind="direct", link=LINK_SIGNER, n_bits=n_bits, package=package, results=results,
                           display={r.verifier: r for r in results}, session=session,
                           channel_test=session.channel_test if session else None,
