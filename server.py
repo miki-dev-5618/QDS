@@ -200,6 +200,7 @@ class SignAndSendRequest(BaseModel):
     eta_loss: Optional[float] = 0.0
     cloner_type: Optional[str] = "universal"
     cloning_rate: Optional[float] = 1.0
+    partial_intercept_fraction: Optional[float] = 0.05
 
 
 class ForwardRequest(BaseModel):
@@ -303,6 +304,7 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
         claimed_sender=sender,
         cloner_type=req.cloner_type or "universal",
         cloning_rate=float(req.cloning_rate if req.cloning_rate is not None else 1.0),
+        partial_intercept_fraction=float(req.partial_intercept_fraction if req.partial_intercept_fraction is not None else 0.05),
     )
 
     # Optional channel noise configuration

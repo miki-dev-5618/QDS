@@ -67,6 +67,8 @@ function setArmedThreatUI(threatType) {
   if (tamperedGroup) tamperedGroup.style.display = threatType === 'message_tampering' ? 'block' : 'none';
   const cloningControls = document.getElementById('cloningControls');
   if (cloningControls) cloningControls.style.display = threatType === 'eve_cloning' ? 'flex' : 'none';
+  const partialInterceptControls = document.getElementById('partialInterceptControls');
+  if (partialInterceptControls) partialInterceptControls.style.display = threatType === 'eve_partial_intercept' ? 'flex' : 'none';
   const badge = document.getElementById('activeThreatBadge');
   if (badge) {
     badge.textContent = threatType.toUpperCase();
@@ -103,6 +105,14 @@ function initComposer() {
     });
   }
 
+  const partialInterceptRange = document.getElementById('partialInterceptRange');
+  const partialInterceptLabel = document.getElementById('partialInterceptLabel');
+  if (partialInterceptRange && partialInterceptLabel) {
+    partialInterceptRange.addEventListener('input', () => {
+      partialInterceptLabel.textContent = `${Math.round(parseFloat(partialInterceptRange.value) * 100)}%`;
+    });
+  }
+
   const noiseProfileSelect = document.getElementById('noiseProfileSelect');
   const readoutControls = document.getElementById('readoutControls');
   if (noiseProfileSelect && readoutControls) {
@@ -135,6 +145,10 @@ function initComposer() {
         const rateElem = document.getElementById('cloningRateRange');
         payload.cloner_type = clonerElem ? clonerElem.value : 'universal';
         payload.cloning_rate = rateElem ? parseFloat(rateElem.value) || 1.0 : 1.0;
+      }
+      if (currentThreat === 'eve_partial_intercept') {
+        const fractionElem = document.getElementById('partialInterceptRange');
+        payload.partial_intercept_fraction = fractionElem ? parseFloat(fractionElem.value) || 0.05 : 0.05;
       }
       if (isReadout) {
         payload.readout_location = locElem ? locElem.value : 'both';
