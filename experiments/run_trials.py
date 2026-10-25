@@ -35,6 +35,7 @@ EXPECTED = {  # the eavesdropping label covers Tier 1 alarms and Tier 2 channel 
     ThreatType.REPUDIATION: {"REPUDIATION_ATTEMPT"},
     ThreatType.REPLAY: {"REPLAY_ATTACK"},
     ThreatType.IMPERSONATION: {"IMPERSONATION_ATTACK"},
+    ThreatType.EVE_LOSS_EXPLOIT: {"INSUFFICIENT_TOKENS", "EXTERNAL_FORGERY", "EAVESDROPPING_TAMPERING"},
 }
 
 
@@ -62,7 +63,7 @@ def run_cell(threat, n_bits, trials, rng, backend, channel):
         report, t = r.threat_report, r.transcript
         classes[report.classification.value] += 1
         flagged += report.is_threat_detected
-        correct += report.classification.value in EXPECTED[threat]
+        correct += report.classification.value in EXPECTED.get(threat, ())  # new scenarios: add to EXPECTED
         abstain += report.classification.value == "UNDETERMINED_DISTURBANCE"
         elim_reject += any(v.record_found and not v.elimination_pass for v in t.results)
         bob_acc += bool(t.display.get("bob") and t.display["bob"].accepted)

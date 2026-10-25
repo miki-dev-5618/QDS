@@ -10,10 +10,11 @@ Decision order (first matching rule wins):
   1. Tier 1 channel alarm                             -> EAVESDROPPING_TAMPERING
   2. No distribution record / sender != record sender -> IMPERSONATION_ATTACK
   3. Nonce already consumed / timestamp out of window -> REPLAY_ATTACK
-  4. Forwarded package fails elimination or binding   -> DISHONEST_VERIFIER_FORGERY
-  5. Binding fails and elimination fails              -> EXTERNAL_FORGERY
+  4. Forwarded package fails binding or fails elimination decisively
+                                                      -> DISHONEST_VERIFIER_FORGERY
+  5. Binding fails and elimination does not pass      -> EXTERNAL_FORGERY
   6. Binding fails, elimination passes                -> MESSAGE_INTEGRITY_VIOLATION
-  7. Binding passes, elimination fails: Tier 2 attributes the contradictions
+  7. Binding passes, elimination fails decisively: Tier 2 attributes the contradictions
        signature_inconsistency                        -> REPUDIATION_ATTEMPT
        channel_disturbance                            -> EAVESDROPPING_TAMPERING (via Tier 2)
        undetermined                                   -> UNDETERMINED_DISTURBANCE
@@ -22,13 +23,17 @@ Decision order (first matching rule wins):
      disturbance measured on the test tokens explains the contradictions)
      With detection_tiers=1 (DETECTION_TIERS=1, ablation only) Tier 2 is skipped
      and every such disturbance                       -> EAVESDROPPING_TAMPERING
+  7b. Binding passes, elimination inconclusive (count in the borderline band of
+      the exact rule and no reserve could resolve it) -> INCONCLUSIVE_EVIDENCE
+      (not accepted, no attack attributed)
   8. All accepted, some mismatches / channel errors   -> CHANNEL_NOISE (benign)
   9. All accepted, no mismatches                      -> BENIGN_AUTHENTIC
 
 Each report carries its supporting counts and an evidence strength
 (``evidence_p``: the smallest p-value under the honest hypothesis among the
-statistics that caused the rejection). The response policy uses it to choose
-between watching and quarantining a link.
+statistics that caused the rejection). Elimination p-values come from the
+verifier and are computed under its staged stopping rule. The response policy
+uses evidence_p to choose between watching and quarantining a link.
 """
 from dataclasses import dataclass, field
 from enum import Enum
@@ -53,6 +58,7 @@ class ThreatClassification(str, Enum):
     MESSAGE_INTEGRITY_VIOLATION = "MESSAGE_INTEGRITY_VIOLATION"
     UNAUTHORIZED_VERIFICATION = "UNAUTHORIZED_VERIFICATION"
     INSUFFICIENT_TOKENS = "INSUFFICIENT_TOKENS"
+    INCONCLUSIVE_EVIDENCE = "INCONCLUSIVE_EVIDENCE"
 
 
 BENIGN = {ThreatClassification.BENIGN_AUTHENTIC, ThreatClassification.CHANNEL_NOISE}
@@ -71,7 +77,19 @@ _VERDICTS = {
         "REJECTED: SIGNATURE CONTRADICTS RECORDS; CAUSE UNDETERMINED (CHANNEL OR SIGNER)",
     ThreatClassification.INSUFFICIENT_TOKENS:
         "INSUFFICIENT_TOKENS: SURVIVING TOKENS BELOW ACCEPTANCE THRESHOLD DUE TO PHOTON LOSS",
+    ThreatClassification.INCONCLUSIVE_EVIDENCE:
+        "NOT ACCEPTED: ELIMINATION EVIDENCE INCONCLUSIVE AT THIS SAMPLE SIZE (NO ATTACK ATTRIBUTED)",
 }
+
+
+def _elim_p(o, params: SecurityParameters) -> float:
+    """The verifier's stopping-valid p-value when present, else the fixed-sample binomial tail."""
+    p = getattr(o, "elimination_p", None)
+    return p if p is not None else params.elimination_p_value(o.n_checked, o.mismatches)
+
+
+def _decisive_fail(o) -> bool:
+    return not o.elimination_pass and getattr(o, "elimination_outcome", "fail") != "inconclusive"
 _TIER2_CHANNEL_VERDICT = "CHANNEL ANOMALY (TIER 2): CONTRADICTIONS EXPLAINED BY ELEVATED CHANNEL DISTURBANCE"
 _TIER1_ONLY_VERDICT = "CHANNEL DISTURBANCE (TIER 1 ONLY): ELIMINATION CONTRADICTIONS, NO ATTRIBUTION"
 
@@ -124,10 +142,13 @@ class QDSDetectionEngine:
         for o in obs:
             tag = f"{o.verifier}/{o.mode}" + (f" via {o.forwarded_by}" if o.forwarded_by else "")
             if o.record_found and o.n_checked:
-                elim_p[tag] = p.elimination_p_value(o.n_checked, o.mismatches)
+                elim_p[tag] = _elim_p(o, p)
+            stage2 = (f" + reserve {o.reserve_mismatches}/{o.reserve_checked}"
+                      if getattr(o, "decision_stage", 1) == 2 else "")
             evidence.append(
-                f"{tag}: {'ACCEPT' if o.accepted else 'REJECT'}; mismatches {o.mismatches}/{o.n_checked} "
-                f"(limit {o.acceptance_limit}); binding {'ok' if o.binding_pass else 'FAIL'}; "
+                f"{tag}: {'ACCEPT' if o.accepted else 'REJECT'}; mismatches {o.mismatches}/{o.n_checked}{stage2} "
+                f"(limit {o.acceptance_limit}; elimination {getattr(o, 'elimination_outcome', '-')}, "
+                f"evidence {getattr(o, 'evidence_status', '-')}); binding {'ok' if o.binding_pass else 'FAIL'}; "
                 f"fresh={o.freshness_reason}; record={'yes' if o.record_found else 'no'}"
             )
         if channel_test is not None:
@@ -157,7 +178,7 @@ class QDSDetectionEngine:
         agree = len({o.accepted for o in direct}) <= 1
 
         def min_elim_p(subset) -> float:
-            vals = [p.elimination_p_value(o.n_checked, o.mismatches) for o in subset if o.n_checked]
+            vals = [_elim_p(o, p) for o in subset if o.n_checked]
             return min(vals) if vals else 1.0
 
         def report(cls: ThreatClassification, details: str, decided_by: str, evidence_p: float = 1.0,
@@ -217,7 +238,7 @@ class QDSDetectionEngine:
                           f"covered by the signer's commitment, so they cannot be altered without failing binding.",
                           "replay")
 
-        bad_forward = [o for o in forwarded if not (o.elimination_pass and o.binding_pass)]
+        bad_forward = [o for o in forwarded if not o.binding_pass or _decisive_fail(o)]
         if bad_forward:
             o = bad_forward[0]
             return report(ThreatClassification.DISHONEST_VERIFIER_FORGERY,
@@ -228,7 +249,10 @@ class QDSDetectionEngine:
 
         bind_fail = [o for o in obs if not o.binding_pass]
         elim_fail = [o for o in obs if not o.elimination_pass]
-        if bind_fail and elim_fail:
+        # Only a decisive elimination failure is evidence about the states; an inconclusive count next
+        # to a binding failure says nothing more than the binding failure itself.
+        if bind_fail and any(_decisive_fail(o) for o in elim_fail):
+            elim_fail = [o for o in elim_fail if _decisive_fail(o)]
             return report(ThreatClassification.EXTERNAL_FORGERY,
                           "The revealed signature is not the one the signer committed to, and it contradicts the "
                           "verifiers' elimination records: " +
@@ -239,9 +263,11 @@ class QDSDetectionEngine:
             return report(ThreatClassification.MESSAGE_INTEGRITY_VIOLATION,
                           ("The received message's digest differs from the signed context. "
                            if digest else "The received context/signature differs from the signer's commitment. ") +
-                          "The quantum elimination check alone passed, which is expected when only classical "
-                          "payload fields are changed.",
+                          "The quantum elimination check alone did not reject decisively, which is expected when "
+                          "only classical payload fields are changed.",
                           "binding")
+        inconclusive = [o for o in elim_fail if not _decisive_fail(o)]
+        elim_fail = [o for o in elim_fail if _decisive_fail(o)]
         if elim_fail:
             counts = "; ".join(f"{o.verifier} {o.mismatches}/{o.n_checked} (limit {o.acceptance_limit})"
                                for o in elim_fail)
@@ -270,6 +296,16 @@ class QDSDetectionEngine:
                           f"(p_excess = {t2.p_excess:.2e}, p_channel = {t2.p_channel:.2e}): an honest-noise "
                           f"fluctuation, a weak channel attack and a repudiating signer are all consistent.",
                           "elimination+tier2", ep)
+
+        if inconclusive:
+            counts = "; ".join(f"{o.verifier}/{o.mode} {o.mismatches}/{o.n_checked} (accept <= {o.acceptance_limit})"
+                               for o in inconclusive)
+            return report(ThreatClassification.INCONCLUSIVE_EVIDENCE,
+                          f"The signature matches the signer's commitment, but the contradiction count lies in the "
+                          f"borderline band of the exact rule at this sample size: {counts}. The available evidence "
+                          f"cannot meet the risk budget either way, so the signature is not accepted and no attack is "
+                          f"attributed. A longer signature (or reserve) would resolve it.",
+                          "elimination_inconclusive", min_elim_p(inconclusive))
 
         noisy = any(o.mismatches for o in obs) or (channel_test is not None and channel_test.error_count > 0)
         if noisy:

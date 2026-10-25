@@ -50,9 +50,18 @@ class ChannelModel:
     readout_p10: float = 0.0             # P(meas=0 | state=1)
     readout_location: str = "both"       # "verifier_measurement", "bell_measurement", or "both"
     eta_loss: float = 0.0                # probability of photon loss (erasure) in [0, 0.5]
+    cloner_type: str = "universal"       # "universal" or "phase_covariant"
+    cloning_rate: float = 0.0            # fraction of tokens Eve clones
 
     def expected_qber(self) -> float:
         """Matched-basis error probability implied by these parameters (bursts averaged)."""
+        if self.noise_profile == "cloning" or self.cloning_rate > 0.0:
+            from .cloning import UNIVERSAL_ERROR, PHASE_COVARIANT_ERROR
+            cloner_err = PHASE_COVARIANT_ERROR if self.cloner_type in ("phase_covariant", "bb84", "pc") else UNIVERSAL_ERROR
+            a = cloner_err * self.cloning_rate
+            dep = self.depolarizing
+            b = 2.0 * dep / 3.0
+            return a + b - 2 * a * b
         if self.noise_profile == "lossy":
             # Erasure is heralded and excluded from mismatch counting, so baseline QBER is depolarizing
             f = self.burst_fraction()
@@ -177,6 +186,21 @@ def make_lossy_channel(
         eta_loss=float(eta_loss),
         depolarizing=depolarizing,
         intercept_rate=intercept_rate,
+    )
+
+
+def make_cloning_channel(
+    cloner_type: str = "universal",
+    cloning_rate: float = 1.0,
+    depolarizing: float = 0.0,
+) -> ChannelModel:
+    """Create a ChannelModel where Eve clones tokens via 1->2 symmetric quantum cloner."""
+    return ChannelModel(
+        noise_profile="cloning",
+        cloner_type=cloner_type,
+        cloning_rate=float(cloning_rate),
+        depolarizing=depolarizing,
+        intercept_rate=0.0,
     )
 
 
