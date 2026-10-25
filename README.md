@@ -3,8 +3,8 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-009688.svg)](https://fastapi.tiangolo.com/)
 [![Qiskit](https://img.shields.io/badge/Qiskit-2.5.2-6929C4.svg)](https://qiskit.org/)
-[![Tests](https://img.shields.io/badge/Tests-217%20passed-brightgreen.svg)]()
 [![Audit](https://img.shields.io/badge/Audit-Ed25519%20%2B%20ML--DSA--65-orange.svg)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **Beginner Guide Available:** If you are new to Quantum Digital Signatures or want an intuitive, plain-English breakdown with analogies and viva preparation, see [FOR_DUMMIES.md](FOR_DUMMIES.md).
 
@@ -16,7 +16,7 @@
 Classical digital signatures (RSA, ECDSA) rely on computational hardness assumptions (integer factorisation, discrete logarithms) vulnerable to Shor's algorithm on large-scale quantum computers. While Post-Quantum Cryptography (PQC) algorithms (e.g. ML-DSA / Dilithium) introduce lattice-based hardness, they remain computational. 
 
 **Quantum Digital Signatures (QDS)** provide information-theoretic non-repudiation and unforgeability rooted in quantum mechanics:
-- **Heisenberg Uncertainty Principle:** Non-commuting observable bases cannot be simultaneously measured without uncertainty.
+- **Heisenberg Uncertainty Principle:** Non-commuting observable bases cannot be simultaneously measured without disturbance.
 - **No-Cloning Theorem:** Unknown quantum states cannot be copied identically.
 
 However, classical-quantum networked QDS systems face realistic vulnerabilities:
@@ -29,6 +29,7 @@ However, classical-quantum networked QDS systems face realistic vulnerabilities:
 **HEDWIG** is an interactive, simulated three-party Quantum Digital Signature platform (Alice, Bob, Charlie) equipped with:
 - **Simulated Quantum Teleportation:** Bell-state teleportation ($|\Phi^+\rangle$) of random Pauli-eigenstate tokens ($\{|0\rangle, |1\rangle, |+\rangle, |-\rangle\}$) over configurable noisy channels (Qiskit Aer / Statevector simulation).
 - **Two-Tier Blind Statistical Threat Detection:** Evidence-driven discrimination of channel noise vs. quantum eavesdropping vs. message tampering without machine learning or prior attack labels.
+- **Sequential Early Abort:** Block-by-block channel testing that halts quantum token transmission immediately when error thresholds are decisively crossed, saving quantum resources and link bandwidth.
 - **Adaptive Quantum Circuit Breaker (QCB):** Multi-state per-link enforcement engine (`OPEN`, `WATCH`, `QUARANTINED`, `RESET_PENDING`) featuring sequential early abort and Fisher's combined p-value escalation.
 - **Tamper-Evident Q-Cert Audit Ledger:** Immutable SHA-256 hash-chained audit ledger dual-signed with classical **Ed25519** and NIST FIPS 204 **ML-DSA-65 (Dilithium)**.
 
@@ -58,7 +59,7 @@ graph TD
 
     subgraph DETECTION["Detection & Defense Layer"]
         R3 --> D1["Tier 1: Binomial Test Token QBER Check"]
-        D1 --> D2["Early Abort Evaluator"]
+        D1 --> D2["Sequential Early Abort Evaluator"]
         R3 --> D3["Tier 2: Disturbance-Pattern Attribution"]
         D3 --> D4["Blind Threat Classifier"]
         D4 --> D5["Quantum Circuit Breaker (QCB)"]
@@ -86,7 +87,7 @@ graph TD
 2. **Teleportation & Elimination:** States are teleported over simulated Bell channels with feed-forward Pauli corrections. Receivers measure each token in a random basis ($\{Z, X\}$) to eliminate an orthogonal candidate from their verification table.
 3. **Commitment Binding:** Alice broadcasts a SHA-256 commitment containing the message digest, recipient list, session nonce, expiration timestamp, and random blinding salt before any states are revealed.
 4. **Channel Testing & Sequential Early Abort:** Interleaved secret test tokens evaluate link fidelity block-by-block. If error counts exceed the binomial threshold early, transmission aborts immediately to conserve quantum resources.
-5. **Independent Verification & Response:** Bob and Charlie verify received signatures against their elimination tables. Mismatch counts are tested against Hoeffding acceptance thresholds ($s_a$ for direct delivery, $s_v$ for forwarded).
+5. **Independent Verification & Response:** Bob and Charlie verify received signatures against their elimination tables. Mismatch counts are tested against Hoeffding and exact binomial acceptance thresholds ($s_a$ for direct delivery, $s_v$ for forwarded).
 
 ---
 
@@ -97,7 +98,8 @@ graph TD
 - **Backend API & Web Server:** `fastapi` (0.115.0), `uvicorn` (0.30.6), `websockets` (16.0), `jinja2` (3.1.6)
 - **Classical & Post-Quantum Cryptography:** `cryptography` (48.0.0), `dilithium-py` (1.4.0, NIST FIPS 204 ML-DSA-65)
 - **Persistence & Auditing:** SQLite 3 (`sqlite3` standard library), Ed25519 PEM keys, JSON-canonical hash chains
-- **Testing & Quality Assurance:** `pytest` (217 automated tests passing)
+- **Testing & Quality Assurance:** `pytest` (24 automated test suites)
+- **Experiments & Benchmarking:** Multiprocessing trial harnesses with seeded RNGs, Wilson score intervals, and ROC curves
 
 ---
 
@@ -111,15 +113,16 @@ graph TD
 ├── requirements-pq.txt              # Optional post-quantum ML-DSA-65 requirements
 ├── requirements-dev.txt             # Development and testing dependencies
 ├── run_v2.bat                       # One-click Windows launch script
+├── run_experiments.py               # Reproducible experiment runner & manifest generator
 ├── templates/                       # Jinja2 HTML templates
 │   ├── login.html                   # Multi-role login interface
 │   ├── admin.html                   # Alice sender console, threat injector, circuit reset
 │   ├── bob.html                     # Bob verifier terminal & dishonest forward trigger
 │   └── charlie.html                 # Charlie verifier terminal & cross-check audit view
 ├── static/                          # Styling and client-side logic
-│   ├── css/                         # Custom vanilla CSS design system
-│   ├── js/                          # WebSocket listeners, dynamic DOM updating, charts
-│   └── img/                         # SVG icons and visual assets
+│   ├── css/style.css                # Custom vanilla CSS design system
+│   ├── js/app.js                    # WebSocket listeners, dynamic DOM updating, charts
+│   └── img/icons.svg                # SVG icons and visual assets
 ├── src/quantum_engine/              # Core simulated quantum cryptography engine
 │   ├── __init__.py                  # Public exports and package definition
 │   ├── protocol.py                  # Orchestrator: TeleportationQDS main execution
@@ -133,16 +136,25 @@ graph TD
 │   ├── policy.py                    # ResponsePolicy & Fisher's combined p-value escalation
 │   ├── enforcement.py               # ChannelGuard & Quantum Circuit Breaker (QCB)
 │   ├── binding.py                   # SignedContext & cryptographic commitment validation
-│   ├── verifier.py                  # VerifierNode & Hoeffding threshold checks
+│   ├── verifier.py                  # VerifierNode & Hoeffding/exact threshold checks
 │   ├── cloning.py                   # Quantum cloner models (universal & phase-covariant)
 │   ├── audit.py                     # Q-Cert ledger, hash chains, and certificate generation
 │   ├── signers.py                   # Ed25519 and ML-DSA-65 post-quantum signing logic
 │   ├── store.py                     # SQLite persistence for sessions, transitions & audits
 │   ├── router.py                    # Simulated quantum network routing and link state
 │   ├── schedule.py                  # Measurement basis scheduling
+│   ├── thresholds.py                # Exact binomial limits & reserve stage planning
 │   └── security.py                  # Theoretical security parameters and bound models
-├── tests/                           # 16 test files (217 total test cases)
-└── experiments/                     # Benchmark scripts, calibration suites, and trial runners
+├── tests/                           # 24 test suites covering protocol, noise, API & ablations
+└── experiments/                     # Scientific evaluation harness, sweeps, ROC & ablation scripts
+    ├── harness.py                   # Resumable grid harness (seed x scenario x L x noise)
+    ├── make_roc.py                  # ROC curve generation with seeded bootstrap AUC intervals
+    ├── ablate_early_abort.py        # Sequential early abort evaluation & bandwidth savings
+    ├── ablate_tiers.py              # Tier 1 vs Tier 1+2 attribution ablation study
+    ├── ablate_escalation.py         # Fisher combined p-value vs k-alert counter ablation
+    ├── ablate_adaptive.py           # Fixed vs adaptive test token allocation
+    ├── baselines.py                 # Benchmarking against 11% QBER cutoff & no-breaker baseline
+    └── sweep_*.py                   # Physical sweeps (damping, readout, loss, tiers)
 ```
 
 ---
@@ -181,6 +193,10 @@ graph TD
    - Post-quantum ML-DSA-65 signatures (recommended):
      ```bash
      pip install -r requirements-pq.txt
+     ```
+   - Development & test dependencies:
+     ```bash
+     pip install -r requirements-dev.txt
      ```
 
 4. **Run the Application:**
@@ -229,7 +245,7 @@ HEDWIG implements **11 simulated threat scenarios** executed via `src/quantum_en
 | `impersonation` | Claiming Alice's identity without valid distribution | Sender Identity & Distribution Record Check | Link stays `OPEN` (Prevents DoS) |
 | `eve_loss_exploit` | Eve blocks disturbed tokens simulating photon loss | Readout / Channel Loss Anomaly Detector | `WATCH` / `QUARANTINED` |
 | `eve_cloning` | Eve uses optimal quantum cloner (Universal / Phase) | Cloner fidelity bound violation | `QUARANTINED` |
-| `eve_partial_intercept`| Eve intercepts only a small fraction of tokens ($5\%$) | Sequential Early Abort / Fisher's Escalation | `WATCH` $\to$ `QUARANTINED` |
+| `eve_partial_intercept`| Eve intercepts only a fraction of tokens ($5\%$) | Sequential Early Abort / Fisher's Escalation | `WATCH` $\to$ `QUARANTINED` |
 
 ---
 
@@ -244,6 +260,8 @@ HEDWIG implements **11 simulated threat scenarios** executed via `src/quantum_en
 | `HEDWIG_AUDIT_KEY` | `data/audit_ed25519.pem` | Path | Ed25519 audit authority private key path |
 | `HEDWIG_AUDIT_PQ` | `auto` | `auto`, `require`, `off` | Enforce ML-DSA-65 post-quantum dual signing |
 | `HEDWIG_USERS_FILE` | None | Path to JSON | PBKDF2 hashed credentials file path |
+| `EARLY_ABORT` | `on` | `on`, `off`, `true`, `false` | Enable/disable sequential early abort |
+| `DETECTION_TIERS` | `2` | `1`, `2` | Detection tier depth (ablation toggle) |
 
 ---
 
@@ -270,7 +288,7 @@ HEDWIG implements **11 simulated threat scenarios** executed via `src/quantum_en
 
 ## 🧪 10. Automated Testing & Verification
 
-The repository contains an exhaustive test suite validated with `pytest`:
+The repository contains an extensive automated test suite executed with `pytest`:
 
 ```bash
 # Run all tests
@@ -280,18 +298,23 @@ pytest -v
 pytest -q
 ```
 
-**Test Status:** 217 tests passing across:
-- `test_teleportation.py`: Bell-pair teleportation fidelity and feed-forward operations.
+**Key Test Coverage:**
+- `test_teleportation.py`: Bell-pair teleportation fidelity and feed-forward Pauli operations.
 - `test_cloning.py`: Universal and phase-covariant cloner fidelity bounds.
 - `test_detector_blind.py`: Blind threat detection without ground-truth labels.
 - `test_enforcement_audit.py`: Circuit breaker state machine and Q-Cert hash chain.
 - `test_noise_readout.py`, `test_loss.py`, `test_noise_damping.py`: Quantum channel noise models.
 - `test_partial_intercept.py`: Opt-in partial intercept-resend attack dynamics.
+- `test_ablations.py`: Toggles and metrics for sequential early abort and 1-tier vs 2-tier detection.
+- `test_harness.py`: Resumable grid experiment runner and RNG determinism.
+- `test_make_roc.py`: Verifier mismatch ROC generation and AUC interval estimation.
 - `test_api.py`: FastAPI endpoints, cookie validation, and role enforcement.
 
-### 13.3 Reproduce our results
+---
 
-Every experiment number and figure is regenerated by one command (seeded, statevector backend):
+## 🔬 11. Scientific Reproducibility & Experiments
+
+Every experiment result, table, and ROC curve can be reproduced with a single command:
 
 ```bash
 python run_experiments.py --seed 2026            # full run, tens of minutes
@@ -299,30 +322,15 @@ python run_experiments.py --quick                # smoke test: every step at tin
 python run_experiments.py --seed 2026 --resume   # skip steps already finished with identical settings
 ```
 
-Flags: `--seed` (default 2026), `--trials N` (override every step's trial count), `--quick`, `--skip-hardware`, `--resume`.
-
-Outputs, under `experiments/results/`:
-
-| File | Contents |
-| :--- | :--- |
-| `<step>/` | Each step's CSV / Markdown / JSON / PNG outputs plus `run.log` |
-| `manifest.json` | Git commit (and whether the tree was dirty), Python and package versions, OS/CPU, seed, trials, start/end time, per-step status and timing |
-| `PPT_NUMBERS.md` | Every headline number with the file it came from |
-
-| Step | Task | Script |
-| :--- | :--- | :--- |
-| `trials` | - | `experiments/run_trials.py` (Section 13.2 numbers) |
-| `sweep_tiers`, `basis_schedule`, `sweep_damping`, `sweep_readout` | - / A2 / A3 | existing sweeps in `experiments/` |
-| `ablate_adaptive` | D5 | `experiments/ablate_adaptive.py`: C2 allocation `legacy`/`off` vs C2 defaults (runs once C2 is merged) |
-| `ablate_escalation` | D6 | `experiments/ablate_escalation.py`: Fisher vs k-alert counter |
-| `baselines` | D7 | `experiments/baselines.py`: fixed 11% QBER cutoff vs HEDWIG without breaker vs full HEDWIG |
-| `harness`, `roc`, `tightness`, `threshold_table`, `hardware` | D1, ... | registered; reported as *unavailable* until their scripts exist |
-
-Steps that are not written yet never fail the run; they are listed as *unavailable* in the manifest and in `PPT_NUMBERS.md`. To add one, append a `Step` to `STEPS` in `run_experiments.py`; its script must accept `--seed` and `--out`. Commit your code **before** a full run so `manifest.json` records a clean commit.
+Outputs are saved under `experiments/results/`:
+- `raw.jsonl`: Raw per-trial execution records.
+- `summary.csv`: Aggregated detection and false-alarm rates with 95% Wilson confidence intervals.
+- `manifest.json`: System provenance, git commit, packages, seed, and per-step execution timing.
+- `PPT_NUMBERS.md`: Verified numerical claims mapped to their origin data files.
 
 ---
 
-## ⚠️ 11. Limitations & Simulation Scope
+## ⚠️ 12. Limitations & Simulation Scope
 
 In strict adherence to academic and engineering integrity:
 1. **Simulation Platform:** This software is a **classical numerical and circuit simulation** using Qiskit Aer and NumPy statevectors. It executes on classical CPUs and **does not provide physical quantum hardware security**.
@@ -332,7 +340,7 @@ In strict adherence to academic and engineering integrity:
 
 ---
 
-## 👥 12. Team & Attribution
+## 👥 13. Team & Attribution
 
-Developed by **Team ATHENA** for SIH 2026.
+Developed by **Team ATHENA** for SIH 2026.  
 For complete beginner guidance, analogies, and viva preparation, read [FOR_DUMMIES.md](FOR_DUMMIES.md).

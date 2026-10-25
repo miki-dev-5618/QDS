@@ -2,7 +2,7 @@
 
 Welcome to the beginner-friendly guide for **HEDWIG**! 
 
-If you don't have a background in quantum physics, advanced cryptography, or complex networking, **don't worry**. This document explains every single concept, every folder, and every line of workflow in simple, conversational English using everyday analogies.
+If you do not have a background in quantum physics, advanced cryptography, or complex networking, **do not worry**. This document explains every single concept, every folder, and every line of workflow in simple, conversational English using everyday analogies.
 
 > 🔗 **Looking for the technical documentation?** Read [README.md](README.md).
 
@@ -11,77 +11,78 @@ If you don't have a background in quantum physics, advanced cryptography, or com
 ## 📑 Table of Contents
 
 1. [What is This Project and Why Does It Exist?](#1-what-is-this-project-and-why-does-it-exist)
-2. [The Core Concepts in Plain English (With Analogies)](#2-the-core-concepts-in-plain-english-with-analogies)
-3. [The Three Characters: Alice, Bob, and Charlie](#3-the-three-characters-alice-bob-and-charlie)
-4. [How Does a Digital Signature Work Here? (5-Step Story)](#4-how-does-a-digital-signature-work-here-5-step-story)
-5. [Technologies Used & Why We Need Them](#5-technologies-used--why-we-need-them)
-6. [Folder Structure & What Each File Actually Does](#6-folder-structure--what-each-file-actually-does)
+2. [The Core Concepts in Plain English (With Everyday Analogies)](#2-the-core-concepts-in-plain-english-with-everyday-analogies)
+3. [The Cast of Characters: Alice, Bob, Charlie, and Eve](#3-the-cast-of-characters-alice-bob-charlie-and-eve)
+4. [How Does a Quantum Digital Signature Work? (Step-by-Step Story)](#4-how-does-a-quantum-digital-signature-work-step-by-step-story)
+5. [Technologies Used & Why We Need Each One](#5-technologies-used--why-we-need-each-one)
+6. [Repository Tour: Folder Structure & What Each File Does](#6-repository-tour-folder-structure--what-each-file-does)
 7. [Frontend, Backend, Database, and WebSockets: How They Talk](#7-frontend-backend-database-and-websockets-how-they-talk)
-8. [The 11 Attacks: How Hackers Try to Break It & How HEDWIG Catches Them](#8-the-11-attacks-how-hackers-try-to-break-it--how-hedwig-catches-them)
-9. [The Quantum Circuit Breaker (QCB): Stopping Link Damage](#9-the-quantum-circuit-breaker-qcb-stopping-link-damage)
-10. [Q-Cert: The Post-Quantum Receipts Ledger](#10-q-cert-the-post-quantum-receipts-ledger)
-11. [Step-by-Step Installation & Running Guide](#11-step-by-step-installation--running-guide)
-12. [Troubleshooting & Common Mistakes](#12-troubleshooting--common-mistakes)
-13. [How to Safely Modify Code](#13-how-to-safely-modify-code)
-14. [Viva / Demo Cheat Sheet (Common Questions & Winning Answers)](#14-viva--demo-cheat-sheet-common-questions--winning-answers)
+8. [The 11 Attacks: How Hackers Attack & How HEDWIG Catches Them](#8-the-11-attacks-how-hackers-attack--how-hedwig-catches-them)
+9. [The Quantum Circuit Breaker (QCB): Preventing Link Damage](#9-the-quantum-circuit-breaker-qcb-preventing-link-damage)
+10. [Sequential Early Abort: Saving Bandwidth on Attacked Links](#10-sequential-early-abort-saving-bandwidth-on-attacked-links)
+11. [Q-Cert: The Post-Quantum Receipts Ledger](#11-q-cert-the-post-quantum-receipts-ledger)
+12. [Step-by-Step Installation & Running Guide](#12-step-by-step-installation--running-guide)
+13. [Troubleshooting & Common Mistakes](#13-troubleshooting--common-mistakes)
+14. [How to Safely Modify Code & Add Features](#14-how-to-safely-modify-code--add-features)
+15. [Viva / Demo Cheat Sheet (Common Questions & Winning Answers)](#15-viva--demo-cheat-sheet-common-questions--winning-answers)
 
 ---
 
 ## 1. What is This Project and Why Does It Exist?
 
 ### The Big Problem
-Whenever you send an email, buy something on Amazon, or sign an online document, your computer uses a **Digital Signature** (like RSA or ECC). These signatures depend on math puzzles that are hard for regular computers to solve, like factoring massive numbers.
+Whenever you send an email, authorize a bank wire, or sign an online contract, your computer attaches a **Digital Signature** (like RSA or ECDSA). These traditional signatures rely on mathematical puzzles that are extremely difficult for classical computers to solve (such as factoring gigantic 2048-bit numbers).
 
-However, **Quantum Computers** use quantum mechanics and algorithms (like Shor's algorithm) that can crack these math puzzles in minutes. When quantum computers arrive, all standard digital signatures could be forged!
+However, **Quantum Computers** do not calculate like classical computers. Using quantum physics and algorithms like **Shor's Algorithm**, a future quantum computer can solve those mathematical puzzles in minutes. When large-scale quantum computers arrive, classical digital signatures can be forged by attackers.
 
 ### The Solution: Quantum Digital Signatures (QDS)
-Instead of relying on math puzzles, **Quantum Digital Signatures** rely on the **fundamental laws of nature**:
-1. **The No-Cloning Theorem:** You cannot make an identical copy of an unknown quantum particle. If a hacker tries to copy your signature token, they destroy or alter it.
-2. **Measurement Disturbance (Heisenberg):** If a hacker eavesdrops and looks at the quantum particle on the wire, the particle changes state! We will immediately notice the disturbance.
+Instead of relying on math puzzles that might one day be cracked, **Quantum Digital Signatures** derive their security directly from the fundamental laws of nature:
+1. **The No-Cloning Theorem:** You cannot make an identical copy of an unknown quantum state. If a hacker tries to copy your signature token, they alter or destroy it.
+2. **Heisenberg Uncertainty Principle:** Measuring an unknown quantum particle disturbs it. If an eavesdropper snoops on the transmission line, they leave physical disturbances that are immediately detectable.
 
 ### What is HEDWIG?
-**HEDWIG** is a **simulation platform** built in Python. Because physical quantum computers with quantum internet cables are still locked in multimillion-dollar research labs, HEDWIG simulates the entire process inside Python using IBM's Qiskit library. 
+**HEDWIG** is a **simulation platform** built in Python. Because physical quantum networks and quantum repeaters are still experimental and locked in multi-million-dollar physics labs, HEDWIG simulates the entire quantum and classical protocol inside Python using IBM's Qiskit library and NumPy statevectors.
 
-It lets you see, in real-time on a modern web dashboard:
-- Alice signing a message.
-- Quantum tokens being "teleported" over noisy lines to Bob and Charlie.
-- Hackers trying to forge, tamper, eavesdrop, or clone tokens.
-- An intelligent **Circuit Breaker** cutting off corrupted cables before damage spreads.
-- An immutable **Audit Ledger** recording everything with Post-Quantum cryptography.
+It provides a full real-time web application where you can:
+- Watch Alice sign messages using quantum Pauli tokens.
+- Teleport states over simulated fiber links with realistic noise (damping, loss, readout errors).
+- Inject 11 cyber attacks (eavesdropping, cloning, tampering, dishonest verifiers, replay).
+- Watch a **Quantum Circuit Breaker** isolate compromised links automatically.
+- Save and verify tamper-evident receipts signed with **Ed25519** and NIST Post-Quantum **ML-DSA-65 (Dilithium)**.
 
 ---
 
-## 2. The Core Concepts in Plain English (With Analogies)
+## 2. The Core Concepts in Plain English (With Everyday Analogies)
 
 ### Analogy 1: The Magic Polaroid (Quantum Teleportation)
-- **Classical Sending:** Throwing a letter through the air. A thief can grab it, read it, copy it with a scanner, and throw it onward.
-- **Quantum Teleportation:** Alice and Bob share a pair of "magically entangled coins" (Bell pairs). Alice takes her secret note, touches her coin, and calls Bob on the phone to say: *"Flip your coin twice."* Instantly, Bob's coin transforms into the exact state of Alice's note, while Alice's note is erased! The secret never traveled across the empty space; only classical instructions did.
+- **Classical Sending:** Imagine mailing a physical letter. A postal worker can open the envelope, photocopy the letter, reseal it, and deliver it. You would never know.
+- **Quantum Teleportation:** Alice and Bob each hold one coin from an entangled pair (a Bell pair). Alice takes her secret note, interacts it with her coin, and phones Bob saying: *"Flip your coin twice."* Instantly, Bob's coin takes on the exact secret state of Alice's note, while Alice's original state is destroyed! The quantum state was never sent across the empty space between them; only classical instructions were transmitted.
 
-### Analogy 2: The Two-Way Lockbox (Orthogonal Elimination)
-In regular signatures, you verify by checking if a key matches a lock. In HEDWIG's QDS, we use **Elimination**:
-- Suppose Alice sends an apple that is either **Red**, **Green**, **Sweet**, or **Sour**.
-- Bob tests it with a light filter. Bob's test doesn't tell him exactly what Alice sent, but it proves with 100% certainty: *"It is definitely NOT Sour."*
-- Bob writes in his table: `Ruled out: Sour`.
-- When Alice later reveals what she signed, she claims: *"I sent you Sour!"*
-- Bob immediately says: *"LIAR! My quantum test already eliminated Sour!"*
+### Analogy 2: The Elimination Game (Orthogonal Elimination)
+In classical signatures, you verify by checking whether a key fits a lock. In HEDWIG's QDS, verification works through **Elimination**:
+- Suppose Alice sends Bob a quantum token that is one of four states: $|0\rangle, |1\rangle, |+\rangle, |-\rangle$.
+- Bob measures it in a basis of his choice (say, the $Z$-basis).
+- If Bob gets outcome $|0\rangle$, quantum mechanics guarantees that Alice's token was **definitely not $|1\rangle$** (its orthogonal opposite).
+- Bob writes in his private record: `Eliminated: |1>`.
+- When Alice later reveals her signature claiming she sent $|1\rangle$, Bob checks his table, sees that $|1\rangle$ was physically ruled out, and rejects the signature as a fake!
 
-### Analogy 3: The Electrical Fuse (Quantum Circuit Breaker)
-If your toaster shorts out in your kitchen, you don't want your house to burn down. A circuit breaker trips and cuts the electricity to that specific room.
-In HEDWIG, if a quantum link between Alice and Bob shows signs of an eavesdropper, the **Quantum Circuit Breaker (QCB)** trips and **quarantines** the link so no more messages can be stolen.
-
----
-
-## 3. The Three Characters: Alice, Bob, and Charlie
-
-In cryptography, we always use standard character names:
-- **Alice (The Signer / Admin):** Wants to sign an important message (like *"Transfer $10,000"*). She prepares the quantum tokens and controls the transmission.
-- **Bob (Verifier 1):** Receives tokens, swaps some with Charlie, eliminates states, and decides whether Alice's signature is genuine.
-- **Charlie (Verifier 2):** Another verifier who also checks the signature independently. Bob and Charlie cross-verify to ensure Alice didn't cheat one of them.
-- **Eve (The Adversary / Hacker):** Sits in the middle. She tries to eavesdrop on the quantum channel, forge signatures, alter messages, or replay old messages.
+### Analogy 3: The Electrical Fuse (The Quantum Circuit Breaker)
+If a wire shorts out in your kitchen, you do not want the entire house to burn down. A circuit breaker trips immediately, shutting off power to that room while keeping the rest of the house safe.
+In HEDWIG, if a quantum line shows signs of eavesdropping or tampering, the **Quantum Circuit Breaker (QCB)** trips and **quarantines** the link so attackers cannot harvest quantum information.
 
 ---
 
-## 4. How Does a Digital Signature Work Here? (5-Step Story)
+## 3. The Cast of Characters: Alice, Bob, Charlie, and Eve
+
+In cryptography and HEDWIG, four roles exist:
+- **Alice (Signer / Admin):** Prepares the quantum tokens, sends the commitment, and signs the document. She controls the Admin console (`/admin`).
+- **Bob (Verifier 1):** Receives quantum tokens, swaps half of them with Charlie, measures them, and verifies Alice's signature. He operates the Bob console (`/bob`).
+- **Charlie (Verifier 2):** Another verifier who also receives and swaps tokens. He checks Alice's signature independently and cross-checks with Bob (`/charlie`).
+- **Eve (The Attacker / Eavesdropper):** The adversary who sits in the middle. She tries to eavesdrop on the quantum line, clone tokens, forge signatures, or replay old messages.
+
+---
+
+## 4. How Does a Quantum Digital Signature Work? (Step-by-Step Story)
 
 ```mermaid
 sequenceDiagram
@@ -92,134 +93,137 @@ sequenceDiagram
     
     Alice->>Bob: 1. Teleports Quantum Tokens (Pairs of Pauli States)
     Alice->>Charlie: 1. Teleports Quantum Tokens (Pairs of Pauli States)
-    Bob->>Charlie: 2. Symmetrisation: Swap half their tokens randomly
+    Bob->>Charlie: 2. Symmetrisation: Secretly swap 50% of tokens
     Note over Bob,Charlie: 3. Measure tokens in random basis & record ruled-out states (Elimination Table)
     Alice->>Bob: 4. Broadcast Commitment: SHA-256(Context || Sig || Salt)
     Alice->>Charlie: 4. Broadcast Commitment: SHA-256(Context || Sig || Salt)
-    Note over Alice,Bob: 5. Channel Test: Interleaved test tokens checked for eavesdropping (Early Abort)
+    Note over Alice,Bob: 5. Channel Test & Early Abort: Check test tokens block-by-block
     Alice->>Bob: 6. Reveal: Send Plaintext Message, Signature & Salt
     Alice->>Charlie: 6. Reveal: Send Plaintext Message, Signature & Salt
     Note over Bob,Charlie: 7. Verify: Check if signature matches Elimination Table and Commitment!
 ```
 
-1. **Step 1: Quantum Token Preparation & Teleportation**
-   Alice takes the message length (e.g. 32 bits). For each bit, she creates quantum tokens in Pauli states ($|0\rangle, |1\rangle, |+\rangle, |-\rangle$). She teleports them using Bell pairs to Bob and Charlie.
-2. **Step 2: Symmetrisation (Keep-or-Forward Swap)**
-   Alice might be evil and try to give Bob a valid signature but give Charlie garbage. To stop this, Bob and Charlie secretly flip coins and swap half their received tokens with each other. Now, Alice has no idea who holds which token!
-3. **Step 3: Random Measurement & Elimination**
-   Bob and Charlie randomly choose to measure each qubit in either the $Z$-basis ($\{|0\rangle, |1\rangle\}$) or $X$-basis ($\{|+\rangle, |-\rangle\}$). This measurement rules out one orthogonal state and forms their secret **Elimination Table**.
-4. **Step 4: The Commitment (The Sealed Envelope)**
-   Before revealing the signature, Alice locks her signature inside a digital safe using SHA-256 hashing. She announces: *"Here is the hash of my signature, my message, a unique nonce, and a secret salt."* She cannot change her mind later.
-5. **Step 5: Reveal & Independent Verification**
-   Alice reveals the plaintext and the salt. Bob and Charlie check:
-   - Does the opened envelope match the hash from Step 4?
-   - Does Alice's signature contradict any ruled-out states in their Elimination Table?
-   - If mismatches are low (within honest noise limits), they ACCEPT. If not, they REJECT and sound the alarm!
+1. **Step 1: Token Distribution via Teleportation**  
+   Alice generates pairs of random quantum Pauli states ($\{|0\rangle, |1\rangle, |+\rangle, |-\rangle\}$) for each bit of the signature. She teleports them using Bell pairs ($|\Phi^+\rangle$) to Bob and Charlie.
+2. **Step 2: Symmetrisation (Keep-or-Forward Swap)**  
+   If Alice is dishonest, she might try to cheat by sending a good signature to Bob and a bad one to Charlie. To prevent this, Bob and Charlie secretly flip coins and swap half of their received tokens. Now Alice cannot know who holds which token!
+3. **Step 3: Random Measurement & Elimination**  
+   Bob and Charlie randomly measure each qubit in either the $Z$-basis ($\{|0\rangle, |1\rangle\}$) or $X$-basis ($\{|+\rangle, |-\rangle\}$). The result allows them to eliminate an orthogonal candidate from their verification table.
+4. **Step 4: The Commitment (The Tamper-Proof Envelope)**  
+   Before revealing the signature, Alice computes a SHA-256 hash of the message, signature, timestamp, nonce, and a random salt, and sends this commitment to Bob and Charlie. She cannot alter the message or signature later without breaking the hash.
+5. **Step 5: Channel Test & Sequential Early Abort**  
+   Alice reveals the identities of interleaved secret **test tokens**. If the error rate (QBER) exceeds the allowable threshold, the link aborts immediately before the signature is ever opened!
+6. **Step 6: Reveal & Verification**  
+   If the channel test passes, Alice reveals the message, signature, and salt. Bob and Charlie check the commitment hash and verify that Alice's claimed states do not conflict with their private Elimination Tables.
 
 ---
 
-## 5. Technologies Used & Why We Need Them
+## 5. Technologies Used & Why We Need Each One
 
-| Technology | What it is | Why HEDWIG needs it |
+| Technology | What It Does | Why HEDWIG Needs It |
 | :--- | :--- | :--- |
-| **Python 3.11+** | The programming language | Simple to write, huge scientific and quantum ecosystem. |
-| **Qiskit & Qiskit-Aer** | IBM's quantum computing library | Simulates quantum circuits, Bell pairs, Pauli gates, and quantum measurements on your CPU. |
-| **NumPy** | High-performance matrix math library | Handles fast statevector math and random sampling for fast simulations. |
-| **FastAPI** | Modern, high-performance web framework | Serves the web dashboard, processes REST API requests, and handles authentication. |
-| **WebSockets** | Real-time bi-directional connection | Pushes live quantum telemetry and alert popups to Alice, Bob, and Charlie's screens instantly without refreshing the page. |
-| **SQLite 3** | Lightweight file-based SQL database | Saves transmission records, circuit breaker logs, and audit chains in `data/hedwig.db`. |
-| **Cryptography (Ed25519)** | High-speed classical digital signatures | Signs audit records so no one can secretly tamper with the historical logs. |
-| **dilithium-py (ML-DSA-65)** | NIST-standard Post-Quantum Signature | Dual-signs audit certificates so even a future quantum computer cannot forge the audit receipts. |
-| **Vanilla HTML/CSS/JS** | Web frontend | Creates a sleek, responsive dark-mode cyber console with zero heavy node.js dependencies. |
+| **Python 3.11+** | Primary programming language | Clean syntax, fast development, rich quantum and scientific packages. |
+| **Qiskit & Qiskit-Aer** | Quantum simulation framework | Creates quantum circuits, simulates Bell pairs, Pauli gates, and realistic noise models. |
+| **NumPy** | High-performance matrix mathematics | Performs fast statevector operations, random sampling, and statistical calculations. |
+| **FastAPI** | Modern web framework | Serves the web dashboard, manages REST APIs, and enforces role-based authentication. |
+| **WebSockets** | Real-time bi-directional messaging | Pushes real-time quantum telemetry and circuit breaker alerts to Alice, Bob, and Charlie without page reloads. |
+| **SQLite 3** | Lightweight relational database | Stores transmission logs, circuit breaker state transitions, and audit chains in `data/hedwig.db`. |
+| **Cryptography (Ed25519)** | Classical public-key signature library | Signs audit records and certificates with fast, established digital signatures. |
+| **dilithium-py (ML-DSA-65)** | NIST Post-Quantum signature standard | Dual-signs audit records so receipts remain secure even against future quantum computers. |
+| **Vanilla HTML/CSS/JS** | Web frontend interface | Clean, responsive dark-mode cyber console with zero heavy external node/npm build dependencies. |
 
 ---
 
-## 6. Folder Structure & What Each File Actually Does
+## 6. Repository Tour: Folder Structure & What Each File Does
 
 ```text
-e:\2026-2\sih 2026\
+sih 2026/
 │
-├── server.py              # The Main Web Server: Runs FastAPI, routes APIs, and manages WebSockets.
-├── auth.py                # Security Bouncer: Checks passwords, creates sessions, and sets cookies.
-├── users.json             # User Database: Holds PBKDF2 hashed passwords for admin, bob, and charlie.
-├── requirements.txt       # Shopping List: Python libraries required to run HEDWIG.
-├── requirements-pq.txt    # Optional Post-Quantum Library: Adds dilithium-py for ML-DSA-65 signing.
-├── run_v2.bat             # Quick Starter: Batch script to start the server on Windows with one double-click.
+├── server.py              # Main web server: FastAPI routes, WebSocket manager, API handlers.
+├── auth.py                # Security manager: PBKDF2 hashing, role sessions, cookie verification.
+├── users.json             # Stored credentials file with PBKDF2 password hashes and salts.
+├── requirements.txt       # Production dependencies (FastAPI, Qiskit, cryptography, etc.).
+├── requirements-pq.txt    # Optional Post-Quantum dependencies (dilithium-py for ML-DSA-65).
+├── requirements-dev.txt   # Development dependencies (pytest, matplotlib).
+├── run_v2.bat             # Windows one-click batch launcher.
+├── run_experiments.py     # Reproducible experiment runner & manifest generator.
 │
-├── templates/             # HTML Web Pages (Jinja2):
-│   ├── login.html         # Login screen.
-│   ├── admin.html         # Alice's mission control dashboard.
-│   ├── bob.html           # Bob's verifier terminal.
-│   └── charlie.html       # Charlie's verifier terminal.
+├── templates/             # Jinja2 HTML templates:
+│   ├── login.html         # Login interface with role selector.
+│   ├── admin.html         # Alice's mission control dashboard & attack injector.
+│   ├── bob.html           # Bob's verifier terminal & dishonest forwarding trigger.
+│   └── charlie.html       # Charlie's verifier terminal & cross-check audit display.
 │
-├── static/                # Visual styling & Javascript:
-│   ├── css/style.css      # Dark-mode styling, glassmorphism, buttons, and telemetry tiles.
-│   ├── js/app.js          # JavaScript that listens to WebSockets and updates graphs dynamically.
-│   └── img/icons.svg      # Vector icons for the interface.
+├── static/                # Static assets:
+│   ├── css/style.css      # Dark-mode styling, glassmorphism, responsive tiles.
+│   ├── js/app.js          # JavaScript WebSocket client & dynamic DOM updates.
+│   └── img/icons.svg      # Vector icons.
 │
-├── src/quantum_engine/    # THE BRAIN: All quantum and security logic lives here:
-│   ├── protocol.py        # Master Conductor: Connects Alice, channels, and verifiers together.
-│   ├── teleportation.py   # Quantum Teleportation: Builds Qiskit circuits for Bell pairs and feed-forward.
-│   ├── symmetrisation.py  # Keep-or-Forward: Swaps tokens between Bob and Charlie.
-│   ├── elimination.py     # Elimination Tables: Checks for orthogonal measurement contradictions.
-│   ├── channel.py         # Physics Noise: Adds depolarizing noise, damping, loss, and readout errors.
-│   ├── threats.py         # Attack Injectors: Simulates 11 hacker attacks (Eve, dishonest Bob, etc.).
-│   ├── detection.py       # Detective: Analyzes evidence blindly to detect who is attacking.
-│   ├── discriminator.py   # Tier 2 Analysis: Distinguishes between noisy wires and a cheating Alice.
-│   ├── policy.py          # Decision Rules: Decides whether to WATCH or QUARANTINE a link.
-│   ├── enforcement.py     # Circuit Breaker: Enforces lockouts and tracks probation states.
-│   ├── binding.py         # Digital Safe: Creates cryptographic context commitments.
-│   ├── verifier.py        # Verifier Node: Bob and Charlie's decision-making logic.
-│   ├── cloning.py         # Eve's Cloner: Simulates quantum cloning machines.
-│   ├── audit.py           # Receipts Ledger: Manages SHA-256 hash chains and issues Q-Certs.
-│   ├── signers.py         # Signature Engines: Handles Ed25519 and ML-DSA-65 keys.
-│   └── store.py           # Database Manager: Interacts with the SQLite database.
+├── src/quantum_engine/    # CORE PROTOCOL LOGIC:
+│   ├── protocol.py        # Master orchestrator: TeleportationQDS main execution pipeline.
+│   ├── teleportation.py   # Qiskit Bell-pair circuits, state preparation, feed-forward.
+│   ├── symmetrisation.py  # Keep-or-forward token swapping between Bob and Charlie.
+│   ├── elimination.py     # Orthogonal state measurement & elimination table tracking.
+│   ├── channel.py         # Quantum noise channels (depolarizing, readout, loss, damping).
+│   ├── threats.py         # Attack suite: 11 simulated attack injectors.
+│   ├── detection.py       # Blind threat detector: classifies attacks without labels.
+│   ├── discriminator.py   # Tier 2 attribution: distinguishes channel noise from repudiation.
+│   ├── policy.py          # Response policy & Fisher's combined p-value escalation.
+│   ├── enforcement.py     # Quantum Circuit Breaker (OPEN, WATCH, QUARANTINED, RESET_PENDING).
+│   ├── binding.py         # SignedContext & cryptographic commitment validation.
+│   ├── verifier.py        # VerifierNode & Hoeffding/exact binomial acceptance checks.
+│   ├── cloning.py         # Quantum cloning machine models (Universal & Phase-covariant).
+│   ├── audit.py           # Q-Cert ledger, hash chains, and certificate generator.
+│   ├── signers.py         # Ed25519 and ML-DSA-65 signature implementation.
+│   ├── store.py           # SQLite database persistence layer.
+│   ├── thresholds.py      # Exact binomial limits & reserve stage planning.
+│   └── security.py        # Theoretical security bounds and parameter calculations.
 │
-├── tests/                 # Automated Tests: 16 test files ensuring 217 tests pass perfectly.
-└── experiments/           # Science Lab: Benchmark scripts for noise sweeps and paper charts.
+├── tests/                 # Automated test suite (24 test modules covering all features).
+└── experiments/           # Benchmark scripts, noise sweeps, ROC curves, and ablations.
 ```
 
 ---
 
 ## 7. Frontend, Backend, Database, and WebSockets: How They Talk
 
-1. **User Action:** You open `http://localhost:8000/admin`, type a message like *"Pay $500"*, pick an attack like `eve_intercept`, and click **Sign & Teleport**.
-2. **Frontend Request:** The browser sends a `POST /api/sign-and-send` JSON request to `server.py`.
+1. **User Action:** You open `http://localhost:8000/admin`, type a message like *"Transfer $1,000"*, select `eve_intercept`, and click **Sign & Send**.
+2. **Frontend Request:** The browser sends an authenticated `POST /api/sign-and-send` JSON request to `server.py`.
 3. **Backend Processing:**
-   - `server.py` checks that your cookie proves you are `admin` (Alice).
-   - It calls `qds_engine.execute_protocol()` in `src/quantum_engine/protocol.py`.
-   - `teleportation.py` creates quantum states in Qiskit.
-   - `threats.py` injects Eve's interception.
-   - `detection.py` and `discriminator.py` spot the eavesdropping.
-   - `enforcement.py` trips the Circuit Breaker to `QUARANTINED`.
-   - `audit.py` writes a new block to the hash chain and signs it.
-   - `store.py` writes the record to `data/hedwig.db`.
-4. **WebSocket Broadcast:** `server.py` broadcasts the result over WebSockets to all connected browsers (`/ws/admin`, `/ws/bob`, `/ws/charlie`).
-5. **Frontend Update:** Without reloading the page, Alice's console turns red with a quarantine alert, Bob's dashboard shows the attack report, and the audit ledger updates in real time!
+   - `server.py` verifies your session cookie (`hedwig_admin`).
+   - It invokes `qds_engine.execute_protocol()` in [src/quantum_engine/protocol.py](file:///e:/2026-2/sih%202026/src/quantum_engine/protocol.py).
+   - [teleportation.py](file:///e:/2026-2/sih%202026/src/quantum_engine/teleportation.py) prepares Bell pairs and teleports tokens.
+   - [threats.py](file:///e:/2026-2/sih%202026/src/quantum_engine/threats.py) simulates Eve measuring qubits mid-flight.
+   - [detection.py](file:///e:/2026-2/sih%202026/src/quantum_engine/detection.py) detects high QBER on the test tokens.
+   - [enforcement.py](file:///e:/2026-2/sih%202026/src/quantum_engine/enforcement.py) trips the Quantum Circuit Breaker to `QUARANTINED`.
+   - [audit.py](file:///e:/2026-2/sih%202026/src/quantum_engine/audit.py) writes a new block to the hash chain and dual-signs it.
+   - [store.py](file:///e:/2026-2/sih%202026/src/quantum_engine/store.py) commits the record to `data/hedwig.db`.
+4. **WebSocket Broadcast:** `server.py` broadcasts the transmission result to all active WebSocket listeners (`/ws/admin`, `/ws/bob`, `/ws/charlie`).
+5. **Frontend Update:** Without reloading the page, Alice's console turns red with a quarantine warning, Bob's dashboard shows the attack report, and the audit log adds the new certificate!
 
 ---
 
-## 8. The 11 Attacks: How Hackers Try to Break It & How HEDWIG Catches Them
+## 8. The 11 Attacks: How Hackers Attack & How HEDWIG Catches Them
 
-| Attack Name | What the Hacker Does | Real-World Analogy | How HEDWIG Catches It |
+| Attack Name | What the Hacker Does | Everyday Analogy | How HEDWIG Catches It |
 | :--- | :--- | :--- | :--- |
-| **1. Authentic** | Normal honest transmission. | Sending a certified letter safely. | Accepted! Channel noise is within threshold. |
-| **2. Eve Forgery** | Eve creates random fake tokens without Alice's keys. | A thief making a fake key with tin foil. | Bob & Charlie's elimination tables catch contradictions (~25% error rate). Link quarantined. |
-| **3. Dishonest Bob** | Bob tries to forge Alice's signature and forward it to Charlie. | An accountant forging the boss's check to trick the bank. | Elimination table fails Charlie's forwarded threshold ($s_v$). Forward link quarantined. |
-| **4. Eve Intercept** | Eve measures qubits mid-flight and resends new ones. | A wiretapper tapping a wire, but dropping and replacing items. | Measurements disturb quantum states, causing ~25% QBER in Tier 1 test tokens. Link quarantined. |
-| **5. Message Tampering** | Eve changes the plaintext message text (e.g. $100 $\to$ $10,000). | Altering the number on a signed check. | The SHA-256 commitment digest doesn't match! Package rejected, but quantum link stays open (prevents DoS). |
-| **6. Repudiation** | Alice sends tokens, but later claims: *"I never signed that!"* | A buyer signing a receipt, then claiming the signature was forged. | Tier 2 proves the channel test was clean, meaning Alice intentionally revealed conflicting bits! |
-| **7. Replay Attack** | Eve captures yesterday's valid transmission and sends it again. | Re-using an old movie ticket. | The context nonce has already been seen or the timestamp expired. Rejected immediately. |
-| **8. Impersonation** | Someone claims to be Alice without having shared distribution records. | Showing up wearing Alice's nametag. | No pre-shared distribution record exists for that session ID. Rejected. |
-| **9. Eve Loss Exploit** | Eve intercepts tokens, and drops any tokens she accidentally disturbs. | A thief intercepting letters and throwing away any with smudged ink. | Loss rate detector flags abnormal token drop counts. |
-| **10. Eve Cloning** | Eve passes qubits through a theoretical Quantum Cloning Machine. | Trying to run money through a photocopier. | Quantum No-Cloning theorem limits cloner fidelity ($\le 83.33\%$). Caught by fidelity bounds! |
-| **11. Partial Intercept** | Eve only eavesdrops on 5% of tokens to try to fly under the radar. | A spy only opening 1 out of every 20 letters. | **Sequential Early Abort** catches the cumulative errors across blocks and escalates to quarantine. |
+| **1. Authentic** | Normal honest transmission. | Sending a certified letter via secure courier. | Accepted! Channel noise is within the statistical limit. |
+| **2. Eve Forgery** | Eve generates random fake tokens without Alice's keys. | A burglar trying to guess a key shape out of tin foil. | Contradicts Bob and Charlie's elimination tables (~25% error rate). Link quarantined. |
+| **3. Dishonest Bob** | Bob alters the signature and forwards it to Charlie. | An accountant altering a company check before passing it to the bank. | Fails Charlie's forwarded elimination threshold ($s_v$). Forward link quarantined. |
+| **4. Eve Intercept** | Eve intercepts qubits, measures them, and resends new ones. | A spy opening envelopes, photocopying letters, and resealing them. | Quantum measurement collapses states, causing ~25% QBER on test tokens. Link quarantined. |
+| **5. Message Tampering** | Eve changes the plaintext message text ($100 $\to$ $10,000). | Altering the amount written on a signed check. | SHA-256 commitment hash fails! Message rejected; quantum link stays OPEN (prevents DoS). |
+| **6. Repudiation** | Alice signs, but later claims: *"I never signed that!"* | A buyer signing a receipt, then claiming their signature was forged. | Tier 2 proves the channel was clean, meaning Alice intentionally revealed conflicting bits! |
+| **7. Replay Attack** | Eve captures yesterday's valid transmission and sends it again. | Trying to enter a concert using yesterday's ticket stub. | The session nonce was already used or the timestamp expired. Rejected immediately. |
+| **8. Impersonation** | Someone claims to be Alice without having shared distribution records. | Showing up wearing a fake employee badge. | No pre-shared distribution record exists for that session ID. Rejected. |
+| **9. Eve Loss Exploit** | Eve intercepts tokens and drops any that she disturbs. | A thief who steals letters and burns any with ink smudges. | Loss rate monitor detects an abnormal drop in received tokens. |
+| **10. Eve Cloning** | Eve passes qubits through a theoretical Quantum Cloning Machine. | Trying to duplicate a high-security watermark on a home copier. | The No-Cloning Theorem limits cloner fidelity ($\le 83.33\%$). Caught by fidelity bounds! |
+| **11. Partial Intercept** | Eve only intercepts 5% of tokens to try to fly under the radar. | A spy inspecting only 1 out of every 20 letters. | **Sequential Early Abort** catches the cumulative errors across blocks and escalates to quarantine. |
 
 ---
 
-## 9. The Quantum Circuit Breaker (QCB): Stopping Link Damage
+## 9. The Quantum Circuit Breaker (QCB): Preventing Link Damage
 
-Just like an electrical fuse, the **Quantum Circuit Breaker** has four states:
+The **Quantum Circuit Breaker** protects quantum links just like an electrical fuse:
 
 ```mermaid
 stateDiagram-v2
@@ -233,110 +237,129 @@ stateDiagram-v2
     RESET_PENDING --> QUARANTINED: Any attack detected during probation
 ```
 
-- **OPEN:** Everything is healthy. Normal traffic flows.
-- **WATCH:** A minor statistical anomaly was seen. The link carries traffic, but doubles test tokens to inspect closely.
-- **QUARANTINED:** An attack occurred! The circuit breaker refuses all new transmissions (returns HTTP 423 Locked) to protect secrets.
-- **RESET_PENDING (Probation):** An administrator cleared the alarm. The link is on probation: one clean send returns it to `OPEN`, but any disturbance instantly quarantines it again!
+- **OPEN:** The link is healthy. Normal quantum transmissions proceed.
+- **WATCH:** A borderline statistical anomaly was observed. Traffic continues, but the test-token budget is increased to monitor the link closely.
+- **QUARANTINED:** A confirmed attack occurred! The circuit breaker immediately blocks all new transmissions (returning HTTP 423 Locked) to protect sensitive quantum keys.
+- **RESET_PENDING (Probation):** An administrator cleared the quarantine with a logged reason. The link is on probation: one successful honest transmission restores it to `OPEN`, but any disturbance instantly re-quarantines it.
 
 ---
 
-## 10. Q-Cert: The Post-Quantum Receipts Ledger
+## 10. Sequential Early Abort: Saving Bandwidth on Attacked Links
 
-Whenever a transmission occurs or a circuit breaker trips, HEDWIG writes a **Q-Cert Certificate**:
-1. It packages the transmission ID, timestamps, error rates, and security verdict into a JSON object.
-2. It hashes the object with **SHA-256** and links it to the previous certificate's hash (forming an **immutable blockchain-style hash chain**).
-3. It signs the receipt using **two signatures at the same time (Hybrid Signing)**:
-   - **Ed25519:** Fast, rock-solid classical signature.
-   - **ML-DSA-65 (Dilithium):** NIST standard Post-Quantum signature immune to quantum cracking!
-4. Anyone can download the `.json` certificate and verify it offline using the public keys!
+In standard protocols, if an attacker tampers with a transmission, the entire quantum stream is sent before anyone checks the error rate. 
+
+HEDWIG features **Sequential Early Abort**:
+- Tokens are transmitted in sequential blocks.
+- After each block, the running error count on secret test tokens is evaluated against a binomial threshold.
+- If the error rate decisively proves an attack is taking place, transmission **halts immediately**.
+- **Benefit:** For high-intensity eavesdropping (like `eve_intercept`), up to **40–60% of quantum bandwidth is saved**, preventing unnecessary consumption of Bell pairs!
 
 ---
 
-## 11. Step-by-Step Installation & Running Guide
+## 11. Q-Cert: The Post-Quantum Receipts Ledger
 
-### Step 1: Open Terminal / Command Prompt
-Make sure you have Python 3.11 installed. Verify by typing:
+Every time a transmission is evaluated, a link is quarantined, or an administrator resets a circuit breaker, HEDWIG generates a **Q-Cert Certificate**:
+1. **Structured Record:** Encodes the transmission ID, timestamps, error rates, and security verdict into canonical JSON.
+2. **SHA-256 Hash Chain:** Each certificate includes the SHA-256 hash of the previous certificate, forming an append-only, tamper-evident hash chain.
+3. **Dual Signing (Hybrid Cryptography):**
+   - **Ed25519:** Industry-standard classical signature for immediate validation.
+   - **ML-DSA-65 (Dilithium):** NIST FIPS 204 Post-Quantum signature secure against quantum computer attacks.
+4. **Independent Verification:** Anyone can download any certificate (`/api/audit/{id}`) and verify its validity offline using the public keys.
+
+---
+
+## 12. Step-by-Step Installation & Running Guide
+
+### Step 1: Verify Python Installation
+Make sure you have Python 3.11 or higher installed:
 ```bash
 python --version
 ```
 
-### Step 2: Navigate to Project Folder
+### Step 2: Open Terminal in Project Directory
 ```bash
 cd "e:\2026-2\sih 2026"
 ```
 
-### Step 3: Create & Activate Virtual Environment
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
-*(You will see `(.venv)` appear at the start of your command line.)*
+### Step 3: Create and Activate Virtual Environment
+- **Windows (PowerShell):**
+  ```powershell
+  python -m venv .venv
+  .\.venv\Scripts\Activate.ps1
+  ```
+- **Linux / macOS:**
+  ```bash
+  python3 -m venv .venv
+  source .venv/bin/activate
+  ```
 
 ### Step 4: Install Dependencies
 ```bash
 pip install -r requirements.txt
 pip install -r requirements-pq.txt
+pip install -r requirements-dev.txt
 ```
 
-### Step 5: Start HEDWIG
+### Step 5: Start the Server
 ```bash
 python server.py
 ```
-*(Or simply double-click `run_v2.bat` on Windows!)*
+*(On Windows, you can also simply double-click `run_v2.bat`!)*
 
-### Step 6: Open the Dashboards
-Open your web browser to:
+### Step 6: Access the Web Consoles
+Open your browser to:
 - **`http://localhost:8000/login`**
-- Log in with `admin` / `admin2026` to access Alice's Admin Console.
-- Open another tab or incognito window for Bob: `bob` / `quantum2026`.
-- Open another tab for Charlie: `charlie` / `quantum2026`.
+- Log in as **Alice / Admin**: `admin` / `admin2026` (or `alice` / `quantum2026`)
+- In an Incognito window or another browser, log in as **Bob**: `bob` / `quantum2026`
+- In a third window, log in as **Charlie**: `charlie` / `quantum2026`
 
 ---
 
-## 12. Troubleshooting & Common Mistakes
+## 13. Troubleshooting & Common Mistakes
 
-- **Error: `HTTP 423 Locked: Link is quarantined`**
-  - *Cause:* You ran an attack scenario, and the Circuit Breaker did its job and locked the link!
-  - *Fix:* In the Admin console (`/admin`), scroll down to the **Quantum Circuit Breaker** section, type a reason (e.g., *"Clearing lab incident"*), and click **Reset Link**. Then send an **Authentic** transmission to complete probation.
-- **Error: `ModuleNotFoundError: No module named 'fastapi'`**
-  - *Cause:* You forgot to activate your virtual environment.
-  - *Fix:* Run `.\.venv\Scripts\Activate.ps1` before starting the server.
-- **Warning: `HEDWIG_USERS_FILE not set: using built-in DEMO credentials`**
-  - *Cause:* This is normal! HEDWIG defaults to the built-in demo passwords (`quantum2026`).
-- **Can I delete the database to start fresh?**
-  - *Yes:* Stop the server (`Ctrl + C`) and delete the file `data/hedwig.db`. When you start the server again, it creates a fresh database.
+- **Issue: `HTTP 423 Locked: Link is quarantined`**
+  - *Cause:* You ran an attack scenario, and the Quantum Circuit Breaker tripped to protect the system.
+  - *Fix:* In the Admin console (`/admin`), scroll down to the **Quantum Circuit Breaker** section, enter a reason (e.g., *"Clearing lab demonstration"*), and click **Reset Link**. Then run an **Authentic** transmission to complete probation.
+- **Issue: `ModuleNotFoundError: No module named 'fastapi'`**
+  - *Cause:* The virtual environment is not activated in your current terminal.
+  - *Fix:* Run `.\.venv\Scripts\Activate.ps1` (or `source .venv/bin/activate`) before running python commands.
+- **Notice: `HEDWIG_USERS_FILE not set: using built-in DEMO credentials`**
+  - *Explanation:* This is standard behavior in demo mode. The platform uses built-in credentials (`admin2026` / `quantum2026`).
+- **How to start with a fresh database?**
+  - Stop the server (`Ctrl + C`) and delete `data/hedwig.db`. The server will automatically recreate a fresh database upon startup.
 
 ---
 
-## 13. How to Safely Modify Code
+## 14. How to Safely Modify Code & Add Features
 
-HEDWIG has **217 automated tests**. Before you change any code, follow these three rules:
-1. **Always run pytest first:**
+When adding features or modifying code in HEDWIG, follow these guidelines:
+1. **Run automated tests first:**
    ```bash
    pytest -q
    ```
-   Ensure you see `217 passed`.
-2. **Opt-in new features:** Never break existing endpoints or default values so that automated test scripts and demos continue working.
-3. **Always supply a random seed:** When writing quantum tests, pass a fixed random seed (e.g. `seed=2026`) so tests produce reproducible results.
+   Ensure tests pass before making edits.
+2. **Make new behavior opt-in:** Use parameters or environment variables so existing tests and demo workflows continue to function without interruption.
+3. **Always use fixed seeds:** For any new quantum simulation or statistical test, supply a random seed (e.g., `seed=2026`) to ensure reproducible results.
+4. **Preserve simulation integrity:** Never claim physical quantum hardware results; this is a software simulation.
 
 ---
 
-## 14. Viva / Demo Cheat Sheet (Common Questions & Winning Answers)
+## 15. Viva / Demo Cheat Sheet (Common Questions & Winning Answers)
 
-### Q1: Is this running on real quantum hardware?
-> **Answer:** *"No. HEDWIG is an interactive high-fidelity classical simulation running on Qiskit Aer and NumPy statevectors. True physical quantum hardware with quantum repeaters is not yet commercially viable for distributed networks. Our platform mathematically simulates the Bell states, noise channels, and quantum measurements on CPU to evaluate protocol performance, detection algorithms, and circuit breaker dynamics."*
+### Q1: Is this running on physical quantum hardware?
+> **Answer:** *"No. HEDWIG is a high-fidelity classical simulation using Qiskit Aer and NumPy statevectors executing on classical CPUs. Physical quantum repeaters and distributed quantum internet hardware are not yet commercially deployed. Our platform mathematically simulates the Bell states, noisy quantum channels, and Pauli measurements to validate the protocol, threat detection, and circuit breaker behavior."*
 
-### Q2: Why use Quantum Teleportation instead of just sending qubits through fiber?
-> **Answer:** *"Direct transmission of single photons suffers exponential loss over fiber distances (>100 km). Teleportation uses pre-shared entangled Bell pairs and classical communication. Once entanglement is distributed (e.g. via quantum repeaters), state transfer has near-perfect fidelity without transmitting physical carrier photons across the full distance."*
+### Q2: Why use Quantum Teleportation instead of directly transmitting qubits through optical fiber?
+> **Answer:** *"Direct transmission of single photons suffers from exponential loss over long optical fibers (>100 km). Quantum Teleportation uses pre-shared entangled Bell pairs and classical communications. Once entanglement is distributed across repeaters, state transfer can achieve near-perfect fidelity without having the physical signature qubit traverse the lossy fiber."*
 
-### Q3: How do you catch Eve if she only eavesdrops on 5% of tokens?
-> **Answer:** *"Through two mechanisms: First, our Sequential Early Abort evaluates link fidelity in blocks; second, our Response Policy uses Fisher's combined p-value method to accumulate weak statistical anomalies over time. Even if single tests look borderline, combined probabilities cross our quarantine threshold quickly."*
+### Q3: How does the system catch an attacker who only intercepts 5% of tokens?
+> **Answer:** *"Through two complementary mechanisms: First, our Sequential Early Abort monitors error rates across sequential token blocks; second, our Response Policy applies Fisher's combined p-value method to accumulate weak statistical anomalies over time. Even if individual test windows look borderline, the combined probability rapidly crosses our quarantine threshold."*
 
 ### Q4: Why doesn't a Message Tampering attack trip the Quantum Circuit Breaker?
-> **Answer:** *"Because message tampering is a classical attack on the classical message text, not physical eavesdropping on the quantum channel! If classical tampering tripped the quantum circuit breaker, any external attacker on the internet could cause a permanent Denial of Service by sending bad text. HEDWIG rejects the forged message but keeps the quantum link OPEN."*
+> **Answer:** *"Because Message Tampering is an attack on the classical message text, not eavesdropping on the physical quantum channel. If tampering tripped the quantum circuit breaker, any remote attacker could cause a Denial of Service by sending bad text over the internet. HEDWIG rejects the tampered message based on the SHA-256 commitment but keeps the quantum channel open."*
 
-### Q5: What makes your audit trail 'Post-Quantum'?
-> **Answer:** *"Each audit record is appended to a SHA-256 hash chain and dual-signed using both classical Ed25519 and NIST FIPS 204 ML-DSA-65 (Dilithium). Even if an adversary stores the audit chain and cracks Ed25519 with a quantum computer 20 years from now, the ML-DSA-65 signature remains computationally unbreakable."*
+### Q5: What makes your audit ledger 'Post-Quantum'?
+> **Answer:** *"Every audit certificate is linked in a SHA-256 hash chain and dual-signed using both classical Ed25519 and NIST FIPS 204 ML-DSA-65 (Dilithium). Even if an adversary captures the ledger and cracks classical cryptography using a quantum computer years from now, the ML-DSA-65 signature remains computationally unbreakable."*
 
 ---
 
