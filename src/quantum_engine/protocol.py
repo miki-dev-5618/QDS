@@ -263,7 +263,7 @@ class TeleportationQDS:
                 elif stream[i].kind == "test":
                     tested += 1
                     errors += int(out.outcome != stream[i].bit)
-            if errors > k_strong and len(outcomes) < len(stream):
+            if self.params.early_abort and errors > k_strong and len(outcomes) < len(stream):
                 break  # decisive: the remaining tokens are never sent
         sent = len(outcomes)
         if adversary is not None:

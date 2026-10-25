@@ -20,6 +20,8 @@ Decision order (first matching rule wins):
      (the signature is exactly what the authenticated signer committed to, yet
      it contradicts the distributed states; Tier 2 asks whether the channel
      disturbance measured on the test tokens explains the contradictions)
+     With detection_tiers=1 (DETECTION_TIERS=1, ablation only) Tier 2 is skipped
+     and every such disturbance                       -> EAVESDROPPING_TAMPERING
   8. All accepted, some mismatches / channel errors   -> CHANNEL_NOISE (benign)
   9. All accepted, no mismatches                      -> BENIGN_AUTHENTIC
 
@@ -71,6 +73,7 @@ _VERDICTS = {
         "INSUFFICIENT_TOKENS: SURVIVING TOKENS BELOW ACCEPTANCE THRESHOLD DUE TO PHOTON LOSS",
 }
 _TIER2_CHANNEL_VERDICT = "CHANNEL ANOMALY (TIER 2): CONTRADICTIONS EXPLAINED BY ELEVATED CHANNEL DISTURBANCE"
+_TIER1_ONLY_VERDICT = "CHANNEL DISTURBANCE (TIER 1 ONLY): ELIMINATION CONTRADICTIONS, NO ATTRIBUTION"
 
 
 @dataclass
@@ -137,7 +140,10 @@ class QDSDetectionEngine:
                 f"{channel_test.alarm_threshold_errors}; p={channel_test.p_value:.2e}{abort}"
             )
 
-        t2: TierTwoResult = tier_two(obs, channel_test, p.tier2_alpha, p.tier2_channel_beta)
+        if p.detection_tiers == 1:  # ablation: Tier 2 attribution switched off
+            t2 = TierTwoResult(applicable=False, alpha2=p.tier2_alpha, beta=p.tier2_channel_beta)
+        else:
+            t2 = tier_two(obs, channel_test, p.tier2_alpha, p.tier2_channel_beta)
         if t2.applicable:
             evidence.append(
                 f"Tier 2: {t2.contradictions}/{t2.copies} contradictions vs {t2.test_errors}/{t2.test_tokens} "
@@ -240,6 +246,11 @@ class QDSDetectionEngine:
             counts = "; ".join(f"{o.verifier} {o.mismatches}/{o.n_checked} (limit {o.acceptance_limit})"
                                for o in elim_fail)
             ep = min_elim_p(elim_fail)
+            if p.detection_tiers == 1:
+                return report(ThreatClassification.EAVESDROPPING_TAMPERING,
+                              f"The elimination check failed ({counts}). Tier 2 is disabled (DETECTION_TIERS=1), "
+                              f"so every disturbance is attributed to the channel.",
+                              "elimination+tier1", ep, verdict=_TIER1_ONLY_VERDICT)
             if t2.attribution == "signature_inconsistency":
                 return report(ThreatClassification.REPUDIATION_ATTEMPT,
                               f"The revealed signature matches the authenticated signer's commitment but contradicts "
