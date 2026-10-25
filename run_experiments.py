@@ -68,6 +68,11 @@ def _trials(a, default_flag="--trials"):
     return [default_flag, str(a.trials)] if a.trials else []
 
 
+def _harness_raw(out):
+    """raw.jsonl written by the harness step, a sibling of this step's output dir."""
+    return os.path.join(os.path.dirname(out), "harness", "raw.jsonl")
+
+
 def _read_csv(path):
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
@@ -163,9 +168,18 @@ STEPS: List[Step] = [
     Step("sweep_readout", "A3", "Readout error sweep", "experiments/sweep_readout.py",
          args=lambda a, out: ["--seed", str(a.seed), "--out", os.path.join(out, "sweep_readout.csv")] + _trials(a),
          quick_args=lambda out: ["--trials", "3"]),
-    Step("roc", "-", "ROC curves", "experiments/roc.py",
+    Step("roc", "D2", "ROC curves (from the harness raw.jsonl)", "experiments/make_roc.py",
+         args=lambda a, out: ["--seed", str(a.seed), "--out", out, "--raw", _harness_raw(out)],
+         quick_args=lambda out: ["--bootstrap", "50"]),
+    Step("ablate_early_abort", "D3", "Sequential early abort on vs off", "experiments/ablate_early_abort.py",
          args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
-         quick_args=lambda out: ["--trials", "5"]),
+         quick_args=lambda out: ["--trials", "5", "--bits", "16"]),
+    Step("ablate_tiers", "D4", "Tier 1 only vs Tier 1 + Tier 2 attribution", "experiments/ablate_tiers.py",
+         args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
+         quick_args=lambda out: ["--trials", "5", "--bits", "16"]),
+    Step("sweep_partial_ir", "B2", "Partial intercept-resend sweep", "experiments/sweep_partial_ir.py",
+         args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
+         quick_args=lambda out: ["--trials", "3", "--bits", "16", "--fractions", "0.2", "1.0"]),
     Step("ablate_adaptive", "D5", "Fixed vs adaptive allocation", "experiments/ablate_adaptive.py",
          args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
          quick_args=lambda out: ["--trials", "3", "--bits", "16"],
