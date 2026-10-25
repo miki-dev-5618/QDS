@@ -1,6 +1,6 @@
 {
   "backend_name": "generic_backend_5q",
-  "calibration_date": "2026-10-25 09:56:26 UTC",
+  "calibration_date": "2026-10-25 11:10:37 UTC",
   "shots_per_state": 1000,
   "effective_error_rate": 0.0033,
   "fidelity": 0.9968,

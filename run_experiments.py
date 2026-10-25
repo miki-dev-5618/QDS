@@ -55,9 +55,13 @@ class Step:
 def _rel(path: str) -> str:
     """Repo-relative path for files inside the repo, absolute otherwise."""
     path = os.path.abspath(path)
-    if os.path.commonpath([path, ROOT]) != ROOT:
+    try:
+        if os.path.commonpath([path, ROOT]) != ROOT:
+            return path
+        return os.path.relpath(path, ROOT).replace(os.sep, "/")
+    except ValueError:
+        # On Windows, ValueError: Paths don't have the same drive
         return path
-    return os.path.relpath(path, ROOT).replace(os.sep, "/")
 
 
 def _trials(a, default_flag="--trials"):

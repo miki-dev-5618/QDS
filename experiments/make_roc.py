@@ -54,7 +54,9 @@ def hoeffding_reject(trial: dict, params: SecurityParameters) -> bool:
     checked = [v for v in trial["verifications"] if v["n_checked"]]
     if not checked:
         return True
-    return any(v["mismatches"] > params.acceptance_limit(v["n_checked"], forwarded=v["mode"] == "forwarded")
+    return any(v["mismatches"] > (int(np.floor(params.s_v * v["n_checked"] + 1e-9))
+                                  if v.get("mode") == "forwarded"
+                                  else params.acceptance_limit(v["n_checked"]))
                for v in checked)
 
 

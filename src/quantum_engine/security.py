@@ -43,7 +43,7 @@ not a composable security proof against general (coherent) attacks.
 import math
 import os
 from dataclasses import dataclass, field
-from typing import Dict, Any, List
+from typing import Any, Dict, List, Optional, Tuple
 
 from .channel import binomial_upper_tail
 from .thresholds import EliminationRule, exact_rule, legacy_rule, min_sufficient_n, plan_reserve, plan_test_tokens
