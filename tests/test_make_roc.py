@@ -56,10 +56,12 @@ def test_score_and_operating_point_rules():
     assert make_roc.score({"verifications": []}) == 1.0           # aborted: never revealed
     assert make_roc.hoeffding_reject({"verifications": []}, p) and make_roc.exact_reject({"verifications": []}, p)
     n = 40
-    limit = p.acceptance_limit(n)
+    limit = int(p.s_a * n)                      # Hoeffding: floor(s_a * n), whatever threshold_policy says
+    assert make_roc.hoeffding_limit(n, False, p) == limit
     assert not make_roc.hoeffding_reject(_trial(limit, n), p)
     assert make_roc.hoeffding_reject(_trial(limit + 1, n), p)
     # forwarded signatures are judged against the looser s_v limit
+    assert make_roc.hoeffding_limit(n, True, p) == int(p.s_v * n) > limit
     assert not make_roc.hoeffding_reject(_trial(limit + 1, n, "forwarded"), p)
 
 

@@ -35,7 +35,7 @@ import harness  # noqa: E402
 from harness import RESULTS_DIR, SecurityParameters  # noqa: E402
 from src.quantum_engine.channel import critical_error_count  # noqa: E402
 
-ATTACKS = ("eve_forgery", "eve_intercept", "cloning", "partial_ir", "dishonest_bob")
+ATTACKS = ("eve_forgery", "eve_intercept", "eve_cloning", "eve_partial_intercept", "dishonest_bob")
 NEGATIVE = "authentic"
 AUC_FIELDS = ["n_bits", "attack", "noise_profile", "n_positive", "n_negative", "auc", "auc_ci_low", "auc_ci_high",
               "hoeffding_fpr", "hoeffding_tpr", "exact_fpr", "exact_tpr"]
@@ -50,13 +50,16 @@ def score(trial: dict) -> float:
     return max(rates)
 
 
+def hoeffding_limit(n: int, forwarded: bool, params: SecurityParameters) -> int:
+    """The legacy floor(s * n) limit (s_a direct, s_v forwarded); acceptance_limit() now follows threshold_policy."""
+    return int(np.floor(params.limit_rate(forwarded) * n + 1e-9))
+
+
 def hoeffding_reject(trial: dict, params: SecurityParameters) -> bool:
     checked = [v for v in trial["verifications"] if v["n_checked"]]
     if not checked:
         return True
-    return any(v["mismatches"] > (int(np.floor(params.s_v * v["n_checked"] + 1e-9))
-                                  if v.get("mode") == "forwarded"
-                                  else params.acceptance_limit(v["n_checked"]))
+    return any(v["mismatches"] > hoeffding_limit(v["n_checked"], v["mode"] == "forwarded", params)
                for v in checked)
 
 
