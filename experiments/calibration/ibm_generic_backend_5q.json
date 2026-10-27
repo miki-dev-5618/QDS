@@ -1,6 +1,10 @@
 {
   "backend_name": "generic_backend_5q",
+<<<<<<< Updated upstream
   "calibration_date": "2026-10-20 18:45:07 UTC",
+=======
+  "calibration_date": "2026-10-26 18:46:29 UTC",
+>>>>>>> Stashed changes
   "shots_per_state": 1000,
   "effective_error_rate": 0.0033,
   "fidelity": 0.9968,
