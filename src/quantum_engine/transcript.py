@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .binding import SignedContext, SignedPackage
 from .channel import ChannelModel, ChannelTestResult
+from .roster import DEFAULT_CONFIG, SessionConfig
 from .verifier import VerificationResult
 
 
@@ -28,6 +29,10 @@ class SigningSession:
     reserve_blinding: Optional[str] = None
     reserve_commitment: Optional[str] = None
     allocation: Dict[str, Any] = field(default_factory=dict)       # evidence budget and its rationale
+    config: SessionConfig = DEFAULT_CONFIG                          # fixed roster / delivery / depth H
+    # Observer record of the recipients' private symmetrisation decisions, kept for display and audit.
+    # The signer's own operations (reveal, open_reserve) never read it.
+    actions: Dict[str, List[str]] = field(default_factory=dict)
 
     @property
     def aborted(self) -> bool:
@@ -37,7 +42,7 @@ class SigningSession:
 @dataclass
 class Transcript:
     """What happened on the wire for one transmission (input to assessment)."""
-    kind: str                                   # "direct" or "forward"
+    kind: str                                   # "direct", "chain" or "forward"
     link: str
     n_bits: int
     package: SignedPackage                      # primary package delivered
@@ -47,3 +52,4 @@ class Transcript:
     channel_test: Optional[ChannelTestResult] = None
     channel_model: Optional[ChannelModel] = None
     notes: List[str] = field(default_factory=list)
+    config: Optional[SessionConfig] = None      # session configuration (None: default two-verifier)

@@ -13,7 +13,7 @@ Rules (policy version ``hedwig-qcb/2``):
     accepted, but a statistically weak, unattributed observation never
     escalates the link on its own.
   * Classical rejections (replay, impersonation, message integrity,
-    unauthorised verification)                 -> none. Anyone can produce
+    unauthorised verification, invalid transfer route) -> none. Anyone can produce
     them at will by sending garbage, so they must not lock out the honest
     signer (that would be a free denial-of-service); the package is simply
     rejected and logged.
@@ -56,6 +56,7 @@ CLASSICAL_ONLY = {
     ThreatClassification.IMPERSONATION_ATTACK,
     ThreatClassification.MESSAGE_INTEGRITY_VIOLATION,
     ThreatClassification.UNAUTHORIZED_VERIFICATION,
+    ThreatClassification.INVALID_TRANSFER,
 }
 
 

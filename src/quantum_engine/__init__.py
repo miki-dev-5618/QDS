@@ -2,7 +2,8 @@
 Quantum Digital Signature (QDS) engine and blind threat detection.
 
 - Bell-state teleportation of Pauli-eigenstate tokens (Qiskit or statevector backend)
-- Keep-or-forward symmetrisation and orthogonal state elimination
+- Keep-or-forward symmetrisation (uniform final holder for N > 2) and orthogonal state elimination
+- Optional N-verifier rosters: direct-to-all or bounded chain forwarding with event history
 - Tier 1: observable channel testing with sequential early abort
 - Tier 2: disturbance-pattern attribution (channel vs. signature source)
 - Message/context binding, persistent replay protection, per-verifier decisions
@@ -11,7 +12,9 @@ Quantum Digital Signature (QDS) engine and blind threat detection.
 - Attack injectors kept separate from detection (threats.py)
 """
 
-from .protocol import TeleportationQDS, QDSExecutionResult, VERIFIERS
+from .protocol import TeleportationQDS, QDSExecutionResult, VERIFIERS, UnknownParticipant
+from .roster import SessionConfig, ConfigurationError, VERIFIER_POOL, DEFAULT_CONFIG
+from .ledger import EventLedger
 from .elimination import OrthogonalEliminationEngine, SYMBOL_MAP, REV_SYMBOL_MAP
 from .symmetrisation import SymmetrisationManager
 from .threats import ThreatSuite, ThreatType, ThreatScenarioConfig, NoPackageToReplay
@@ -30,7 +33,8 @@ from .audit import (AuditAuthority, build_record, build_evidence, build_reset_re
 from .signers import pq_provider
 
 __all__ = [
-    "TeleportationQDS", "QDSExecutionResult", "VERIFIERS",
+    "TeleportationQDS", "QDSExecutionResult", "VERIFIERS", "UnknownParticipant",
+    "SessionConfig", "ConfigurationError", "VERIFIER_POOL", "DEFAULT_CONFIG", "EventLedger",
     "OrthogonalEliminationEngine", "SYMBOL_MAP", "REV_SYMBOL_MAP",
     "SymmetrisationManager",
     "ThreatSuite", "ThreatType", "ThreatScenarioConfig", "NoPackageToReplay",

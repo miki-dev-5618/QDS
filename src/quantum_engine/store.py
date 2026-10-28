@@ -7,6 +7,9 @@ What survives a restart:
   * every signed audit artifact (transaction records, incidents, resets), stored
     as the exact signed payload bytes plus the certificate JSON, in hash-chain order.
 
+  * every session roster/configuration and every verification event
+    (N-verifier extension), keyed by a unique event id with its parent link.
+
 What does not: verifier distribution records (one-time quantum evidence) and
 signer sessions. After a restart, sessions distributed before it cannot be
 verified and must be re-sent; their audit records remain verifiable.
@@ -56,6 +59,26 @@ CREATE TABLE IF NOT EXISTS audit (
     payload_sha256 TEXT NOT NULL,
     cert           TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS sessions (
+    session_id   TEXT PRIMARY KEY,
+    sender       TEXT NOT NULL,
+    created_at   REAL NOT NULL,
+    config       TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS verification_events (
+    event_id        TEXT PRIMARY KEY,
+    session_id      TEXT NOT NULL,
+    transmission_id TEXT,
+    verifier        TEXT NOT NULL,
+    sender          TEXT,
+    mode            TEXT NOT NULL,
+    depth           INTEGER NOT NULL,
+    parent_event_id TEXT,
+    status          TEXT NOT NULL,
+    ts              REAL NOT NULL,
+    summary         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_events_session ON verification_events(session_id);
 """
 
 
@@ -157,3 +180,45 @@ class Store:
         with self._lock:
             rows = self._db.execute(q, args).fetchall()
         return [json.loads(r[0]) for r in rows]
+
+    # ------------------------------------------------- sessions and events
+    def save_session(self, session_id: str, sender: str, created_at: float, config: Dict[str, Any]):
+        """Insert once; a session's roster and policy are never rewritten."""
+        with self._lock:
+            self._db.execute("INSERT OR IGNORE INTO sessions(session_id, sender, created_at, config) "
+                             "VALUES(?,?,?,?)", (session_id, sender, created_at, json.dumps(config)))
+
+    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            row = self._db.execute("SELECT sender, created_at, config FROM sessions WHERE session_id = ?",
+                                   (session_id,)).fetchone()
+        return None if row is None else {"session_id": session_id, "sender": row[0], "created_at": row[1],
+                                         "config": json.loads(row[2])}
+
+    def save_event(self, summary: Dict[str, Any]):
+        """Events are immutable: a second write with the same id is ignored, never an overwrite."""
+        with self._lock:
+            self._db.execute(
+                "INSERT OR IGNORE INTO verification_events(event_id, session_id, verifier, sender, mode, depth, "
+                "parent_event_id, status, ts, summary) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (summary["event_id"], summary["session_id"], summary["verifier"], summary.get("sender"),
+                 summary["mode"], int(summary["depth"]), summary.get("parent_event_id"), summary["status"],
+                 summary["ts"], json.dumps(summary)))
+
+    def attach_events(self, event_ids: List[str], transmission_id: str):
+        with self._lock:
+            self._db.executemany("UPDATE verification_events SET transmission_id = ? "
+                                 "WHERE event_id = ? AND transmission_id IS NULL",
+                                 [(transmission_id, e) for e in event_ids])
+
+    def get_event(self, event_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            row = self._db.execute("SELECT summary FROM verification_events WHERE event_id = ?",
+                                   (event_id,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def session_events(self, session_id: str) -> List[Dict[str, Any]]:
+        with self._lock:
+            rows = self._db.execute("SELECT summary, transmission_id FROM verification_events "
+                                    "WHERE session_id = ? ORDER BY ts ASC, rowid ASC", (session_id,)).fetchall()
+        return [{**json.loads(r[0]), "transmission_id": r[1]} for r in rows]

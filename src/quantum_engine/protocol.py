@@ -32,6 +32,18 @@ Stages
      circuit breaker applies it; incident and transaction records are signed
      immediately. The injected scenario (ground truth) is attached only after
      the detector returns.
+
+Optional N-verifier extension (``roster.py``): a session may name a fixed,
+ordered roster of 2-10 pre-enrolled verifiers (default: Bob and Charlie), a
+delivery mode (direct-to-all or one linear chain) and a maximum forwarding
+depth H, all fixed before distribution and bound into the commitment. Alice
+prepares one copy per roster member per position; with more than two
+recipients each copy is reassigned to a uniformly random final holder
+(``UniformHolderAssignment``). Chain forwarding is classical package
+transfer: every downstream recipient checks against its own initial evidence
+at its validated depth. Each verification is a ledger event with a unique id
+and parent link (``ledger.py``); forwarding events after the reveal are
+signed as separate audit records linked to their parent record.
 """
 import time
 import uuid
@@ -41,24 +53,35 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from .audit import build_evidence, build_incident_record, build_record, evidence_hash
+from .audit import build_evidence, build_incident_record, build_record, build_transfer_record, evidence_hash
 from .binding import ReserveOpening, SignedContext, SignedPackage, commitment, new_blinding, reserve_commitment
 from .channel import ChannelModel, estimate_channel_qber
 from .detection import QDSDetectionEngine, ThreatReport
+import inspect
+
 from .elimination import OrthogonalEliminationEngine, SYMBOL_MAP
+from .ledger import EventLedger, participant_matrix, session_outcome
 from .enforcement import (ChannelGuard, LatencyStats, LINK_FORWARD, LINK_SIGNER, OPEN, QUARANTINED,
                           RESET_PENDING, WATCH)
 from .policy import ResponseDecision, ResponsePolicy, decide
+from .roster import DEFAULT_CONFIG, VERIFIER_POOL, ConfigurationError, SessionConfig
 from .router import SimulatedRouter
 from .schedule import RandomSchedule
 from .security import SecurityParameters
 from .store import Store
-from .symmetrisation import SymmetrisationManager
+from .symmetrisation import SymmetrisationManager, UniformHolderAssignment
 from .teleportation import TeleportJob, make_backend
 from .transcript import SigningSession, Transcript
 from .verifier import DistributionRecord, VerificationResult, VerifierNode
 
-VERIFIERS = ("bob", "charlie")
+VERIFIERS = ("bob", "charlie")   # the default roster; see roster.py for the enrolled pool
+
+
+class UnknownParticipant(ConfigurationError):
+    """A transfer addressed to an identity that is not an enrolled verifier."""
+
+
+ForwardHook = Callable[[str, str, SignedPackage, VerificationResult], Tuple[str, SignedPackage, Optional[str]]]
 
 
 @dataclass(frozen=True)
@@ -89,6 +112,7 @@ class QDSExecutionResult:
     ibm_backend: Optional[str] = None
     calibration_date: Optional[str] = None
     effective_error_rate: Optional[float] = None
+    transfer_records: List[Dict[str, Any]] = field(default_factory=list)   # linked forwarding audit records
 
     @property
     def channel_qber(self) -> float:
@@ -98,6 +122,11 @@ class QDSExecutionResult:
     def to_dict(self) -> Dict[str, Any]:
         t = self.transcript
         session = t.session
+        cfg = t.config or (session.config if session is not None else DEFAULT_CONFIG)
+        aborted = bool(session is not None and session.aborted and not t.results)
+        from .ledger import event_summary
+        rows = participant_matrix(cfg, [event_summary(r, r.forwarded_by or r.claimed_sender) for r in t.results],
+                                  aborted)
         d: Dict[str, Any] = {
             "transmission_id": self.transmission_id,
             "timestamp": self.timestamp,
@@ -118,7 +147,14 @@ class QDSExecutionResult:
             "bob": t.display["bob"].to_dict() if "bob" in t.display else None,
             "charlie": t.display["charlie"].to_dict() if "charlie" in t.display else None,
             "additional_verifications": [r.to_dict() for r in t.results
-                                         if r not in t.display.values()],
+                                         if r is not t.display.get("bob") and r is not t.display.get("charlie")],
+            "session_config": cfg.to_dict(),
+            "session_outcome": session_outcome(cfg, rows, aborted),
+            "participants": rows,
+            "events": [{"event_id": r.event_id, "verifier": r.verifier, "mode": r.mode, "depth": r.depth,
+                        "sender": r.forwarded_by or r.claimed_sender, "parent_event_id": r.parent_event_id,
+                        "status": r.status} for r in t.results],
+            "transfer_records": self.transfer_records,
             "threat_report": self.threat_report.to_dict(),
             "response": self.response.to_dict() if self.response else None,
             "enforcement": self.enforcement,
@@ -141,6 +177,9 @@ class QDSExecutionResult:
                 "state_symbols": [SYMBOL_MAP[s] for s in session.signature],
             }
             d["symmetrisation"] = {"bob_actions": session.bob_actions, "charlie_actions": session.charlie_actions}
+            if not cfg.is_default:
+                d["symmetrisation"]["model"] = ("keep-or-forward" if cfg.n == 2 else "uniform final holder")
+                d["symmetrisation"]["actions"] = session.actions
         return d
 
 
@@ -178,8 +217,12 @@ class TeleportationQDS:
         self.router = SimulatedRouter()
         self.policy = policy or ResponsePolicy(strong_alpha=self.params.strong_alpha)
         self.guard = ChannelGuard(self.policy, self.store, self.router, clock)
+        # Nodes of the default roster exist from the start; other enrolled identities get one when a
+        # roster first includes them (see ``node``).
         self.verifiers: Dict[str, VerifierNode] = {
             n: VerifierNode(n, self.params, clock, store=self.store) for n in VERIFIERS}
+        self.ledger = EventLedger(self.store)
+        self.default_config: SessionConfig = DEFAULT_CONFIG
         self.detector = QDSDetectionEngine(self.params)
         self.schedule = schedule or RandomSchedule()
         self.audit = audit
@@ -190,6 +233,14 @@ class TeleportationQDS:
         self._signer_sessions: "OrderedDict[str, SigningSession]" = OrderedDict()  # Alice's own reserve state
 
     # ------------------------------------------------------------ helpers
+    def node(self, name: str) -> VerifierNode:
+        """The verifier node of an enrolled identity (created on first use)."""
+        if name not in VERIFIER_POOL:
+            raise UnknownParticipant(f"'{name}' is not an enrolled verifier.")
+        if name not in self.verifiers:
+            self.verifiers[name] = VerifierNode(name, self.params, self.clock, store=self.store)
+        return self.verifiers[name]
+
     def allocation_plan(self, n_bits: int) -> Dict[str, Any]:
         """Evidence budget for the next session, from observable state only (never the injected scenario)."""
         state = self.guard.state(LINK_SIGNER)
@@ -214,41 +265,38 @@ class TeleportationQDS:
         prepare_copies: Optional[Callable[[List[Tuple[int, int]], np.random.Generator],
                                           Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]]] = None,
         adversary=None,
+        config: Optional[SessionConfig] = None,
     ) -> SigningSession:
+        cfg = config or self.default_config
+        cfg.validate()                       # invalid configurations never reach evidence preparation
+        roster = list(cfg.roster)
         self.guard.check_open(LINK_SIGNER)
         channel = channel or self.default_channel
         t_start = time.perf_counter_ns()
+        self.router.configure(roster)
 
         allocation = self.allocation_plan(n_bits)
         signature = [(int(b), int(ba)) for b, ba in zip(rng.integers(0, 2, n_bits), rng.integers(0, 2, n_bits))]
-        bob_copy, charlie_copy = list(signature), list(signature)
-        if prepare_copies is not None:  # only a dishonest signer uses this
-            bob_copy, charlie_copy = prepare_copies(signature, rng)
+        copies = self._prepare(signature, rng, roster, prepare_copies)
         n_rsv = allocation["reserve"]["reserve_bits"]
         reserve = [(int(b), int(ba)) for b, ba in zip(rng.integers(0, 2, n_rsv), rng.integers(0, 2, n_rsv))]
-        rsv_bob, rsv_charlie = list(reserve), list(reserve)
-        if prepare_copies is not None and n_rsv:
-            rsv_bob, rsv_charlie = prepare_copies(reserve, rng)
+        rsv_copies = self._prepare(reserve, rng, roster, prepare_copies if n_rsv else None)
 
-        ctx = SignedContext.new(sender, list(VERIFIERS), message, timestamp=self.clock(),
-                                digest_alg=self.params.digest_alg)
+        ctx = SignedContext.new(sender, roster, message, timestamp=self.clock(),
+                                digest_alg=self.params.digest_alg, delivery=cfg.delivery, max_depth=cfg.max_depth)
         blinding = new_blinding()
         commit = commitment(ctx, signature, blinding)
         rsv_blinding = new_blinding()
         rsv_commit = reserve_commitment(ctx, reserve, rsv_blinding) if n_rsv else None
 
-        (bob_actions, charlie_actions, bob_held, charlie_held,
-         bob_desc, charlie_desc) = SymmetrisationManager.perform_symmetrisation_swap(bob_copy, charlie_copy, rng)
-        held = {"bob": bob_held, "charlie": charlie_held}
-        desc = {"bob": bob_desc, "charlie": charlie_desc}
+        actions, held, desc = self._symmetrise(copies, roster, rng)
         if n_rsv:
-            _, _, rb_held, rc_held, _, _ = SymmetrisationManager.perform_symmetrisation_swap(rsv_bob, rsv_charlie, rng)
-            rsv_held = {"bob": rb_held, "charlie": rc_held}
+            _, rsv_held, _ = self._symmetrise(rsv_copies, roster, rng)
         else:
-            rsv_held = {v: [] for v in VERIFIERS}
+            rsv_held = {v: [] for v in roster}
 
         slots: List[Slot] = []
-        for v in VERIFIERS:
+        for v in roster:
             for i, copies in enumerate(held[v]):
                 for j, (b, ba) in enumerate(copies):
                     slots.append(Slot("sig", v, i, j, b, ba, self.schedule.basis(ctx, v, i, j, rng)))
@@ -322,7 +370,7 @@ class TeleportationQDS:
         )
 
         eliminated: Dict[str, List[List[Optional[str]]]] = {
-            v: [[None] * len(held[v][i]) for i in range(n_bits)] for v in VERIFIERS}
+            v: [[None] * len(held[v][i]) for i in range(n_bits)] for v in roster}
         for s, out in zip(stream[:sent], outcomes):
             if s.kind == "sig":
                 if out.is_lost:
@@ -332,32 +380,35 @@ class TeleportationQDS:
                     eliminated[s.verifier][s.pos][s.copy] = OrthogonalEliminationEngine.eliminate_state_symbol(
                         s.meas_basis, out.outcome)
         rsv_elim: Dict[str, List[List[Optional[str]]]] = {
-            v: [[None] * len(rsv_held[v][i]) for i in range(n_rsv)] for v in VERIFIERS}
+            v: [[None] * len(rsv_held[v][i]) for i in range(n_rsv)] for v in roster}
         for s, out in zip(stream[:sent], outcomes):
             if s.kind == "rsv" and not out.is_lost:
                 rsv_elim[s.verifier][s.pos][s.copy] = OrthogonalEliminationEngine.eliminate_state_symbol(
                     s.meas_basis, out.outcome)
-        eliminated_clean = {v: [[e for e in row if e is not None] for row in eliminated[v]] for v in VERIFIERS}
-        rsv_clean = {v: [[e for e in row if e is not None] for row in rsv_elim[v]] for v in VERIFIERS}
+        eliminated_clean = {v: [[e for e in row if e is not None] for row in eliminated[v]] for v in roster}
+        rsv_clean = {v: [[e for e in row if e is not None] for row in rsv_elim[v]] for v in roster}
         self.observed_loss = (total_lost / sent) if sent else 0.0
 
         self.router.carry(LINK_SIGNER, sent)
         observation_ms = (time.perf_counter_ns() - t_start) / 1e6
 
-        for v in VERIFIERS:
-            self.verifiers[v].receive_distribution(DistributionRecord(
+        for v in roster:
+            self.node(v).receive_distribution(DistributionRecord(
                 session_id=ctx.session_id, sender=sender, commitment=commit,
                 eliminated=eliminated_clean[v], held_desc=desc[v],
                 channel_test=channel_test, aborted=channel_test.alarm,
                 insufficient_tokens=insufficient_tokens,
                 tokens_received=surviving_tokens, tokens_planned=len(stream),
                 reserve_eliminated=rsv_clean[v], reserve_commitment=rsv_commit,
+                config=cfg,
             ))
+        self.ledger.register_session(ctx.session_id, sender, cfg, ctx.timestamp)
 
         session = SigningSession(
             context=ctx, message=message, signature=signature, blinding=blinding, commitment=commit,
-            copies={"bob": bob_copy, "charlie": charlie_copy},
-            bob_actions=bob_actions, charlie_actions=charlie_actions,
+            copies=copies,
+            bob_actions=actions.get("bob", []), charlie_actions=actions.get("charlie", []),
+            config=cfg, actions=actions,
             channel_test=channel_test, channel_model=channel,
             observation_ms=round(observation_ms, 3), tokens_sent=sent, tokens_planned=len(stream),
             tokens_received=surviving_tokens, insufficient_tokens=insufficient_tokens,
@@ -369,6 +420,35 @@ class TeleportationQDS:
             while len(self._signer_sessions) > 1000:
                 self._signer_sessions.popitem(last=False)
         return session
+
+    @staticmethod
+    def _prepare(states: List[Tuple[int, int]], rng: np.random.Generator, roster: List[str],
+                 prepare_copies=None) -> Dict[str, List[Tuple[int, int]]]:
+        """One initial copy per roster member; a dishonest signer's hook may make them differ."""
+        if prepare_copies is None:
+            return {v: list(states) for v in roster}
+        if "roster" in inspect.signature(prepare_copies).parameters:
+            return prepare_copies(states, rng, roster=roster)
+        first, second = prepare_copies(states, rng)          # original two-recipient hook
+        if len(roster) != 2:
+            raise ConfigurationError("This preparation hook supports exactly two recipients.")
+        return {roster[0]: first, roster[1]: second}
+
+    @staticmethod
+    def _symmetrise(copies: Dict[str, List[Tuple[int, int]]], roster: List[str], rng: np.random.Generator):
+        """(actions, held, desc). Two recipients: keep-or-forward; more: uniform final holder."""
+        if len(roster) == 2:
+            a, b = roster
+            a_act, b_act, a_held, b_held, a_desc, b_desc = SymmetrisationManager.perform_symmetrisation_swap(
+                copies[a], copies[b], rng)
+            if (a, b) != ("bob", "charlie"):
+                rename = lambda d: [[x.replace("Bob", a.capitalize()).replace("Charlie", b.capitalize())
+                                     for x in row] for row in d]
+                a_desc, b_desc = rename(a_desc), rename(b_desc)
+            return {a: a_act, b: b_act}, {a: a_held, b: b_held}, {a: a_desc, b: b_desc}
+        dest, held, desc, _ = UniformHolderAssignment.assign(copies, roster, rng)
+        actions = {v: ["K" if d == v else d for d in dest[v]] for v in roster}
+        return actions, held, desc
 
     @staticmethod
     def reveal(session: SigningSession) -> SignedPackage:
@@ -388,40 +468,126 @@ class TeleportationQDS:
             return None
         return ReserveOpening(states=tuple(tuple(x) for x in session.reserve), blinding=session.reserve_blinding)
 
-    def deliver(self, package: SignedPackage, to=VERIFIERS,
+    def config_for(self, package: SignedPackage) -> SessionConfig:
+        """The configuration the signer fixed for this session (from the ledger), else the context's own claim."""
+        cfg = self.ledger.config(package.context.session_id)
+        if cfg is not None:
+            return cfg
+        ctx = package.context
+        try:
+            return SessionConfig.build([v for v in ctx.verifiers if v in VERIFIER_POOL] or list(VERIFIERS),
+                                       delivery=getattr(ctx, "delivery", "direct"),
+                                       max_depth=getattr(ctx, "max_depth", 1))
+        except ConfigurationError:
+            return self.default_config
+
+    def _resolve_reserve(self, result: VerificationResult, package: SignedPackage, mode: str,
+                         session: Optional[SigningSession], parent: Optional[Dict[str, Any]] = None
+                         ) -> VerificationResult:
+        if not result.reserve_requested:
+            return result
+        signer = session or self._signer_sessions.get(package.context.session_id)
+        opening = self.open_reserve(signer, package)
+        if opening is None:   # Alice unavailable or package substituted: the result stays inconclusive
+            return result
+        # One bounded second look; the verifier enforces the per-session limit across channels.
+        return self.verifiers[result.verifier].verify(package.copy(reserve=opening), mode, parent=parent)
+
+    def deliver(self, package: SignedPackage, to=None,
                 session: Optional[SigningSession] = None) -> List[VerificationResult]:
+        """Alice's reveal to ``to`` (default: the session's depth-0 recipients)."""
         self.guard.check_open(LINK_SIGNER)
-        results = [self.verifiers[v].verify(package, "direct") for v in to]
-        for i, r in enumerate(results):
-            if r.reserve_requested:
-                signer = session or self._signer_sessions.get(package.context.session_id)
-                opening = self.open_reserve(signer, package)
-                if opening is not None:   # one bounded second look; the verifier enforces the limit
-                    results[i] = self.verifiers[r.verifier].verify(package.copy(reserve=opening), "direct")
+        to = list(to) if to is not None else self.config_for(package).first_recipients()
+        results = []
+        for v in to:
+            r = self._resolve_reserve(self.node(v).verify(package, "direct"), package, "direct", session)
+            self.ledger.record(r, package.context.sender)
+            results.append(r)
         self.recent_packages.append(package)
         return results
 
-    def forward(self, package: SignedPackage, from_verifier: str, to_verifier: str) -> VerificationResult:
+    def forward(self, package: SignedPackage, from_verifier: str, to_verifier: str,
+                parent_event_id: Optional[str] = "auto", depth: Optional[int] = None,
+                session: Optional[SigningSession] = None) -> VerificationResult:
+        """
+        Classical transfer of a package between verifiers. ``parent_event_id="auto"`` names the
+        forwarder's latest event for the session (what an honest forwarder sends); ``depth`` is the
+        forwarder's claim (default: parent depth + 1). The recipient validates both itself.
+        """
+        recipient = self.node(to_verifier)     # raises UnknownParticipant for an unenrolled recipient
         self.guard.check_open(LINK_FORWARD)
-        self.router.carry(LINK_FORWARD, 1)
-        return self.verifiers[to_verifier].verify(package.copy(forwarded_by=from_verifier), "forwarded")
+        self.router.carry_edge(from_verifier, to_verifier)
+        sid = package.context.session_id
+        if parent_event_id == "auto":
+            latest = self.ledger.latest(sid, from_verifier)
+            parent_event_id = latest["event_id"] if latest else None
+        parent = self.ledger.get(parent_event_id)
+        if depth is None:
+            depth = package.depth if package.depth is not None else (
+                int(parent["depth"]) + 1 if parent is not None else None)
+        pkg = package.copy(forwarded_by=from_verifier, parent_event_id=parent_event_id, depth=depth, reserve=None)
+        r = recipient.verify(pkg, "forwarded", parent=parent)
+        r = self._resolve_reserve(r, pkg, "forwarded", session, parent)
+        self.ledger.record(r, from_verifier)
+        return r
+
+    @staticmethod
+    def honest_forwarding(holder: str, nxt: str, package: SignedPackage, result: VerificationResult
+                          ) -> Tuple[str, SignedPackage, Optional[str]]:
+        """Default chain behaviour: forward the unchanged package only after a local acceptance."""
+        if result.accepted:
+            return "forward", package, None
+        why = "rejected" if result.status == "rejected" else result.status
+        return "stop", package, f"Forwarding stopped at {holder}: local verification {why}; " \
+                                f"downstream recipients are not reached."
+
+    def deliver_session(self, package: SignedPackage, session: Optional[SigningSession],
+                        config: Optional[SessionConfig] = None, on_hop: Optional[ForwardHook] = None
+                        ) -> Tuple[List[VerificationResult], List[str]]:
+        """Reveal under the session's delivery mode. Chain: forward hop by hop until a stop or depth H."""
+        cfg = config or (session.config if session is not None else self.config_for(package))
+        if cfg.delivery == "direct":
+            return self.deliver(package, to=cfg.first_recipients(), session=session), []
+        on_hop = on_hop or self.honest_forwarding
+        notes: List[str] = []
+        holder = cfg.roster[0]
+        results = self.deliver(package, to=[holder], session=session)
+        current = results[0]
+        while True:
+            nxt = cfg.next_hop(holder)
+            if nxt is None:
+                if cfg.downstream_of(holder):
+                    notes.append(f"Chain ended at depth H = {cfg.max_depth}; "
+                                 f"{', '.join(cfg.downstream_of(holder))} not reached.")
+                break
+            action, out_pkg, note = on_hop(holder, nxt, package, current)
+            if note:
+                notes.append(note)
+            if action != "forward":
+                break
+            current = self.forward(out_pkg, holder, nxt, session=session)
+            results.append(current)
+            package, holder = out_pkg.copy(depth=None), nxt
+        return results, notes
 
     def transmit(self, sender: str, message: str, n_bits: int, rng: np.random.Generator,
-                 channel: Optional[ChannelModel] = None) -> Transcript:
+                 channel: Optional[ChannelModel] = None, config: Optional[SessionConfig] = None) -> Transcript:
         """Honest end-to-end flow. An aborted session is not revealed."""
-        session = self.distribute(sender, message, n_bits, rng, channel)
+        session = self.distribute(sender, message, n_bits, rng, channel, config=config)
         package = self.reveal(session)
+        kind = "chain" if session.config.delivery == "chain" else "direct"
         if session.aborted:
             note = ("Channel test alarm: signature never revealed." if session.channel_test.alarm
                     else f"INSUFFICIENT_TOKENS: surviving tokens {session.tokens_received}/{session.tokens_planned} below safety threshold.")
-            return Transcript(kind="direct", link=LINK_SIGNER, n_bits=n_bits, package=package, results=[],
+            return Transcript(kind=kind, link=LINK_SIGNER, n_bits=n_bits, package=package, results=[],
                               display={}, session=session, channel_test=session.channel_test,
                               channel_model=session.channel_model,
-                              notes=[note])
-        results = self.deliver(package, session=session)
-        return Transcript(kind="direct", link=LINK_SIGNER, n_bits=n_bits, package=package, results=results,
+                              notes=[note], config=session.config)
+        results, notes = self.deliver_session(package, session)
+        return Transcript(kind=kind, link=LINK_SIGNER, n_bits=n_bits, package=package, results=results,
                           display={r.verifier: r for r in results}, session=session,
-                          channel_test=session.channel_test, channel_model=session.channel_model)
+                          channel_test=session.channel_test, channel_model=session.channel_model,
+                          notes=notes, config=session.config)
 
     # ------------------------------------------------------------- assessment
     def assess(self, transcript: Transcript, ground_truth: Optional[Dict[str, Any]] = None,
@@ -434,8 +600,15 @@ class TeleportationQDS:
         t1 = time.perf_counter_ns()
 
         decision = decide(report, self.policy)
-        direct = [r for r in transcript.results if r.mode == "direct"]
-        all_accepted = transcript.kind == "direct" and bool(direct) and all(r.accepted for r in direct)
+        if transcript.kind == "chain":
+            cfg = transcript.config or DEFAULT_CONFIG
+            from .ledger import event_summary
+            rows = participant_matrix(cfg, [event_summary(r, r.forwarded_by or r.claimed_sender)
+                                            for r in transcript.results])
+            all_accepted = session_outcome(cfg, rows) == "all_accepted"
+        else:
+            direct = [r for r in transcript.results if r.mode == "direct"]
+            all_accepted = transcript.kind == "direct" and bool(direct) and all(r.accepted for r in direct)
         transition = self.guard.apply(link, decision, tx_id, accepted=all_accepted and not report.is_threat_detected)
         purged = 0
         new_state = transition["new_state"] if transition else self.guard.state(link)
@@ -504,7 +677,10 @@ class TeleportationQDS:
             record = build_record(result.to_dict(), self.params.to_dict(), self.policy.to_dict(), evidence,
                                   self.params.freshness_window_s)
             result.audit_cert = self.audit.issue(record, tx_id, evidence)
+            if transcript.kind == "chain":
+                self._issue_transfer_records(result, transcript)
             latency["audit_signing_us"] = round((time.perf_counter_ns() - t4) / 1000, 2)
+        self.ledger.attach_transmission([r.event_id for r in transcript.results], tx_id)
 
         if started_ns:
             latency["protocol_ms"] = round((time.perf_counter_ns() - started_ns) / 1e6, 2)
@@ -512,21 +688,51 @@ class TeleportationQDS:
         enforcement["channel_state"] = self.guard.to_dict()
         return result
 
+    def _issue_transfer_records(self, result: QDSExecutionResult, transcript: Transcript):
+        """
+        The transaction record covers distribution and the reveal (depth-0) event. Every later
+        forwarding event gets its own immutable signed record that names its parent event and the
+        artifact id + payload hash of the record holding that parent. Nothing signed is ever changed.
+        """
+        tx_id = result.transmission_id
+        holder: Dict[str, Tuple[str, str]] = {}   # event_id -> (artifact_id, payload_sha256)
+        for r in transcript.results:
+            if r.mode != "forwarded":
+                holder[r.event_id] = (tx_id, result.audit_cert["payload_sha256"])
+                continue
+            parent_art = holder.get(r.parent_event_id or "", (tx_id, result.audit_cert["payload_sha256"]))
+            record = build_transfer_record(tx_id, r.to_dict(), transcript.package.context.to_dict(),
+                                           (transcript.config or DEFAULT_CONFIG).to_dict(),
+                                           {"artifact_id": parent_art[0], "payload_sha256": parent_art[1]},
+                                           self.params.to_dict())
+            cert = self.audit.issue(record, r.event_id)
+            holder[r.event_id] = (r.event_id, cert["payload_sha256"])
+            result.transfer_records.append({"artifact_id": r.event_id, "event_id": r.event_id,
+                                            "verifier": r.verifier, "depth": r.depth,
+                                            "parent_artifact_id": parent_art[0],
+                                            "payload_sha256": cert["payload_sha256"],
+                                            "chain_seq": cert["record"]["chain"]["seq"]})
+
     def execute_protocol(self, message_text: str, n_bits: int = 16, sender: str = "alice",
                          scenario=None, rng: Optional[np.random.Generator] = None,
-                         channel: Optional[ChannelModel] = None) -> QDSExecutionResult:
+                         channel: Optional[ChannelModel] = None,
+                         config: Optional[SessionConfig] = None) -> QDSExecutionResult:
         """Run one transmission, optionally through an attack injector, then assess it blind."""
         from .threats import ThreatScenarioConfig, ThreatSuite, ThreatType
 
         rng = rng or np.random.default_rng()
         scenario = scenario or ThreatScenarioConfig(threat_type=ThreatType.AUTHENTIC)
+        cfg = config or self.default_config
+        cfg.validate()
+        ThreatSuite.validate(scenario, cfg)
         started = time.perf_counter_ns()
-        transcript = ThreatSuite.run(self, scenario, message_text, n_bits, sender, rng, channel)
+        transcript = ThreatSuite.run(self, scenario, message_text, n_bits, sender, rng, channel, config=cfg)
         result = self.assess(transcript, started_ns=started)
         # Ground truth is attached only after the detector has returned.
         cm = transcript.channel_model
         result.ground_truth = {
             "injected_scenario": scenario.threat_type.value,
+            "dishonest_verifier": scenario.dishonest_verifier,
             "hidden_channel": None if cm is None else {
                 "depolarizing": cm.depolarizing, "intercept_rate": cm.intercept_rate,
                 "expected_qber": round(cm.expected_qber(), 4)},

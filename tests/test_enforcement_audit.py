@@ -240,7 +240,7 @@ def test_audit_record_verifies(cert):
     authority, c = cert
     assert verify_certificate(c, authority.trusted_keys())
     rec = c["record"]
-    assert rec["version"] == "hedwig-audit/2" and len(rec["evidence_digests"]["full_evidence_sha256"]) == 64
+    assert rec["version"] == "hedwig-audit/3" and len(rec["evidence_digests"]["full_evidence_sha256"]) == 64
     assert set(rec["evidence_digests"]["elimination_sha3_256"]) == {"bob/direct", "charlie/direct"}
     assert rec["evidence_digests"]["symmetrisation_actions_sha3_256"]
     assert rec["message"]["plaintext_included"] is False

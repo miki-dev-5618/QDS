@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HEDWIG • Alice / Admin Command Console</title>
   <link rel="stylesheet" href="/static/css/style.css?v=2.3">
-  <link rel="stylesheet" href="/static/css/components.css?v=2.4">
+  <link rel="stylesheet" href="/static/css/components.css?v=2.5">
 </head>
 <body class="role-admin">
   <div class="app-shell">
@@ -122,6 +122,48 @@
                 </div>
               </div>
 
+              <fieldset class="recipient-group">
+                <legend class="form-label">Recipient group <span class="cell-muted">(optional extension · default Bob + Charlie)</span></legend>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label" for="nVerifiers">Verifiers (N)</label>
+                    <select id="nVerifiers" class="form-select">
+                      <option value="2" selected>2 · Bob, Charlie</option>
+                      <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                      <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+                      <option value="9">9</option><option value="10">10</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="deliveryMode">Delivery</label>
+                    <select id="deliveryMode" class="form-select">
+                      <option value="direct" selected>Direct to all</option>
+                      <option value="chain">Forwarding chain</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="maxDepth">Max depth (H)</label>
+                    <select id="maxDepth" class="form-select" disabled><option value="1">1</option></select>
+                  </div>
+                </div>
+                <div class="form-row" id="forwarderControls" style="display:none;">
+                  <div class="form-group">
+                    <label class="form-label" for="dishonestVerifier">Dishonest forwarder</label>
+                    <select id="dishonestVerifier" class="form-select"></select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="forwardAlteration">Alteration</label>
+                    <select id="forwardAlteration" class="form-select">
+                      <option value="message" selected>Change the message</option>
+                      <option value="signature">Change the signature</option>
+                    </select>
+                  </div>
+                </div>
+                <p class="section-note" id="rosterNote">
+                  More pre-enrolled recipients can each check the same signed message against their own evidence. Adding recipients does not add security by itself, is not public verification and is not group approval. Collusion between recipients is not modelled. Extra recipients are shown here only; the Bob and Charlie terminals are unchanged.
+                </p>
+              </fieldset>
+
               <div id="readoutControls" class="form-row" style="display:none; background: rgba(56, 189, 248, 0.05); padding: 10px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.2); margin-bottom: 15px;">
                 <div class="form-group" style="flex: 1.2;">
                   <label class="form-label" for="readoutLocation">Noise location</label>
@@ -235,12 +277,71 @@
                 </span>
                 <span class="threat-desc">Eve selectively blocks tokens she measured poorly, exploiting channel loss / erasure.</span>
               </button>
+
+              <button type="button" class="threat-card" data-threat="dishonest_forwarder" data-needs-forwarder="1" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 10. Dishonest Forwarder</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">The selected verifier receives the genuine package, alters it, and forwards it to the next recipient.</span>
+              </button>
+
+              <button type="button" class="threat-card" data-threat="forward_withheld" data-needs-forwarder="1" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 11. Forwarder Withholds</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">The selected verifier accepts but never forwards. Recipients after it are not reached; this is not a forgery. Chain only.</span>
+              </button>
+
+              <button type="button" class="threat-card" data-threat="route_manipulation" data-needs-forwarder="1" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 12. Depth Manipulation</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">The selected verifier forwards the genuine package but claims a deeper level to get a looser rule. Chain only.</span>
+              </button>
+
+              <button type="button" class="threat-card" data-threat="forward_replay" data-needs-forwarder="1" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 13. Forward Replay</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">A recipient that has already verified a forwarded copy is sent the package again.</span>
+              </button>
+
+              <button type="button" class="threat-card" data-threat="unknown_forwarder" data-needs-forwarder="0" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 14. Unknown Forwarder</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">An identity that is not enrolled forwards the genuine package into the group.</span>
+              </button>
             </div>
 
             <div class="form-group" id="tamperedGroup" style="display:none; animation:slide-in 0.2s ease;">
               <label class="form-label" for="tamperedText">Adversary altered payload</label>
               <input type="text" id="tamperedText" class="form-input" value="MALICIOUS OVERRIDE: Shutdown core cooling pumps immediately!">
             </div>
+          </section>
+
+          <!-- Recipient matrix (N-verifier extension) -->
+          <section class="panel">
+            <div class="section-head">
+              <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-list"/></svg> Recipient matrix · latest session</h2>
+              <span class="brand-badge" id="sessionOutcomeBadge">—</span>
+            </div>
+            <p class="section-note" id="sessionSummary">No session yet.</p>
+            <div class="matrix-table-wrapper">
+              <table class="matrix-table" id="participantTable">
+                <thead><tr>
+                  <th>Verifier</th><th>Route role</th><th>Status</th><th>From</th><th>Depth</th>
+                  <th>Mismatches / checked ≤ limit</th><th>Reserve · stage</th><th>Assurance</th><th>Reason</th><th>History</th>
+                </tr></thead>
+                <tbody><tr><td colspan="10" class="cell-muted">—</td></tr></tbody>
+              </table>
+            </div>
+            <div id="eventHistory" class="subsection" hidden></div>
           </section>
 
           <!-- Recent dispatches -->
@@ -310,6 +411,6 @@
   </div>
 
   <script src="/static/js/common.js?v=2.3"></script>
-  <script src="/static/js/admin.js?v=2.5"></script>
+  <script src="/static/js/admin.js?v=2.7"></script>
 </body>
 </html>

@@ -35,6 +35,7 @@ from src.quantum_engine import (
 )
 from src.quantum_engine.audit import strip_evidence
 from src.quantum_engine.enforcement import LINK_FORWARD, LINK_SIGNER
+from src.quantum_engine.roster import ConfigurationError, SessionConfig, limits as roster_limits
 
 app = FastAPI(title="HEDWIG V2.2 - Teleportation QDS & Threat Detection System")
 
@@ -126,11 +127,34 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+_PRIVATE_EVIDENCE = ("eliminated_states", "held_tokens")
+
+
+def _strip_private(v: Optional[Dict[str, Any]], role: str) -> Optional[Dict[str, Any]]:
+    """Another participant's private distribution evidence is never shown to a verifier."""
+    if not v or v.get("verifier") == role:
+        return v
+    return {k: val for k, val in v.items() if k not in _PRIVATE_EVIDENCE}
+
+
 def view_for(role: str, tx: Dict[str, Any]) -> Dict[str, Any]:
-    """Verifier dashboards never receive the injector's ground truth or the signer's private states."""
+    """
+    Verifier dashboards never receive the injector's ground truth, the signer's private states,
+    other participants' private distribution evidence, or the per-recipient symmetrisation decisions.
+    Extra roster members are visible in the admin view only (initial release).
+    """
     if role == "admin":
         return tx
-    return {k: v for k, v in tx.items() if k not in ("ground_truth", "alice")}
+    out = {k: v for k, v in tx.items() if k not in ("ground_truth", "alice", "symmetrisation")}
+    for key in ("bob", "charlie"):
+        out[key] = _strip_private(tx.get(key), role)
+    out["additional_verifications"] = [_strip_private(v, role) for v in tx.get("additional_verifications", [])
+                                       if v.get("verifier") in ("bob", "charlie")]
+    if "participants" in tx:
+        out["participants"] = [r for r in tx["participants"] if r.get("verifier") in ("bob", "charlie")]
+    if "events" in tx:
+        out["events"] = [e for e in tx["events"] if e.get("verifier") in ("bob", "charlie")]
+    return out
 
 
 async def security_event(kind: str, detail: str, request_path: str = "", client: str = ""):
@@ -198,6 +222,13 @@ class SignAndSendRequest(BaseModel):
     readout_p10: Optional[float] = 0.0
     readout_location: Optional[str] = "both"
     eta_loss: Optional[float] = 0.0
+    # Optional N-verifier extension (defaults keep the original Bob + Charlie workflow)
+    n_verifiers: Optional[int] = None
+    roster: Optional[List[str]] = None
+    delivery: str = "direct"
+    max_depth: Optional[int] = None
+    dishonest_verifier: Optional[str] = None
+    forward_alteration: str = "message"
 
 
 class ForwardRequest(BaseModel):
@@ -267,9 +298,10 @@ async def api_session(request: Request):
 
 
 # ---------------------------------------------------------- protocol API
-async def _run_and_publish(scenario: ThreatScenarioConfig, message: str, n_bits: int, sender: str, channel: Optional[ChannelModel] = None):
+async def _run_and_publish(scenario: ThreatScenarioConfig, message: str, n_bits: int, sender: str,
+                           channel: Optional[ChannelModel] = None, config: Optional[SessionConfig] = None):
     result = await asyncio.to_thread(qds_engine.execute_protocol, message_text=message, n_bits=n_bits,
-                                     sender=sender, scenario=scenario, channel=channel)
+                                     sender=sender, scenario=scenario, channel=channel, config=config)
     tx = result.to_dict()
     state.record(tx)
     await manager.broadcast_transmission(tx)
@@ -296,7 +328,14 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
     sender = SIGNER_IDENTITY["admin"]   # from the authenticated session, never from the client
     n_bits = max(8, min(64, req.n_bits))
     scenario = ThreatScenarioConfig(threat_type=t_type, tampered_message_text=req.tampered_text,
-                                    claimed_sender=sender)
+                                    claimed_sender=sender, dishonest_verifier=req.dishonest_verifier,
+                                    forward_alteration=req.forward_alteration)
+    try:   # unsupported combinations are configuration errors, reported before any evidence is prepared
+        config = SessionConfig.build(roster=req.roster, n_verifiers=req.n_verifiers, delivery=req.delivery,
+                                     max_depth=req.max_depth)
+        ThreatSuite.validate(scenario, config)
+    except ConfigurationError as e:
+        raise HTTPException(400, f"Configuration error: {e}")
 
     # Optional channel noise configuration
     channel = None
@@ -313,16 +352,19 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
     async with engine_lock:
         try:
             try:
-                published.append(await _run_and_publish(scenario, req.message_text, n_bits, sender, channel=channel))
+                published.append(await _run_and_publish(scenario, req.message_text, n_bits, sender, channel=channel,
+                                                        config=config))
             except NoPackageToReplay:
                 # Replay needs a genuinely accepted earlier package: send one honestly, then replay it.
-                published.append(await _run_and_publish(ThreatScenarioConfig(), req.message_text, n_bits, sender, channel=channel))
+                published.append(await _run_and_publish(ThreatScenarioConfig(), req.message_text, n_bits, sender,
+                                                        channel=channel, config=config))
                 if qds_engine.last_accepted_package is None:
                     return JSONResponse(status_code=409, content={
                         "status": "no_package", "transmissions": published,
                         "message": "The honest preamble was rejected (channel noise), so there is no accepted "
                                    "package to replay yet. Try again."})
-                published.append(await _run_and_publish(scenario, req.message_text, n_bits, sender, channel=channel))
+                published.append(await _run_and_publish(scenario, req.message_text, n_bits, sender, channel=channel,
+                                                        config=config))
         except ChannelQuarantined as q:
             return _refused(q, started_ns, {"transmissions": published})
     return {"status": "success", "transmission": published[-1], "transmissions": published, "stats": state.stats}
@@ -384,6 +426,26 @@ async def api_channel_reset(payload: Optional[Dict[str, str]] = Body(default=Non
     return {"status": "success", "channel_state": channel_state, "transitions": transitions,
             "reset_record": None if cert is None else {"payload_sha256": cert["payload_sha256"],
                                                         "chain_seq": cert["record"]["chain"]["seq"]}}
+
+
+@app.get("/api/roster")
+async def api_roster(session: Dict = Depends(require_role("admin"))):
+    """Enrolled identities and supported configuration limits of the N-verifier extension."""
+    return {**roster_limits(), "default": SessionConfig().to_dict(),
+            "scope": "Optional recipient-scaling extension: more pre-enrolled verifiers can independently "
+                     "authenticate one signer's message. It adds no security by itself, is not universal "
+                     "verification and is not multi-party approval; collusion is not covered."}
+
+
+@app.get("/api/sessions/{session_id}/events")
+async def api_session_events(session_id: str, session: Dict = Depends(require_role("admin"))):
+    """Durable event history of one session (admin only): roster, every verification event, parent links."""
+    stored = store.get_session(session_id)
+    events = qds_engine.ledger.events(session_id)
+    if stored is None and not events:
+        raise HTTPException(404, "Unknown session")
+    return {"session": stored, "events": events,
+            "note": "Audit history only: one-time quantum evidence is not recoverable for new verification."}
 
 
 @app.get("/api/channel")
