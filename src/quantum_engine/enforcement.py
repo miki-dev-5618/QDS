@@ -1,11 +1,22 @@
 """
-Quantum Circuit Breaker (QCB): per-link state machine and latency measurement.
+Quantum Circuit Breaker (QCB): per-scope state machine and latency measurement.
 
-Unit of isolation: a *logical link* - the signer's distribution/reveal path
-to its verifiers (``alice->verifiers``) or the verifier-to-verifier transfer
-path (``bob->charlie``). A weak alert (WATCH) affects only its own link, but
-once any link is QUARANTINED the breaker refuses every message on every link,
-genuine or not, until an administrator resets it.
+Units of isolation (scopes), each with its own independent state:
+  * ``alice->verifiers`` - signer scope: signer/session-level findings that are
+    not quantum-channel faults (external forgery, repudiation). Quarantine
+    blocks the signer's distribution and reveal.
+  * ``bob->charlie``     - pooled verifier-to-verifier classical forwarding.
+  * ``edge:<edge id>``   - one quantum-distribution edge of the active
+    topology. Moved ONLY by independent edge-monitoring probes
+    (``monitoring.py``) or by an admin action labelled as manual failure
+    injection; never by pooled end-to-end evidence.
+  * ``path:<e1>|<e2>|..`` - one end-to-end route. Pooled end-to-end channel
+    evidence of a session moves the scopes of the routes that session used;
+    it does not single out any edge on them.
+
+A quarantined scope refuses only the operations that need it: there is no
+implicit global stop. An explicit, separately logged emergency stop (admin)
+refuses everything until it is cleared.
 
 States and transitions (every transition is atomic under one lock, logged
 with actor, time, evidence id, old/new state and policy version, and
@@ -16,13 +27,18 @@ persisted when a Store is attached):
     OPEN/WATCH --strong--> QUARANTINED
     WATCH --window expires with no new alert--> OPEN
     QUARANTINED --admin reset--> RESET_PENDING
-    RESET_PENDING --one fully accepted transmission--> OPEN
+    RESET_PENDING --one fully accepted transmission / passing probe--> OPEN
     RESET_PENDING --any quantum-evidence alert--> QUARANTINED
 
 QUARANTINED refuses new transmissions. WATCH and RESET_PENDING carry traffic
-with an increased test-token budget (adaptive test allocation). Entering
-QUARANTINED allocates an incident id; the engine signs the incident record
-at that moment, not at first download.
+with an increased test-token budget (adaptive test allocation); a route
+through a WATCH scope is used only under an explicit fallback policy
+(``routing.py``). Entering QUARANTINED allocates an incident id; the engine
+signs the incident record at that moment, not at first download.
+
+Migration: link tables saved before scoped isolation existed are loaded
+unchanged (an active quarantine is never cleared) and labelled with their
+original pooled scope; no per-edge observation is invented for them.
 """
 import threading
 import time
@@ -34,16 +50,46 @@ from .policy import ResponseDecision, ResponsePolicy, fisher_combined_p
 
 LINK_SIGNER = "alice->verifiers"
 LINK_FORWARD = "bob->charlie"
+EMERGENCY = "*emergency-stop*"
+SCOPES_SCHEMA = "hedwig-scopes/1"
+LEGACY_NOTE = ("legacy pooled logical-link isolation (pre-routing); preserved by migration, "
+               "not attributed to any edge")
+
+
+def edge_scope(edge_id: str) -> str:
+    return f"edge:{edge_id}"
+
+
+def path_scope(edge_ids) -> str:
+    return "path:" + "|".join(edge_ids)
+
+
+def scope_kind(scope: str) -> str:
+    if scope.startswith("edge:"):
+        return "edge"
+    if scope.startswith("path:"):
+        return "path"
+    return {LINK_SIGNER: "signer", LINK_FORWARD: "forward"}.get(scope, "other")
 
 OPEN, WATCH, QUARANTINED, RESET_PENDING = "open", "watch", "quarantined", "reset_pending"
 CARRIES_TRAFFIC = {OPEN, WATCH, RESET_PENDING}
 
 
 class ChannelQuarantined(Exception):
-    def __init__(self, link: str, info: Dict[str, Any]):
-        super().__init__(f"Link {link} is quarantined")
+    """A required scope refuses traffic (HTTP 423)."""
+    status = "quarantined"
+
+    def __init__(self, link: str, info: Dict[str, Any], message: Optional[str] = None):
+        super().__init__(message or f"Scope {link} is quarantined")
         self.link = link
         self.info = info
+
+    def payload(self) -> Dict[str, Any]:
+        return {"status": self.status, "link": self.link, "detail": self.info, "message": str(self)}
+
+
+class EmergencyStop(ChannelQuarantined):
+    status = "emergency_stop"
 
 
 @dataclass
@@ -61,6 +107,7 @@ class LinkState:
     refused: int = 0
     watch_evidence: List[float] = field(default_factory=list)   # p-values of weak alerts in the window
     combined_p: Optional[float] = None                          # Fisher combination of watch_evidence
+    scope_note: Optional[str] = None                            # e.g. legacy pooled scope, manual injection
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
