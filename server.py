@@ -489,6 +489,7 @@ async def api_audit_verify(cert: Dict[str, Any]):
 async def api_audit_public_key():
     return {"keys": audit_authority.trusted_keys(), "public_key_pem": audit_authority.public_key_pem,
             "post_quantum": audit_authority.post_quantum, "pq_provider": pq_provider(),
+            "key_provider": audit_authority.provider.name,
             "note": "Ed25519 is classical. Certificates are post-quantum signed only when they also carry a "
                     "verifying ML-DSA-65 signature."}
 
@@ -505,7 +506,8 @@ async def api_metrics(session: Dict = Depends(require_role("admin"))):
     return {"latency": qds_engine.latency.to_dict(), "stats": state.stats,
             "channel_state": qds_engine.guard.to_dict(), "parameters": qds_engine.params.to_dict(),
             "policy": qds_engine.policy.to_dict(), "backend": qds_engine.backend.name,
-            "audit": {"post_quantum": audit_authority.post_quantum, "pq_provider": pq_provider()}}
+            "audit": {"post_quantum": audit_authority.post_quantum, "pq_provider": pq_provider(),
+                      "key_provider": audit_authority.provider.name}}
 
 
 @app.get("/api/security-events")
