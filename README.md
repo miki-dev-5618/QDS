@@ -246,6 +246,7 @@ HEDWIG implements **11 simulated threat scenarios** executed via `src/quantum_en
 | `eve_loss_exploit` | Eve blocks disturbed tokens simulating photon loss | Readout / Channel Loss Anomaly Detector | `WATCH` / `QUARANTINED` |
 | `eve_cloning` | Eve uses optimal quantum cloner (Universal / Phase) | Cloner fidelity bound violation | `QUARANTINED` |
 | `eve_partial_intercept`| Eve intercepts only a fraction of tokens ($5\%$) | Sequential Early Abort / Fisher's Escalation | `WATCH` $\to$ `QUARANTINED` |
+| `eve_collective` | Eve couples an ancilla to every token with the same controlled-Ry($\theta$) and measures the ancillas after basis announcement. **One concrete collective attack, not a proof against collective attacks in general.** | Dephasing of X-basis tokens raises test-token QBER (Tier 1). At $\theta=\pi/2$: Eve guesses 67.7% of bits, verifier mismatch 3.8%, detected in 59-65% of transmissions (`experiments/sweep_collective.py`) | `WATCH` / `QUARANTINED` when detected |
 
 ---
 
@@ -282,6 +283,7 @@ HEDWIG implements **11 simulated threat scenarios** executed via `src/quantum_en
 | `/api/audit-public-key` | `GET` | Public | Keyring endpoint with active and retired public keys |
 | `/api/audit/verify` | `POST` | Public | Independent verification of supplied Q-Cert certificate |
 | `/api/metrics` | `GET` | `admin` | Telemetry, latency statistics, and error counters |
+| `/results` | `GET` | Any | Experiment results page (ROC, ablations, baselines, tightness, hardware, manifest) read from `experiments/results/` |
 | `/ws/{role}` | `WebSocket` | Role-Specific | Full-duplex WebSocket stream for real-time console updates |
 
 ---
