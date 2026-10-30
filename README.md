@@ -380,3 +380,59 @@ In strict adherence to academic and engineering integrity:
 
 Developed by **Team ATHENA** for SIH 2026.  
 For complete beginner guidance, analogies, and viva preparation, read [FOR_DUMMIES.md](FOR_DUMMIES.md).
+
+---
+
+## 🐍 14. Python SDK — `hedwig-client` (Feature E55)
+
+> **Python SDK wrapping the REST API.**
+
+The `hedwig_client/` package lets you drive the HEDWIG server from any Python
+script or notebook without a browser.  Install it in editable mode alongside
+the server's dev dependencies:
+
+```powershell
+pip install -e ".[dev]"
+```
+
+### Quick Start
+
+```python
+from hedwig_client import HedwigClient, LinkQuarantinedError
+
+with HedwigClient("http://localhost:8000", "admin", "admin2026") as client:
+    client.login()
+    print(client.topology()["channel_state"])
+
+    try:
+        result = client.sign_and_send("Transfer £1 000 to account #42")
+        print(f"verdict={result.verdict}  qber={result.qber:.4f}")
+    except LinkQuarantinedError as exc:
+        print("Link quarantined —", exc.detail["link"])
+        client.reset_link(reason="SDK recovery")
+```
+
+### Methods
+
+| Method | Endpoint | Notes |
+|--------|----------|-------|
+| `login()` | `POST /api/login` | Stores session cookie automatically |
+| `sign_and_send(message, L, scenario, noise_profile)` | `POST /api/sign-and-send` | Returns `TransmissionResult` |
+| `get_audit(artifact_id)` | `GET /api/audit/{id}` | Returns `AuditCertificate` |
+| `reset_link(reason)` | `POST /api/channel/reset` | Returns raw server dict |
+| `topology()` | `GET /api/topology` | Returns raw server dict |
+
+### Exception Hierarchy
+
+```
+HedwigError
+├── AuthError          (HTTP 401 / 403)
+├── LinkQuarantinedError  (HTTP 423 — circuit breaker open; detail dict attached)
+└── APIError           (all other HTTP errors)
+```
+
+### Running the Tests
+
+```powershell
+pytest tests/test_sdk.py -v   # 16 tests using httpx.MockTransport — no server needed
+```

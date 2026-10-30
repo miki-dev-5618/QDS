@@ -591,3 +591,66 @@ Outputs land in `experiments/results/`: `raw.jsonl`, `summary.csv`, `manifest.js
 10. **Keep disclaimers.** Any new documentation or comment must not claim real physical security, information-theoretic guarantees beyond the stated model, or hardware results unless a hardware result file exists.
 
 11. **Minimal diffs.** Make the smallest coherent change. Avoid reformatting unrelated code, adding speculative features, or introducing new dependencies without explicit instruction.
+
+
+---
+
+## 14. Feature E55 — `hedwig-client` Python SDK
+
+### Purpose
+
+`hedwig_client/` is a **synchronous Python SDK** that wraps the HEDWIG REST
+API so external scripts and tools can drive the server without a browser.
+It does **not** change any server endpoint, response schema, or behaviour.
+
+### New Files (do not break existing tests when editing these)
+
+| File | Role |
+|---|---|
+| `hedwig_client/__init__.py` | Package root; re-exports `HedwigClient`, models, exceptions |
+| `hedwig_client/client.py` | `HedwigClient` — `login`, `sign_and_send`, `get_audit`, `reset_link`, `topology` |
+| `hedwig_client/models.py` | `@dataclass TransmissionResult`, `@dataclass AuditCertificate` |
+| `hedwig_client/exceptions.py` | `HedwigError` → `AuthError` / `LinkQuarantinedError` / `APIError` |
+| `pyproject.toml` | `setuptools.build_meta` build; `httpx>=0.24.0` dep; `pip install -e ".[dev]"` |
+| `examples/quickstart.py` | 10-line demo (needs server on `:8000`) |
+| `tests/test_sdk.py` | 16 pytest tests via `httpx.MockTransport` (no live server) |
+
+### Exception ↔ HTTP Status Mapping
+
+| HTTP Status | SDK Exception |
+|---|---|
+| 401 | `AuthError(401, message)` |
+| 403 | `AuthError(403, message)` |
+| 423 | `LinkQuarantinedError(detail_dict)` |
+| other 4xx/5xx | `APIError(status, message)` |
+
+### `HedwigClient` Method ↔ Endpoint Mapping
+
+| Method | HTTP call | Auth required |
+|---|---|---|
+| `login()` | `POST /api/login` | None |
+| `sign_and_send(message, L, scenario, noise_profile)` | `POST /api/sign-and-send` | `admin` |
+| `get_audit(artifact_id)` | `GET /api/audit/{artifact_id}` | any |
+| `reset_link(reason)` | `POST /api/channel/reset` | `admin` |
+| `topology()` | `GET /api/topology` | any |
+
+### Key Design Rules for AI Agents
+
+- **Never change server endpoints or response shapes** to accommodate the SDK.
+  Map the existing JSON to `TransmissionResult.from_api()` / `AuditCertificate.from_api()`.
+- The `httpx.Client` in `HedwigClient.session` carries cookies automatically;
+  do not manage cookies manually.
+- `LinkQuarantinedError.detail` holds the **full** server JSON for 423 responses
+  (includes `link`, `refusal_us`, etc.).
+- `TransmissionResult.raw` preserves the complete server payload for callers
+  that need fields not surfaced by the dataclass.
+- All SDK tests use `httpx.MockTransport`; they do **not** import `server.py`
+  or any quantum-engine module. Keep it that way.
+
+### Demo Commands
+
+```powershell
+pip install -e ".[dev]"              # install SDK + dev deps
+python examples/quickstart.py        # requires server running on :8000
+pytest tests/test_sdk.py -v          # 16 tests, no live server needed
+```

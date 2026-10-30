@@ -368,3 +368,94 @@ When adding features or modifying code in HEDWIG, follow these guidelines:
 
 *HEDWIG V2.2 — Developed by Team ATHENA for SIH 2026.*  
 *Back to Technical Documentation: [README.md](README.md)*
+
+
+---
+
+## 16. The `hedwig-client` Python SDK — Control HEDWIG from a Script 🐍
+
+Until now everything required you to open a browser and click buttons. The
+**`hedwig-client` SDK** lets you write Python scripts that talk directly to the
+HEDWIG server — great for automated tests, demos, or running batch experiments.
+
+### How to Install It
+
+Make sure the server's virtual environment is active, then run this once:
+
+```powershell
+pip install -e ".[dev]"
+```
+
+### What Each File Does
+
+| File | What it is |
+|------|-----------|
+| `hedwig_client/client.py` | The main `HedwigClient` class — like a remote control for the server |
+| `hedwig_client/models.py` | Friendly data containers (`TransmissionResult`, `AuditCertificate`) |
+| `hedwig_client/exceptions.py` | Custom error types so you can catch specific problems |
+| `examples/quickstart.py` | A ready-to-run 10-line demo script |
+| `tests/test_sdk.py` | Automated tests that check the SDK works (no server needed) |
+
+### Everyday Analogy
+
+Think of `HedwigClient` like a **TV remote control**:
+- The remote (SDK) sends button presses (HTTP requests) to the TV (server).
+- You press **Play** (`sign_and_send`) and the TV does all the quantum work.
+- If the TV's child-lock trips (circuit breaker quarantine), the remote throws
+  a `LinkQuarantinedError` — your code catches it and calls `reset_link()`.
+
+### A Complete Example
+
+```python
+from hedwig_client import HedwigClient, LinkQuarantinedError
+
+# 1. Create the remote control pointed at your server
+client = HedwigClient("http://localhost:8000", "admin", "admin2026")
+
+# 2. Log in (this sets the session cookie automatically — no manual tokens!)
+client.login()
+
+# 3. Check the network topology
+topo = client.topology()
+print("Channel state:", topo["channel_state"])
+
+# 4. Sign and send a message — catch quarantine errors gracefully
+try:
+    result = client.sign_and_send("Hello from the SDK!")
+    print(f"Verdict: {result.verdict}, QBER: {result.qber:.4f}")
+except LinkQuarantinedError as err:
+    print("Circuit breaker tripped! Resetting...")
+    client.reset_link(reason="SDK demo recovery")
+    print("Done — try again after one honest transmission.")
+```
+
+> **Important:** The server must already be running (`python server.py`) before
+> you run any SDK script. If it is not running you will see:
+> `httpx.ConnectError: [WinError 10061] No connection could be made` — that
+> simply means "the TV is off, turn it on first."
+
+### Error Types — What Can Go Wrong?
+
+| Error | What it means | Fix |
+|-------|--------------|-----|
+| `AuthError` | Wrong username/password, or session expired | Call `login()` again |
+| `LinkQuarantinedError` | Circuit breaker is open (HTTP 423) | Call `reset_link()`, then retry |
+| `APIError` | Any other server problem | Check the `.status_code` and `.message` |
+| `httpx.ConnectError` | Server is not running | Start the server first! |
+
+### Running the SDK Tests (No Server Needed!)
+
+The SDK tests use a clever trick called a **mock transport** — they pretend to
+be a server and check that the SDK handles responses correctly, all without
+starting any real server:
+
+```powershell
+pytest tests/test_sdk.py -v
+```
+
+You should see 16 tests all marked `PASSED`.
+
+---
+
+*HEDWIG V2.2 — Developed by Team ATHENA for SIH 2026.*  
+*Back to Technical Documentation: [README.md](README.md)*
