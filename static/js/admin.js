@@ -70,6 +70,14 @@ function setArmedThreatUI(threatType) {
   const tamperedGroup = document.getElementById('tamperedGroup');
   if (tamperedGroup) tamperedGroup.style.display = threatType === 'message_tampering' ? 'block' : 'none';
   document.getElementById('attackEdgeGroup').style.display = threatType === 'eve_intercept' ? 'block' : 'none';
+  const cloningControls = document.getElementById('cloningControls');
+  if (cloningControls) cloningControls.style.display = threatType === 'eve_cloning' ? 'flex' : 'none';
+  const partialInterceptControls = document.getElementById('partialInterceptControls');
+  if (partialInterceptControls) partialInterceptControls.style.display = threatType === 'eve_partial_intercept' ? 'flex' : 'none';
+  const collectiveControls = document.getElementById('collectiveControls');
+  if (collectiveControls) collectiveControls.style.display = threatType === 'eve_collective' ? 'flex' : 'none';
+  const nhop = document.getElementById('nhopScenarios');
+  if (nhop && nhop.querySelector(`.threat-card[data-threat="${threatType}"]`)) nhop.open = true;
   updateForwarderControls();
   const badge = document.getElementById('activeThreatBadge');
   if (badge) {
@@ -220,6 +228,48 @@ function initComposer() {
   bitSelect.addEventListener('change', () => renderPreview(parseInt(bitSelect.value), null));
   initHashPreview();
 
+  const cloningRateRange = document.getElementById('cloningRateRange');
+  const cloningRateLabel = document.getElementById('cloningRateLabel');
+  if (cloningRateRange && cloningRateLabel) {
+    cloningRateRange.addEventListener('input', () => {
+      cloningRateLabel.textContent = `${Math.round(parseFloat(cloningRateRange.value) * 100)}%`;
+    });
+  }
+
+  const partialInterceptRange = document.getElementById('partialInterceptRange');
+  const partialInterceptLabel = document.getElementById('partialInterceptLabel');
+  if (partialInterceptRange && partialInterceptLabel) {
+    partialInterceptRange.addEventListener('input', () => {
+      partialInterceptLabel.textContent = `${Math.round(parseFloat(partialInterceptRange.value) * 100)}%`;
+    });
+  }
+
+  const collectiveThetaRange = document.getElementById('collectiveThetaRange');
+  const collectiveThetaLabel = document.getElementById('collectiveThetaLabel');
+  function formatTheta(val, preset) {
+    const deg = (val * 180 / Math.PI).toFixed(1);
+    const radStr = val.toFixed(3);
+    return preset ? `${radStr} rad (${deg}°) [${preset}]` : `${radStr} rad (${deg}°)`;
+  }
+  const MIN_THETA = Math.PI / 6; // 30° ≈ 0.5236 rad
+  window.setThetaPreset = (val, label) => {
+    if (collectiveThetaRange && collectiveThetaLabel) {
+      const clamped = Math.max(MIN_THETA, val);
+      collectiveThetaRange.value = clamped.toFixed(4);
+      collectiveThetaLabel.textContent = formatTheta(clamped, label);
+    }
+  };
+  if (collectiveThetaRange && collectiveThetaLabel) {
+    collectiveThetaRange.addEventListener('input', () => {
+      let val = parseFloat(collectiveThetaRange.value) || MIN_THETA;
+      if (val < MIN_THETA) {
+        val = MIN_THETA;
+        collectiveThetaRange.value = val.toFixed(4);
+      }
+      collectiveThetaLabel.textContent = formatTheta(val);
+    });
+  }
+
   const noiseProfileSelect = document.getElementById('noiseProfileSelect');
   const readoutControls = document.getElementById('readoutControls');
   if (noiseProfileSelect && readoutControls) {
@@ -249,6 +299,20 @@ function initComposer() {
         ...recipientPayload(),
       };
       if (currentThreat === 'eve_intercept') payload.attack_edge = document.getElementById('attackEdge').value || null;
+      if (currentThreat === 'eve_cloning') {
+        const clonerElem = document.getElementById('clonerTypeSelect');
+        const rateElem = document.getElementById('cloningRateRange');
+        payload.cloner_type = clonerElem ? clonerElem.value : 'universal';
+        payload.cloning_rate = rateElem ? parseFloat(rateElem.value) || 1.0 : 1.0;
+      }
+      if (currentThreat === 'eve_partial_intercept') {
+        const fractionElem = document.getElementById('partialInterceptRange');
+        payload.partial_intercept_fraction = fractionElem ? parseFloat(fractionElem.value) || 0.05 : 0.05;
+      }
+      if (currentThreat === 'eve_collective') {
+        const thetaElem = document.getElementById('collectiveThetaRange');
+        payload.collective_theta = thetaElem ? parseFloat(thetaElem.value) || 0.7854 : 0.7854;
+      }
       if (isReadout) {
         payload.readout_location = locElem ? locElem.value : 'both';
         payload.readout_p01 = p01Elem ? parseFloat(p01Elem.value) || 0.0 : 0.0;

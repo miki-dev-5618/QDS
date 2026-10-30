@@ -1,5 +1,6 @@
 import asyncio
 import json
+import math
 import os
 import sys
 import time
@@ -260,6 +261,10 @@ class SignAndSendRequest(BaseModel):
     dishonest_verifier: Optional[str] = None
     forward_alteration: str = "message"
     attack_edge: Optional[str] = None   # eve_intercept: which quantum link Eve taps
+    cloner_type: Optional[str] = "universal"            # eve_cloning
+    cloning_rate: Optional[float] = 1.0                 # eve_cloning
+    partial_intercept_fraction: Optional[float] = 0.05  # eve_partial_intercept
+    collective_theta: Optional[float] = None            # eve_collective (default pi/4)
 
 
 class ForwardRequest(BaseModel):
@@ -359,7 +364,13 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
     n_bits = max(8, min(64, req.n_bits))
     scenario = ThreatScenarioConfig(threat_type=t_type, tampered_message_text=req.tampered_text,
                                     claimed_sender=sender, dishonest_verifier=req.dishonest_verifier,
-                                    forward_alteration=req.forward_alteration, attack_edge=req.attack_edge)
+                                    forward_alteration=req.forward_alteration, attack_edge=req.attack_edge,
+                                    cloner_type=req.cloner_type or "universal",
+                                    cloning_rate=float(req.cloning_rate if req.cloning_rate is not None else 1.0),
+                                    partial_intercept_fraction=float(req.partial_intercept_fraction
+                                                                     if req.partial_intercept_fraction is not None else 0.05),
+                                    collective_theta=(float(req.collective_theta) if req.collective_theta is not None
+                                                      else math.pi / 4))
     try:   # unsupported combinations are configuration errors, reported before any evidence is prepared
         config = SessionConfig.build(roster=req.roster, n_verifiers=req.n_verifiers, delivery=req.delivery,
                                      max_depth=req.max_depth)

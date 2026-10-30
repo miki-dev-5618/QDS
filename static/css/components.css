@@ -113,6 +113,22 @@
 }
 
 .threat-name .icon { color: var(--danger-ink); margin-top: 2px; }
+
+/* Light marker for scenarios that only exist with the N-verifier / multi-hop forwarding extension */
+.scope-tag {
+  flex: none;
+  align-self: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  opacity: 0.85;
+}
 .threat-card.authentic .threat-name .icon { color: var(--primary); }
 
 .threat-check {
@@ -1096,3 +1112,24 @@
 .flow-seg.located { height: 5px; --seg: var(--danger-ink); }
 .flow-seg.located::before { background: repeating-linear-gradient(90deg, var(--danger-ink) 0 6px, transparent 6px 9px); }
 .flow-seg.located + .flow-node, .flow-node:has(+ .flow-seg.located) { border-color: var(--danger-line); }
+
+/* N-hop test scenarios: forwarding attacks grouped in a collapsible section */
+.nhop-scenarios {
+  margin: var(--space-2) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+.nhop-scenarios > summary {
+  cursor: pointer;
+  padding: 8px var(--space-3);
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  list-style-position: inside;
+}
+.nhop-scenarios > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.nhop-scenarios[open] > summary { border-bottom: 1px solid var(--line); }
+.nhop-scenarios > .section-note, .nhop-scenarios > .threat-grid { margin: var(--space-2) var(--space-3); }

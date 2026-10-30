@@ -20,6 +20,8 @@ def hop_jobs(slot, edges, event, channel, injections, rng):
                 phase_damping_gamma=channel.phase_damping_gamma, damping_target=channel.damping_target,
                 readout_p01=channel.readout_p01, readout_p10=channel.readout_p10,
                 readout_location=channel.readout_location,
+                cloner_type=(channel.cloner_type if (channel.noise_profile == "cloning" or channel.cloning_rate > 0.0)
+                             and rng.random() < channel.cloning_rate else None),
                 is_lost=job.is_lost or rng.random() < channel.eta_loss)
         else:
             job = replace(job, extra_paulis=tuple(p for p in (attack_event[1],) if p))
