@@ -232,18 +232,37 @@ graph TD
    ```
    Open your browser to: **`http://localhost:8000`**
 
-### 5.3 Docker & Docker Compose Deployment (Optional)
-To deploy the application stack using Docker:
-- **Full Bundle (App + PostgreSQL 15):** compose sets `HEDWIG_DATABASE_URL=postgresql://…@db:5432/hedwig`; remove it to fall back to SQLite.
-  ```bash
-  docker compose up --build
-  ```
-- **Single Container (App with SQLite persistence):**
-  ```bash
-  docker build -t hedwig .
-  docker run -p 8000:8000 -v hedwig_data:/app/data hedwig
-  ```
-The image runs securely as non-root (`uid: 10001`), packages post-quantum signatures (`dilithium-py`), and includes automatic HTTP container healthchecks on `/health`.
+### 5.3 Docker (Optional)
+
+**Build & run (single container, SQLite):**
+```bash
+docker build -t hedwig .                                   # add --build-arg INSTALL_PQ=false to skip dilithium-py
+docker run -p 8000:8000 -v hedwig_data:/app/data hedwig
+```
+
+**Compose (App + PostgreSQL 15):**
+```bash
+docker compose up --build                                  # http://localhost:8000
+```
+
+| Item | Value |
+| :--- | :--- |
+| Base image | `python:3.11-slim` (`runtime.txt`: `python-3.11.10`) |
+| Start command | `uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}`: one process, one worker |
+| Port | `8000` (`EXPOSE 8000`, `PORT=8000`); compose host port `HEDWIG_PORT` (default 8000) |
+| Healthcheck | `GET /health` every 30 s (unauthenticated) |
+| Volumes | `/app/data` holds `hedwig.db` and `audit_ed25519.pem` (compose: `appdata`); compose `pgdata` holds Postgres data |
+| Compose env | `HEDWIG_DATABASE_URL` (Postgres; remove it to use SQLite), `HEDWIG_BACKEND` (default `qiskit`), `HEDWIG_POSTGRES_PASSWORD` (default `hedwig`), `HEDWIG_DB_PORT` (default 5432) |
+| Build arg | `INSTALL_PQ=true` installs `requirements-pq.txt`; `requirements-hsm.txt` is **not** installed |
+
+**Security notes**
+- Runs as non-root `hedwig` (uid/gid 10001); only `/app/data` is writable.
+- `.dockerignore` keeps `data/`, `.env`, `.git`, `tests/`, `experiments/results/` and `*.md` out of the image, so the `/results` page is empty inside the container.
+- **Keep `/app/data` on a volume.** The audit key must persist (otherwise old certificates verify only against a lost key) and must never be committed or baked into an image.
+- Compose is a **local demo**: weak default DB password, Postgres published on the host, and demo logins unless you mount a users file and set `HEDWIG_USERS_FILE`.
+- Do not scale to multiple workers or replicas: the engine, sessions and circuit-breaker guards are in-process.
+
+**Other deploy targets:** `Procfile` (`web: uvicorn server:app --host 0.0.0.0 --port $PORT`). `render.yaml` is currently empty.
 
 ### 5.4 Hardware Security Module / SoftHSM2 (Optional)
 By default (`HEDWIG_KEY_PROVIDER=software`), Ed25519 and ML-DSA-65 keys reside in `data/`. For PKCS#11 hardware token or software emulator (SoftHSM2) signing:
@@ -280,7 +299,7 @@ Set the environment variable: `HEDWIG_USERS_FILE=users.json`.
 
 ## 🛡️ 7. Threat Catalog & Detection Mechanics
 
-HEDWIG implements **11 simulated threat scenarios** executed via `src/quantum_engine/threats.py`:
+`ThreatType` in `src/quantum_engine/threats.py` defines **17 scenarios**: the `authentic` baseline, **11 core attacks** (table below) and **5 N-verifier forwarding attacks** (§8.1). Multi-hop routing (§8.2) has no scenario of its own; `eve_intercept` can target a single quantum edge via `attack_edge`, and admins can inject edge faults through `/api/routing/fault`.
 
 | Threat Type | Mechanism | Detection Layer | Action |
 | :--- | :--- | :--- | :--- |
@@ -304,7 +323,7 @@ HEDWIG implements **11 simulated threat scenarios** executed via `src/quantum_en
 | Variable | Default | Options | Description |
 | :--- | :--- | :--- | :--- |
 | `PORT` | `8000` | Integer | HTTP web server port |
-| `HOST` | `0.0.0.0` | IP string | Bind host address |
+| `HOST` | `0.0.0.0` | IP string | Bind host address (`python server.py` only; Docker/Procfile hard-code `0.0.0.0`) |
 | `HEDWIG_BACKEND` | `qiskit` | `qiskit`, `statevector` | Quantum simulation engine |
 | `HEDWIG_DB` | `data/hedwig.db` | Path | SQLite persistent database path |
 | `HEDWIG_DATABASE_URL` | None | `postgresql://…` | Use PostgreSQL instead of SQLite (set by `docker-compose.yml`) |
@@ -389,14 +408,18 @@ Full design notes: [MULTI_HOP_ROUTING_IMPLEMENTATION.md](MULTI_HOP_ROUTING_IMPLE
 | Endpoint | Method | Role | Description |
 | :--- | :--- | :--- | :--- |
 | `/api/login` | `POST` | Public | Authenticates credentials and sets role session cookie |
-| `/api/logout` | `POST` | Public | Revokes session token and deletes cookie |
-| `/api/sign-and-send` | `POST` | `admin` | Executes token prep, teleportation, commitment, and verification |
+| `/api/logout?role=` | `POST` | Public | Revokes that role's session token and deletes its cookie |
+| `/api/sign-and-send` | `POST` | `admin` | Executes token prep, teleportation, commitment, and verification (400 bad config, 409 replay preamble rejected, 422 bad noise profile, 423 quarantined) |
+| `/api/noise-profiles` | `GET` | Authenticated | Noise profile catalogue and default channel |
+| `/api/arm-threat` | `POST` | `admin` | Sets active threat for the UI |
+| `/api/verification/{tx_id}/{verifier}` | `GET` | That verifier | A verifier's own result |
 | `/api/dishonest-bob-forward` | `POST` | `bob` | Triggers dishonest Bob forwarding attack to Charlie |
 | `/api/channel/reset` | `POST` | `admin` | Resets quarantined link to probation (Requires reason) |
-| `/api/channel` | `GET` | Any | Returns current Quantum Circuit Breaker status |
-| `/api/topology` | `GET` | Any | Returns simulated quantum router and network topology |
-| `/api/history` | `GET` | Any | Returns recent transmission records (scrubbed of ground-truth) |
-| `/api/audit/{artifact_id}` | `GET` | Any | Downloads signed Q-Cert certificate JSON |
+| `/api/channel` | `GET` | Authenticated | Returns current Quantum Circuit Breaker status |
+| `/api/topology` | `GET` | Authenticated | Topology, edge states, monitoring freshness (router detail admin-only) |
+| `/api/history` | `GET` | Authenticated | Last 50 transmissions (role-filtered; no ground truth for verifiers) |
+| `/api/audit/{artifact_id}` | `GET` | Authenticated | Signed Q-Cert JSON (evidence only for admin; routing/fault records admin-only) |
+| `/api/incidents` | `GET` | Authenticated | Last 50 incident certificates |
 | `/api/audit/chain` | `GET` | `admin` | Retrieves entire SHA-256 hash chain and validation report |
 | `/api/audit-public-key` | `GET` | Public | Keyring endpoint with active and retired public keys |
 | `/api/audit/verify` | `POST` | Public | Independent verification of supplied Q-Cert certificate |
@@ -409,8 +432,11 @@ Full design notes: [MULTI_HOP_ROUTING_IMPLEMENTATION.md](MULTI_HOP_ROUTING_IMPLE
 | `/api/routing/fault` | `POST` | `admin` | Inject/clear an edge attack or set manual WATCH/QUARANTINED |
 | `/api/routing/probe` | `POST` | `admin` | Independent edge probe |
 | `/api/routing/emergency` | `POST` | `admin` | Toggle emergency stop |
+| `/api/routing/preview` | `POST` | `admin` | Preview route allocation for a roster |
+| `/api/routing/demo` | `POST` | `admin` | Run the signed failover self-test |
+| `/admin/routing` | `GET` | `admin` | Routing dashboard page |
 | `/health` | `GET` | Public | Liveness check |
-| `/results` | `GET` | Any | Experiment results page (ROC, ablations, baselines, tightness, hardware, manifest) read from `experiments/results/` |
+| `/results` | `GET` | Authenticated | Experiment results page (ROC, ablations, baselines, tightness, hardware, manifest) read from `experiments/results/` |
 | `/ws/{role}` | `WebSocket` | Role-Specific | Full-duplex WebSocket stream for real-time console updates |
 
 ---
@@ -493,20 +519,21 @@ In strict adherence to academic and engineering integrity:
 
 ## 👥 13. Team & Attribution
 
-Developed by **Team ATHENA** for SIH 2026.  
+Developed by **Team ATHENA** for **Smart India Hackathon (SIH) 2026** and **QHack**.  
 For complete beginner guidance, analogies, and viva preparation, read [docs/FOR_DUMMIES.md](docs/FOR_DUMMIES.md).
 
 ---
 
 ## 🐍 14. Python SDK — `hedwig-client` (Feature E55)
 
-The `hedwig_client/` package lets you drive the HEDWIG server from any Python
-script or notebook without a browser.  Install it in editable mode alongside
-the server's dev dependencies:
+The `hedwig_client/` package (`hedwig-client` 0.1.0, Python ≥ 3.11, depends only on `httpx>=0.24.0`) is a **synchronous** client that drives the server from scripts or notebooks. The server stays the source of truth: the SDK uses normal role cookies and receives the same role-filtered responses (no `ground_truth` unless logged in as admin).
 
-```powershell
-pip install -e ".[dev]"
+```bash
+pip install -e .           # SDK only
+pip install -e ".[dev]"    # + pytest, pytest-asyncio, fastapi[standard]
 ```
+
+Use real credentials (demo admin: `admin` / `admin2026`). `sign_and_send` and `reset_link` need the **admin** role. `scenario` takes `ThreatType` values (e.g. `eve_intercept`, `eve_cloning`, `replay`); `L` maps to `n_bits` (server clamps it to 8–64; SDK default 16, server default 32). There is no WebSocket or async support.
 
 ### Quick Start
 
@@ -530,7 +557,7 @@ with HedwigClient("http://localhost:8000", "admin", "admin2026") as client:
 | Method | Endpoint | Notes |
 |--------|----------|-------|
 | `login()` | `POST /api/login` | Stores session cookie automatically |
-| `sign_and_send(message, L, scenario, noise_profile)` | `POST /api/sign-and-send` | Returns `TransmissionResult` |
+| `sign_and_send(message, L=16, scenario="authentic", noise_profile=None)` | `POST /api/sign-and-send` | `noise_profile` is a dict merged into the request body (e.g. `{"noise_profile": "readout", "readout_p01": 0.02}`); returns `TransmissionResult` (`.raw` keeps the full payload) |
 | `get_audit(artifact_id)` | `GET /api/audit/{id}` | Returns `AuditCertificate` |
 | `reset_link(reason)` | `POST /api/channel/reset` | Returns raw server dict |
 | `topology()` | `GET /api/topology` | Returns raw server dict |
@@ -540,9 +567,11 @@ with HedwigClient("http://localhost:8000", "admin", "admin2026") as client:
 ```
 HedwigError
 ├── AuthError          (HTTP 401 / 403)
-├── LinkQuarantinedError  (HTTP 423 — circuit breaker open; detail dict attached)
+├── LinkQuarantinedError  (HTTP 423 — link/route quarantined; full server body in .detail)
 └── APIError           (all other HTTP errors)
 ```
+
+Not wrapped by the SDK (use `client.session`, an `httpx.Client`, directly): logout, history, channel, audit chain/verify/keys, metrics, N-verifier and routing endpoints, dishonest-Bob forward.
 
 ### Running the Tests
 

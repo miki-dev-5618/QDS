@@ -21,7 +21,7 @@
 ## 1. Project Overview
 
 **HEDWIG V2.2** is a **simulated** three-party Quantum Digital Signature (QDS)
-platform built as a Smart-India Hackathon 2026 submission by Team ATHENA.
+platform built by Team ATHENA for **Smart India Hackathon (SIH) 2026** and **QHack**.
 
 It is **entirely a classical-computer simulation**. It uses Qiskit Aer / NumPy
 statevectors to model teleportation circuits, quantum noise, and eavesdropping.
@@ -39,7 +39,7 @@ No real quantum hardware is involved.
 | Adaptive test-token allocation (C2) | `src/quantum_engine/security.py`, `thresholds.py` |
 | Exact binomial threshold calculations (C1) | `src/quantum_engine/thresholds.py`, `verifier.py` |
 | Precommitted reserve evidence stage | `src/quantum_engine/binding.py`, `verifier.py` |
-| 11 simulated attack injectors (ThreatSuite) | `src/quantum_engine/threats.py` |
+| 17 `ThreatType` scenarios: `authentic` + 11 core attacks + 5 N-verifier forwarding attacks (ThreatSuite). Routing reuses `eve_intercept` with `attack_edge`; it has no extra type | `src/quantum_engine/threats.py` |
 | Quantum Circuit Breaker (OPEN/WATCH/QUARANTINED/RESET_PENDING) | `src/quantum_engine/enforcement.py` |
 | Fisher combined p-value escalation | `src/quantum_engine/policy.py` |
 | Hybrid Ed25519 + ML-DSA-65 Q-Cert audit ledger | `src/quantum_engine/audit.py`, `signers.py` |
@@ -402,7 +402,7 @@ Top-level result of one protocol run. `to_dict()` produces the transmission JSON
 | Variable | Default | Effect |
 |---|---|---|
 | `PORT` | `8000` | HTTP server port |
-| `HOST` | `0.0.0.0` | Bind address |
+| `HOST` | `0.0.0.0` | Bind address — read only by `python server.py` (`__main__`); Docker CMD and Procfile hard-code `0.0.0.0` |
 | `HEDWIG_BACKEND` | `qiskit` | Simulation backend: `qiskit` or `statevector` |
 | `HEDWIG_DB` | `data/hedwig.db` | SQLite database path |
 | `HEDWIG_DATABASE_URL` | (none) | `postgresql://…` selects PostgreSQL in `store.py` (set by docker-compose) |
@@ -420,6 +420,8 @@ Top-level result of one protocol run. `to_dict()` produces the transmission JSON
 | `HEDWIG_NOISE_PROFILE` | (none) | Force default channel: `ibm_fake`, `lossy` |
 | `HEDWIG_IBM_MODE` | (none) | IBM channel mode: `calibrated` or `full` |
 | `HEDWIG_ETA_LOSS` | `0.1` | Loss fraction when `HEDWIG_NOISE_PROFILE=lossy` |
+| `HEDWIG_PORT`, `HEDWIG_POSTGRES_PASSWORD`, `HEDWIG_DB_PORT` | `8000`, `hedwig`, `5432` | docker-compose substitution only (host app port, Postgres password, host Postgres port); not read by Python |
+| `INSTALL_PQ` (build arg) | `true` | Dockerfile: install `requirements-pq.txt` |
 | `IBM_QUANTUM_TOKEN` / `IBM_QUANTUM_CHANNEL` | (none) / `ibm_quantum_platform` | Hardware benchmark scripts only; never hardcode the token |
 
 ---
@@ -435,7 +437,12 @@ Top-level result of one protocol run. `to_dict()` produces the transmission JSON
 | `GET` | `/bob` | bob | Bob console |
 | `GET` | `/charlie` | charlie | Charlie console |
 | `POST` | `/api/login` | None | Returns role cookie |
-| `POST` | `/api/logout` | None | Deletes role cookie |
+| `POST` | `/api/logout?role=` | None | Deletes that role's cookie (400 on unknown role) |
+| `GET` | `/admin/routing` | admin | Routing dashboard (`routing.html`) |
+| `GET` | `/results/files/{step}/{name}` | any | Result file download (path-traversal guarded) |
+| `GET` | `/api/noise-profiles` | any | Noise profile catalogue + default channel |
+| `POST` | `/api/routing/preview` | admin | Route allocation preview for a roster |
+| `POST` | `/api/routing/demo` | admin | Failover self-test (`routing_demo.py`); signed `routing_self_test` record |
 | `GET` | `/api/session` | None | Active usernames per role |
 | `POST` | `/api/sign-and-send` | admin | Runs full QDS protocol |
 | `POST` | `/api/dishonest-bob-forward` | bob | Simulates dishonest Bob forgery |
@@ -491,6 +498,22 @@ python server.py
 # Windows one-click launcher:
 run_v2.bat
 ```
+
+### Deployment (verified against `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `Procfile`, `runtime.txt`)
+
+| Aspect | Fact |
+|---|---|
+| Base image / Python | `python:3.11-slim`; `runtime.txt` = `python-3.11.10` (consistent at 3.11) |
+| Install | `requirements.txt` (includes unpinned `psycopg[binary]`) + `requirements-pq.txt` when `INSTALL_PQ=true` (default). `requirements-hsm.txt` NOT installed → SoftHSM unavailable in image |
+| User | non-root `hedwig` uid/gid 10001; only `/app/data` chowned/writable |
+| Start | `exec uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}` (PID 1, single worker). Procfile: `uvicorn server:app --host 0.0.0.0 --port $PORT`. Local: `python server.py` (reads `HOST`/`PORT`) |
+| Port | `EXPOSE 8000`, `ENV PORT=8000` |
+| Healthcheck | Python `urllib` GET `http://127.0.0.1:$PORT/health`, 30 s interval, 60 s start period |
+| Volumes | compose `appdata:/app/data` (SQLite + `audit_ed25519.pem` = defaults of `HEDWIG_DB`/`HEDWIG_AUDIT_KEY`); `pgdata` for Postgres. Named volume chosen so uid 10001 can write on any host |
+| Compose | `app` + `postgres:15` `db` with `pg_isready` healthcheck; app sets `HEDWIG_DATABASE_URL` and waits for `service_healthy` |
+| `.dockerignore` | excludes `.git`, `.github`, venvs, caches, `data/`, `.env`, `*.log`, Dockerfile/compose files, `experiments/results/`, `tests/`, `*.md`. `users.json` IS copied. `*.pem`/`*.db` are only excluded via `data/` |
+| Render | `render.yaml` exists but is **empty** |
+| CI | No `.github/workflows` verified |
 
 ### Running Tests
 
@@ -606,6 +629,11 @@ Outputs land in `experiments/results/`: `raw.jsonl`, `summary.csv`, `manifest.js
 | **`canonical.py` must be stable** | `canonical_json()` is the basis for all signatures and hash chains. Do not change its output format for any existing field. |
 | **`HEDWIG_USERS_FILE` not set** | Server logs a warning and uses demo credentials. Do not expose beyond localhost without it. |
 | **`data/` files must not be committed** | `hedwig.db` and `audit_ed25519.pem` are auto-generated and excluded by `.gitignore`. |
+| **Docker: persist `/app/data`** | Without a volume the audit key is regenerated per container and old certificates can't be checked against the active key. Never bake keys/DB into the image or commit them. |
+| **Docker: `/results` empty in container** | `.dockerignore` excludes `experiments/results/`. |
+| **Compose is demo-grade** | Default DB password `hedwig`; Postgres port published on the host (comment says "localhost only" but mapping isn't bound to 127.0.0.1); demo logins unless `HEDWIG_USERS_FILE` is set. |
+| **`dilithium-py` in image is demo-only** | Installed by default (`INSTALL_PQ=true`); not side-channel hardened. |
+| **Possible bug: `make_lossy_channel`** | `server.py` calls it in `/api/sign-and-send` (lossy fallback) but it is not in the server's import list; `noise_profile="lossy"` without `noise_param` may raise `NameError`. Unverified (no tests run). |
 | **One Uvicorn worker only** | Live guards, hidden experimental attacks and quantum evidence are process-local; SQLite/Postgres durability gives no cross-process coordination. |
 | **`INVALID_TRANSFER` is classical-only** | Like replay/impersonation, it must never lock a link (anyone can trigger it). |
 | **No edge attribution from end-to-end evidence** | Only independent probes (`monitoring.py`) restrict individual edges; session evidence restricts recorded paths. Migration never fabricates edge attribution. |
@@ -679,9 +707,32 @@ It does **not** change any server endpoint, response schema, or behaviour.
 | `reset_link(reason)` | `POST /api/channel/reset` | `admin` |
 | `topology()` | `GET /api/topology` | any |
 
+### Package metadata (`pyproject.toml`)
+
+`hedwig-client` **0.1.0**, `requires-python >=3.11`, deps `httpx>=0.24.0`; extra `dev` = `pytest>=8.0`, `pytest-asyncio>=0.23`, `fastapi[standard]>=0.111`, `httpx>=0.24.0`. Ships `py.typed`. No WebSocket/async client.
+
+### SDK ↔ server cross-check (verified in `server.py`)
+
+| SDK call | Server behaviour |
+|---|---|
+| `login()` → `{username,password}` | 401 on bad creds; sets `hedwig_<role>` HttpOnly SameSite=Strict cookie |
+| `sign_and_send` → `{message_text, n_bits=L, threat_type=scenario, **noise_profile}` | admin only (401/403); 400 unknown `threat_type`/config; 409 replay preamble rejected (→ `APIError`); 422 noise profile; 423 quarantined/route unavailable. Response `{status, transmission, transmissions, stats}`; `from_api` reads `transmission` |
+| `get_audit(id)` | any session; 404 unknown; 403 for admin-only kinds (`manual_fault`, `edge_probe`, `topology_activation`, `emergency_stop`, `routing_self_test`); evidence stripped for non-admin |
+| `reset_link(reason)` | admin; body `{reason}` only (server also accepts optional `link`; SDK can't pass it). 400 unknown link |
+| `topology()` | any session; returns `router`, `channel_state`, `topology`, `digest`, `edges`, `policy`, `injections` (admin) |
+
+**Known SDK discrepancies (do not "fix" the server to match):**
+- `AuditCertificate.from_api` reads `record.chain.previous_hash`/`hash` and `signatures.ed25519/mldsa`. The server chain uses `prev_sha256` (see `audit.py`), so `previous_hash` is likely always `None`. Signature key names are unverified.
+- Docstrings cite non-existent scenarios (`eavesdrop`, `cloning`) and breaker states (`closed`). Real values: `ThreatType` names; `enforcement.action` such as `link_watch`/`link_quarantined`.
+- `examples/quickstart.py` logs in with password `secret` (demo admin is `admin2026`) and says `pip install -e .`.
+- Server endpoints with no SDK wrapper: logout, session, history, channel(+transitions), noise-profiles, arm-threat, dishonest-bob-forward, verification, audit chain/verify/public-key/rotate-key, incidents, metrics, security-events, roster, session events/routes, all `/api/routing/*`, `POST /api/topology`, WebSocket.
+- Every SDK method maps to an existing route; there are no SDK calls to missing routes.
+
 ### Key Design Rules for AI Agents
 
 - **Never change server endpoints or response shapes** to accommodate the SDK.
+- The SDK must never weaken auth or surface role-restricted fields: role filtering (`view_for`, `route_view`, `strip_evidence`) happens server-side and the SDK just relays the cookie's role.
+- 423 always means a quarantined link/route (`LinkQuarantinedError`). Classical-only rejections (replay, impersonation, message integrity, invalid transfer) never escalate the circuit breaker; the SDK must not imply otherwise.
   Map the existing JSON to `TransmissionResult.from_api()` / `AuditCertificate.from_api()`.
 - The `httpx.Client` in `HedwigClient.session` carries cookies automatically;
   do not manage cookies manually.
@@ -740,7 +791,8 @@ pytest tests/test_sdk.py -v          # 16 tests, no live server needed
 
 ## 18. Open Items / Unverified
 
-- Contradiction: README lists 11 core threat scenarios; `N_VERIFIER_EXTENSION.md` says "the original nine scenarios". Not reconciled against `ThreatType`.
+- Threat count resolved from `ThreatType`: 17 = `authentic` + 11 core + 5 forwarding. `N_VERIFIER_EXTENSION.md`'s "original nine" predates the restored `eve_cloning` / `eve_partial_intercept` / `eve_collective`.
 - No real hardware result file was verified while these docs were updated; do not quote hardware numbers.
-- The live demo URL (`qds.navyaa-dev.me`, Render) appears only in a personal note and is unverified.
+- `render.yaml` is empty; Render deploy config is unknown.
+- `STATUS.md` and `V2.2_IMPLEMENTATION_REPORT.md` are referenced in task prompts but are not in the repo.
 - Blueprint/plan docs at the repo root predate implementation; treat the `*_IMPLEMENTATION.md` / `*_EXTENSION.md` files as authoritative.
