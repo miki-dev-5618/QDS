@@ -251,8 +251,7 @@ class ChannelGuard:
             combined = fisher_combined_p(evidence)
             strikes = len(evidence)
             escalate = (action == "quarantine" or cur.state == RESET_PENDING or
-                        (cur.state == WATCH and (combined <= self.policy.escalate_alpha
-                                                 or strikes >= self.policy.watch_strikes)))
+                        (cur.state == WATCH and self.policy.should_escalate(combined, strikes)))
             if escalate:
                 if cur.state == QUARANTINED:
                     return None

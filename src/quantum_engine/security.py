@@ -41,8 +41,9 @@ These are illustrative finite-sample statements under the stated assumptions,
 not a composable security proof against general (coherent) attacks.
 """
 import math
-from dataclasses import dataclass, replace
-from typing import Dict, Any, List, Optional
+import os
+from dataclasses import dataclass, field, replace
+from typing import Any, Dict, List, Optional, Tuple
 
 from .channel import binomial_upper_tail
 from .thresholds import EliminationRule, depth_rule, exact_rule, legacy_rule, min_sufficient_n, plan_reserve, plan_test_tokens
@@ -76,6 +77,22 @@ def _n_required(d: float, target: float, factor: float = 1.0) -> int:
     return int(math.ceil(math.log(factor / target) / (2.0 * d * d)))
 
 
+def _env_early_abort() -> bool:
+    """EARLY_ABORT=on|off (default on). Ablation switch for the sequential early abort."""
+    v = os.environ.get("EARLY_ABORT", "on").strip().lower()
+    if v not in ("on", "off"):
+        raise ValueError(f"EARLY_ABORT must be 'on' or 'off', got {v!r}")
+    return v == "on"
+
+
+def _env_detection_tiers() -> int:
+    """DETECTION_TIERS=1|2 (default 2). Ablation switch: 1 disables Tier 2 attribution."""
+    v = os.environ.get("DETECTION_TIERS", "2").strip()
+    if v not in ("1", "2"):
+        raise ValueError(f"DETECTION_TIERS must be 1 or 2, got {v!r}")
+    return int(v)
+
+
 @dataclass(frozen=True)
 class SecurityParameters:
     honest_qber: float = 0.02
@@ -91,6 +108,12 @@ class SecurityParameters:
     abort_chunks: int = 4                 # stream blocks between early-abort checks
     watch_test_multiplier: int = 2        # legacy test allocation while a link is on WATCH
     min_surviving_ratio: float = 0.6      # abort with INSUFFICIENT_TOKENS if surviving < min_surviving_ratio * planned
+    early_abort: bool = field(default_factory=_env_early_abort)          # False: always send the whole stream
+    detection_tiers: int = field(default_factory=_env_detection_tiers)   # 1: Tier 1 only (no Tier 2 attribution)
+
+    def __post_init__(self):
+        if self.detection_tiers not in (1, 2):
+            raise ValueError(f"detection_tiers must be 1 or 2, got {self.detection_tiers}")
     # C1: exact finite-sample elimination thresholds
     threshold_policy: str = "exact"       # "exact" | "legacy" (floor(s * n), the original rule)
     fr_target: float = 1e-2               # max P(honest signature not accepted) per verifier
@@ -306,6 +329,8 @@ class SecurityParameters:
             "watch_test_multiplier": self.watch_test_multiplier,
             "target_failure": self.target_failure,
             "min_surviving_ratio": self.min_surviving_ratio,
+            "early_abort": self.early_abort,
+            "detection_tiers": self.detection_tiers,
             "threshold_policy": self.threshold_policy,
             "fr_target": self.fr_target,
             "fa_target": self.fa_target,

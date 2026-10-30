@@ -1,293 +1,239 @@
-# HEDWIG — Teleportation-Based Quantum Digital Signatures with Threat Detection
+# HEDWIG — Teleportation-Based Quantum Digital Signatures with Cyber Threat Detection
 
-**Team ATHENA**  
-*Quantum-Inspired Cyber Threat Detection for Digital Signature Security*
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-009688.svg)](https://fastapi.tiangolo.com/)
+[![Qiskit](https://img.shields.io/badge/Qiskit-2.5.2-6929C4.svg)](https://qiskit.org/)
+[![Audit](https://img.shields.io/badge/Audit-Ed25519%20%2B%20ML--DSA--65-orange.svg)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
----
-
-## 🌟 Executive Summary
-
-**HEDWIG** is a three-party **Quantum Digital Signature (QDS)** and cyber-threat mitigation platform engineered with **Qiskit quantum teleportation**, **two-tier blind statistical threat detection**, an **adaptive quantum circuit breaker**, and **tamper-evident, hybrid post-quantum audit certification (Q-Cert)**.
-
-- **Alice (Signer)** signs an arbitrary-length message using quantum state tokens transmitted via simulated quantum teleportation.
-- **Bob & Charlie (Verifiers)** independently verify the signature via orthogonal state elimination tables and keep-or-forward symmetrisation.
-- **Threat Detection Layer:** An evidence-driven classifier detects eavesdropping, quantum forgery, message tampering, replay attacks, impersonation, repudiation, and dishonest verifiers without machine learning or prior attack labels.
-- **Quantum Circuit Breaker (QCB):** Automatically quarantines corrupted quantum links upon detecting anomalies, enforces probationary recovery, and cuts off eavesdroppers dynamically via sequential early abort.
-- **Q-Cert Audit Trail:** Emits append-only, SHA-256 hash-chained audit records signed with **Ed25519** and NIST FIPS 204 **ML-DSA-65 (Post-Quantum Dilithium)** for offline independent verification.
-
-```
-+---------------------------------------------------------------------------------------------------------+
-|                                      HEDWIG PROTOCOL PIPELINE                                           |
-|                                                                                                         |
-|  [ Alice (Signer) ]                                                                                     |
-|       |                                                                                                 |
-|       | 1. Prepare Quantum Tokens & Secret Test States                                                  |
-|       | 2. Teleport via Bell Pairs (Qiskit Aer / Statevector) =====> [ Bob & Charlie Verifiers ]       |
-|       | 3. Send Commitment: C = SHA-256(Context ‖ Signature ‖ Blinding Salt)                            |
-|       |                                                             * Symmetrisation Keep/Forward Swap |
-|       | 4. Channel Test & Sequential Early Abort Check              * Random Basis Elimination Table    |
-|       | 5. Reveal Phase (Message, Context, Signature & Blinding)    * Independent Verification Checks   |
-|       +---------------------------------------------------------------------------+                     |
-|                                                                                   |                     |
-|                                                                                   v                     |
-|                                                                   [ Blind Detection Engine ]            |
-|                                                                   * Tier 1: Binomial Channel QBER       |
-|                                                                   * Tier 2: Disturbance Attribution     |
-|                                                                                   |                     |
-|                                                                                   v                     |
-|                                                                   [ Quantum Circuit Breaker (QCB) ]     |
-|                                                                   * OPEN / WATCH / QUARANTINE / PROBATION|
-|                                                                   * Fisher's Method Escalation          |
-|                                                                                   |                     |
-|                                                                                   v                     |
-|                                                                   [ Q-Cert Audit Ledger ]               |
-|                                                                   * SHA-256 Hash Chain                  |
-|                                                                   * Ed25519 + ML-DSA-65 Hybrid Signing  |
-+---------------------------------------------------------------------------------------------------------+
-```
+> **Beginner Guide Available:** If you are new to Quantum Digital Signatures or want an intuitive, plain-English breakdown with analogies and viva preparation, see [FOR_DUMMIES.md](FOR_DUMMIES.md).
 
 ---
 
-## 📑 Table of Contents
+## 🌟 1. Executive Summary & Problem Statement
 
-1. [System Architecture & Protocol Design](#1-system-architecture--protocol-design)
-2. [Repository Structure & Codebase Overview](#2-repository-structure--codebase-overview)
-3. [Prerequisites & System Requirements](#3-prerequisites--system-requirements)
-4. [Step-by-Step Setup & Installation](#4-step-by-step-setup--installation)
-5. [Live Dashboards & Web Interface](#5-live-dashboards--web-interface)
-6. [Simulated Threat Catalog & Detection Mechanics](#6-simulated-threat-catalog--detection-mechanics)
-7. [Mathematical Foundation & Statistical Detection](#7-mathematical-foundation--statistical-detection)
-8. [Quantum Circuit Breaker & Incident Response](#8-quantum-circuit-breaker--incident-response)
-9. [Q-Cert Audit Chain & Post-Quantum Signatures](#9-q-cert-audit-chain--post-quantum-signatures)
-10. [Step-by-Step Demo Script for Judges](#10-step-by-step-demo-script-for-judges)
-11. [Configuration & Environment Variables](#11-configuration--environment-variables)
-12. [REST API & WebSocket Reference](#12-rest-api--websocket-reference)
-13. [Automated Testing & Empirical Benchmarks](#13-automated-testing--empirical-benchmarks)
-14. [Troubleshooting & FAQ](#14-troubleshooting--faq)
-15. [Glossary](#15-glossary)
+### The Problem
+Classical digital signatures (RSA, ECDSA) rely on computational hardness assumptions (integer factorisation, discrete logarithms) vulnerable to Shor's algorithm on large-scale quantum computers. While Post-Quantum Cryptography (PQC) algorithms (e.g. ML-DSA / Dilithium) introduce lattice-based hardness, they remain computational. 
 
----
+**Quantum Digital Signatures (QDS)** provide information-theoretic non-repudiation and unforgeability rooted in quantum mechanics:
+- **Heisenberg Uncertainty Principle:** Non-commuting observable bases cannot be simultaneously measured without disturbance.
+- **No-Cloning Theorem:** Unknown quantum states cannot be copied identically.
 
-## 1. System Architecture & Protocol Design
+However, classical-quantum networked QDS systems face realistic vulnerabilities:
+1. Physical and hardware noise (depolarizing, amplitude damping, readout bias, photon loss) mimic malicious tampering.
+2. Active quantum adversaries (intercept-resend, optimal quantum cloning, loss exploitation).
+3. Protocol and verifier threats (dishonest verifier forgery, sender repudiation, packet replay, impersonation).
+4. Cascading denial-of-service from false alarms if quantum links are indiscriminately cut.
 
-### 1.1 The Five-Step Protocol Execution
-
-```
-ALICE (Signer)                               BOB (Verifier 1)               CHARLIE (Verifier 2)
-     │                                              │                                 │
-     │ 1. State Prep: {|0⟩, |1⟩, |+⟩, |−⟩}          │                                 │
-     │    Two copies per signature position         │ ◄──── Keep-or-Forward Swap ───► │
-     │                                              │      (Symmetrisation)           │
-     │ 2. Teleportation Stream (Qiskit Bell Pairs)  │                                 │
-     │ ════════════════════════════════════════════►│                                 │
-     │                                              │ Measure in random basis         │
-     │                                              │ Build Elimination Table         │
-     │    Interleaved secret test tokens checked    │                                 │
-     │    block-by-block (Early Abort if QBER high) │                                 │
-     │                                              │                                 │
-     │ 3. Send Context Commitment:                  │                                 │
-     │    C = SHA-256(Context ‖ Signature ‖ Salt)  │                                 │
-     │ ────────────────────────────────────────────►│ (Stored before reveal)          │
-     │                                              │                                 │
-     │ 4. Reveal Phase (Only if channel tests pass):│                                 │
-     │    Send Message, Context, Signature & Salt   │                                 │
-     │ ────────────────────────────────────────────►│                                 │
-     │                                              │ 5. Independent Verification:    │
-     │                                              │    * Freshness (Nonce/Time)     │
-     │                                              │    * Mismatches ≤ Threshold     │
-     │                                              │    * Commitment & Digest Match  │
-```
-
-1. **State Preparation & Symmetrisation:**
-   For signature length $L$, Alice prepares pairs of random Pauli eigenstates $\{|0\rangle, |1\rangle, |+\rangle, |-\rangle\}$. Bob and Charlie execute random keep-or-forward swaps so Alice cannot predict which verifier holds which physical state, preventing selective forgery.
-2. **Teleportation & Elimination:**
-   Tokens travel across simulated Bell channels $(|\Phi^+\rangle = \frac{|00\rangle+|11\rangle}{\sqrt{2}})$ with Bell-state measurements and classical feed-forward Pauli corrections ($X^{m_2} Z^{m_1}$). Verifiers measure received qubits in random bases ($\{|0\rangle,|1\rangle\}$ or $\{|+\rangle,|-\rangle\}$) and record the orthogonal state ruled out.
-3. **Commitment Binding:**
-   Alice publishes a cryptographically bound commitment:
-   $$C = \text{SHA-256}\left(\text{Domain} \parallel \text{canonical}(\text{Context}) \parallel \text{Signature} \parallel \text{Salt}\right)$$
-   - **Algorithm:** The commitment $C$ is computed with **SHA-256** (with domain separator `HEDWIG-QDS-v2|commitment|`).
-   - **Context Object:** Canonical JSON containing `version`, `session_id`, `sender`, recipient `verifiers`, fresh `nonce`, expiry `timestamp`, and the message digest (`message_digest = SHA-256(Domain || message)` or `SHA3-512`).
-   - **Blinding Salt:** A 256-bit cryptographic random value (`blinding`) revealed only during the reveal phase, guaranteeing that verifiers cannot learn the signature prematurely.
-4. **Channel Testing & Early Abort:**
-   Secret test tokens interleaved in the stream are revealed. If error counts exceed the threshold in early stream blocks, transmission aborts immediately to conserve quantum bandwidth and isolate malicious channels.
-5. **Independent Verification:**
-   Verifiers evaluate mismatch rates against Hoeffding security limits $s_a$ (direct delivery) and $s_v$ (forwarded delivery), recompute context digests, and cross-reference commitments.
+### The Solution: HEDWIG V2.2
+**HEDWIG** is an interactive, simulated three-party Quantum Digital Signature platform (Alice, Bob, Charlie) equipped with:
+- **Simulated Quantum Teleportation:** Bell-state teleportation ($|\Phi^+\rangle$) of random Pauli-eigenstate tokens ($\{|0\rangle, |1\rangle, |+\rangle, |-\rangle\}$) over configurable noisy channels (Qiskit Aer / Statevector simulation).
+- **Two-Tier Blind Statistical Threat Detection:** Evidence-driven discrimination of channel noise vs. quantum eavesdropping vs. message tampering without machine learning or prior attack labels.
+- **Sequential Early Abort:** Block-by-block channel testing that halts quantum token transmission immediately when error thresholds are decisively crossed, saving quantum resources and link bandwidth.
+- **Adaptive Quantum Circuit Breaker (QCB):** Multi-state per-link enforcement engine (`OPEN`, `WATCH`, `QUARANTINED`, `RESET_PENDING`) featuring sequential early abort and Fisher's combined p-value escalation.
+- **Tamper-Evident Q-Cert Audit Ledger:** Immutable SHA-256 hash-chained audit ledger dual-signed with classical **Ed25519** and NIST FIPS 204 **ML-DSA-65 (Dilithium)**.
 
 ---
 
-## 2. Repository Structure & Codebase Overview
+## 🏛️ 2. System Architecture & Component Interaction
 
+```mermaid
+graph TD
+    subgraph SENDER["Alice (Signer / Admin Console)"]
+        A1["Message M & Context"] --> A2["Pauli Token Generation {0,1,+,-}"]
+        A2 --> A3["Teleportation Engine (Bell Pairs)"]
+        A3 --> A4["Commitment: SHA-256(Context || Sig || Salt)"]
+    end
+
+    subgraph CHANNEL["Simulated Quantum Channel"]
+        C1["Depolarizing / Loss / Readout / Damping"]
+        C2{"Attack Injector (ThreatSuite)"}
+        A3 --> C2 --> C1
+    end
+
+    subgraph RECEIVERS["Verifiers (Bob & Charlie)"]
+        C1 --> R1["Keep-or-Forward Symmetrisation"]
+        R1 --> R2["Random Basis Measurement"]
+        R2 --> R3["Orthogonal State Elimination Table"]
+    end
+
+    subgraph DETECTION["Detection & Defense Layer"]
+        R3 --> D1["Tier 1: Binomial Test Token QBER Check"]
+        D1 --> D2["Sequential Early Abort Evaluator"]
+        R3 --> D3["Tier 2: Disturbance-Pattern Attribution"]
+        D3 --> D4["Blind Threat Classifier"]
+        D4 --> D5["Quantum Circuit Breaker (QCB)"]
+    end
+
+    subgraph AUDIT["Q-Cert Audit Chain"]
+        D5 --> AU1["SQLite Store (hedwig.db)"]
+        AU1 --> AU2["SHA-256 Hash Chain"]
+        AU2 --> AU3["Hybrid Signer: Ed25519 + ML-DSA-65"]
+    end
+
+    subgraph UI["FastAPI Web Layer"]
+        W1["Admin Console (/admin)"]
+        W2["Bob Console (/bob)"]
+        W3["Charlie Console (/charlie)"]
+        W4["WebSocket Real-Time Broadcast (/ws/{role})"]
+    end
+    
+    AU3 -.-> W1
+    D5 -.-> W4
 ```
-QDS/
-├── server.py                      ← FastAPI web application, REST API & WebSocket server
-├── auth.py                        ← Authentication, role-based access control, PBKDF2 hashing
-├── render.yaml                    ← Render.com cloud deployment blueprint
-├── Procfile                       ← Production process launcher
-├── runtime.txt                    ← Python 3.11.10 runtime specification
-├── run_v2.bat                     ← One-click Windows launch script
-├── requirements.txt               ← Core production dependencies
-├── requirements-dev.txt           ← Development & testing suite (pytest, httpx)
-├── requirements-pq.txt            ← Post-quantum signature provider (ML-DSA-65 / Dilithium)
-├── README.md                      ← Master technical documentation & guide
-├── LICENSE                        ← MIT License
-├── src/quantum_engine/            ← Core Quantum & Security Engine
-│   ├── teleportation.py           ← Qiskit Aer & Statevector quantum teleportation circuits
-│   ├── channel.py                 ← Quantum channel simulation (depolarising noise, Eve intercept)
-│   ├── symmetrisation.py          ← Keep-or-forward swap logic between verifiers
-│   ├── elimination.py             ← Orthogonal measurement elimination & mismatch counting
-│   ├── binding.py                 ← Canonical context serialization & commitment generation
-│   ├── canonical.py               ← RFC-compliant deterministic JSON serialization
-│   ├── protocol.py                ← End-to-end transmission orchestrator with early abort
-│   ├── verifier.py                ← Independent Bob/Charlie verification engines
-│   ├── replay.py                  ← Nonce cache, sliding-window replay protection
-│   ├── security.py                ← Statistical thresholds, Hoeffding & Chernoff bounds
-│   ├── discriminator.py           ← Tier 2 disturbance attribution (Channel vs. Signer)
-│   ├── detection.py               ← Blind threat detection engine
-│   ├── policy.py                  ← Circuit breaker rules & Fisher's p-value combination
-│   ├── enforcement.py             ← Circuit breaker state machine & incident triggering
-│   ├── circuit_breaker.py         ← Per-link quantum circuit breaker controller
-│   ├── router.py                  ← Star topology quantum router simulation
-│   ├── signers.py                 ← Ed25519 & ML-DSA-65 cryptographic signing engines
-│   ├── audit.py                   ← Q-Cert tamper-evident hash-chained audit engine
-│   ├── store.py                   ← SQLite persistent state management
-│   ├── threats.py                 ← Threat injection harnesses (simulation only)
-│   └── schedule.py                ← Basis scheduling & security evaluation
-│
-├── static/                        ← Front-End Assets
-│   ├── css/                       ← Modern glassmorphic styles & design tokens
-│   └── js/                        ← Real-time dashboard clients & WebSocket handlers
-├── templates/                     ← Jinja2 HTML5 Dashboards (admin.html, bob.html, charlie.html, login.html)
-├── tests/                         ← Comprehensive Automated Test Suite (155 test cases)
-│   └── test_noise_ibm.py          ← IBM fake noise, deferred circuits & calibration tests
-├── experiments/                   ← Reproducible Seeded Experiment Suites & Data
-│   └── calibration/               ← IBM backend noise calibration cache (ibm_<backend>.json)
-└── tools/                         ← Standalone Audit Verifier (verify_audit.py)
+
+### The 5-Phase Protocol Pipeline
+1. **Token Generation & Symmetrisation:** Alice creates pairs of Pauli eigenstates for each bit position. Bob and Charlie exchange half their received tokens via random swap gates ("keep-or-forward") so Alice cannot know who holds which token.
+2. **Teleportation & Elimination:** States are teleported over simulated Bell channels with feed-forward Pauli corrections. Receivers measure each token in a random basis ($\{Z, X\}$) to eliminate an orthogonal candidate from their verification table.
+3. **Commitment Binding:** Alice broadcasts a SHA-256 commitment containing the message digest, recipient list, session nonce, expiration timestamp, and random blinding salt before any states are revealed.
+4. **Channel Testing & Sequential Early Abort:** Interleaved secret test tokens evaluate link fidelity block-by-block. If error counts exceed the binomial threshold early, transmission aborts immediately to conserve quantum resources.
+5. **Independent Verification & Response:** Bob and Charlie verify received signatures against their elimination tables. Mismatch counts are tested against Hoeffding and exact binomial acceptance thresholds ($s_a$ for direct delivery, $s_v$ for forwarded).
+
+---
+
+## 💻 3. Technology Stack
+
+- **Core Runtime:** Python 3.11+
+- **Quantum Simulation:** `qiskit` (2.5.2), `qiskit-aer` (0.17.2), `numpy` (2.3.2)
+- **Backend API & Web Server:** `fastapi` (0.115.0), `uvicorn` (0.30.6), `websockets` (16.0), `jinja2` (3.1.6)
+- **Classical & Post-Quantum Cryptography:** `cryptography` (48.0.0), `dilithium-py` (1.4.0, NIST FIPS 204 ML-DSA-65)
+- **Persistence & Auditing:** SQLite 3 (`sqlite3` standard library), Ed25519 PEM keys, JSON-canonical hash chains
+- **Testing & Quality Assurance:** `pytest` (24 automated test suites)
+- **Experiments & Benchmarking:** Multiprocessing trial harnesses with seeded RNGs, Wilson score intervals, and ROC curves
+
+---
+
+## 📁 4. Repository Structure & Key Modules
+
+```text
+├── server.py                        # FastAPI application, route handlers, WebSocket hub
+├── auth.py                          # PBKDF2-SHA256 authentication & role-based sessions
+├── users.json                       # Hashed credentials for demo / operational users
+├── requirements.txt                 # Core production dependencies
+├── requirements-pq.txt              # Optional post-quantum ML-DSA-65 requirements
+├── requirements-dev.txt             # Development and testing dependencies
+├── run_v2.bat                       # One-click Windows launch script
+├── run_experiments.py               # Reproducible experiment runner & manifest generator
+├── templates/                       # Jinja2 HTML templates
+│   ├── login.html                   # Multi-role login interface
+│   ├── admin.html                   # Alice sender console, threat injector, circuit reset
+│   ├── bob.html                     # Bob verifier terminal & dishonest forward trigger
+│   └── charlie.html                 # Charlie verifier terminal & cross-check audit view
+├── static/                          # Styling and client-side logic
+│   ├── css/style.css                # Custom vanilla CSS design system
+│   ├── js/app.js                    # WebSocket listeners, dynamic DOM updating, charts
+│   └── img/icons.svg                # SVG icons and visual assets
+├── src/quantum_engine/              # Core simulated quantum cryptography engine
+│   ├── __init__.py                  # Public exports and package definition
+│   ├── protocol.py                  # Orchestrator: TeleportationQDS main execution
+│   ├── teleportation.py             # Qiskit Bell-state teleportation & basis state prep
+│   ├── symmetrisation.py            # Keep-or-forward random token swapping
+│   ├── elimination.py               # Orthogonal state measurement & elimination tables
+│   ├── channel.py                   # Quantum channel models (depolarizing, readout, loss, damping)
+│   ├── threats.py                   # 11 attack scenario injectors (ThreatSuite)
+│   ├── detection.py                 # QDSDetectionEngine & ThreatReport classification
+│   ├── discriminator.py             # Tier 2 disturbance-pattern attribution
+│   ├── policy.py                    # ResponsePolicy & Fisher's combined p-value escalation
+│   ├── enforcement.py               # ChannelGuard & Quantum Circuit Breaker (QCB)
+│   ├── binding.py                   # SignedContext & cryptographic commitment validation
+│   ├── verifier.py                  # VerifierNode & Hoeffding/exact threshold checks
+│   ├── cloning.py                   # Quantum cloner models (universal & phase-covariant)
+│   ├── audit.py                     # Q-Cert ledger, hash chains, and certificate generation
+│   ├── signers.py                   # Ed25519 and ML-DSA-65 post-quantum signing logic
+│   ├── store.py                     # SQLite persistence for sessions, transitions & audits
+│   ├── router.py                    # Simulated quantum network routing and link state
+│   ├── schedule.py                  # Measurement basis scheduling
+│   ├── thresholds.py                # Exact binomial limits & reserve stage planning
+│   └── security.py                  # Theoretical security parameters and bound models
+├── tests/                           # 24 test suites covering protocol, noise, API & ablations
+└── experiments/                     # Scientific evaluation harness, sweeps, ROC & ablation scripts
+    ├── harness.py                   # Resumable grid harness (seed x scenario x L x noise)
+    ├── make_roc.py                  # ROC curve generation with seeded bootstrap AUC intervals
+    ├── ablate_early_abort.py        # Sequential early abort evaluation & bandwidth savings
+    ├── ablate_tiers.py              # Tier 1 vs Tier 1+2 attribution ablation study
+    ├── ablate_escalation.py         # Fisher combined p-value vs k-alert counter ablation
+    ├── ablate_adaptive.py           # Fixed vs adaptive test token allocation
+    ├── baselines.py                 # Benchmarking against 11% QBER cutoff & no-breaker baseline
+    └── sweep_*.py                   # Physical sweeps (damping, readout, loss, tiers)
 ```
 
 ---
 
-## 3. Prerequisites & System Requirements
+## ⚡ 5. Installation & Setup
 
-| Requirement | Details |
-| :--- | :--- |
-| **Operating System** | Windows 10/11, Ubuntu 20.04+, Debian 11+, macOS 12+ |
-| **Python Version** | Python 3.10, 3.11, 3.12, or 3.13 (Tested on 3.11 & 3.13) |
-| **Hardware** | Standard modern CPU, 4 GB RAM (No quantum hardware or GPU required) |
-| **Database** | Embedded SQLite3 (Included with standard Python) |
-| **Web Browser** | Chrome, Edge, Firefox, or Safari with WebSocket support |
+### 5.1 Prerequisites
+- **Operating System:** Windows, Linux, or macOS
+- **Python:** 3.11 or higher installed and added to `PATH`
 
----
+### 5.2 Step-by-Step Installation
 
-## 4. Step-by-Step Setup & Installation
-
-### Option A: Windows (One-Click Automated Launcher)
-
-Double-click `run_v2.bat` or run:
-```powershell
-.\run_v2.bat
-```
-*This installs all requirements, initializes the SQLite database, launches the FastAPI server at `http://127.0.0.1:8000`, and opens the Admin, Bob, and Charlie dashboards.*
-
----
-
-### Option B: Manual Setup (Windows / Linux / macOS)
-
-1. **Clone the Repository & Navigate to Root:**
+1. **Clone the repository:**
    ```bash
-   git clone https://github.com/miki-dev-5618/QDS.git
-   cd QDS
+   git clone <repository-url>
+   cd "sih 2026"
    ```
 
-2. **Create and Activate a Virtual Environment:**
-   ```bash
-   # Linux / macOS
-   python3 -m venv venv
-   source venv/bin/activate
-
-   # Windows (PowerShell)
-   python -m venv venv
-   .\venv\Scripts\Activate.ps1
-   ```
+2. **Create and activate a virtual environment:**
+   - *Windows (PowerShell):*
+     ```powershell
+     python -m venv .venv
+     .\.venv\Scripts\Activate.ps1
+     ```
+   - *Linux / macOS:*
+     ```bash
+     python3 -m venv .venv
+     source .venv/bin/activate
+     ```
 
 3. **Install Dependencies:**
+   - Core dependencies:
+     ```bash
+     pip install -r requirements.txt
+     ```
+   - Post-quantum ML-DSA-65 signatures (recommended):
+     ```bash
+     pip install -r requirements-pq.txt
+     ```
+   - Development & test dependencies:
+     ```bash
+     pip install -r requirements-dev.txt
+     ```
+
+4. **Run the Application:**
    ```bash
-   pip install --upgrade pip
-   pip install -r requirements.txt
-
-   # (Optional) Install Post-Quantum Cryptography support:
-   pip install -r requirements-pq.txt
-
-   # (Optional) Install Test & Dev tools:
-   pip install -r requirements-dev.txt
+   python server.py
    ```
-
-4. **Launch the FastAPI Server:**
-   ```bash
-   python -m uvicorn server:app --host 127.0.0.1 --port 8000
+   Or on Windows:
+   ```cmd
+   run_v2.bat
    ```
-
-5. **Access the Dashboards:**
-   - **Admin / Alice Console:** [http://127.0.0.1:8000/admin](http://127.0.0.1:8000/admin)
-   - **Bob Verifier Dashboard:** [http://127.0.0.1:8000/bob](http://127.0.0.1:8000/bob)
-   - **Charlie Verifier Dashboard:** [http://127.0.0.1:8000/charlie](http://127.0.0.1:8000/charlie)
+   Open your browser to: **`http://localhost:8000`**
 
 ---
 
-### Option C: Cloud Deployment (Render.com)
+## 🔑 6. Authentication & Roles
 
-The repository includes a ready-to-deploy [`render.yaml`](render.yaml) blueprint:
-1. Connect your repository to **Render.com**.
-2. Create a new **Web Service** using the blueprint.
-3. Render automatically detects Python 3.11, builds dependencies, and runs `uvicorn server:app --host 0.0.0.0 --port $PORT` with health checks at `/health`.
+HEDWIG isolates signer, verifier, and monitoring functions using role-based sessions stored in HttpOnly, SameSite=Strict cookies (`hedwig_admin`, `hedwig_bob`, `hedwig_charlie`).
 
----
+| Username | Password | Role | Access Route | Functional Scope |
+| :--- | :--- | :--- | :--- | :--- |
+| `admin` / `alice` | `admin2026` / `quantum2026` | `admin` | `/admin` | State preparation, signing, threat injection, circuit breaker resets, full ground-truth audit |
+| `bob` | `quantum2026` | `bob` | `/bob` | Verifier 1 inspection, elimination records, dishonest forward attack trigger |
+| `charlie` | `quantum2026` | `charlie` | `/charlie` | Verifier 2 inspection, forwarded signature reception, cross-verification |
 
-### 4.1 Demo Accounts & Authentication
-
-| Role | Default Username | Default Password | Description |
-| :--- | :--- | :--- | :--- |
-| **Admin / Alice** | `admin` | `admin2026` | Message composition, threat injection, link resets |
-| **Bob** | `bob` | `quantum2026` | Verifier 1, dishonest forwarding |
-| **Charlie** | `charlie` | `quantum2026` | Verifier 2, forwarded verification |
-
-*Each role uses isolated `HttpOnly`, `SameSite=Strict` cookies (`hedwig_admin`, `hedwig_bob`, `hedwig_charlie`), enabling simultaneous multi-party sessions in a single browser.*
-
-**Creating Production Users:**
+*To provision custom users:*
 ```bash
-python auth.py add-user users.json alice admin
-python auth.py add-user users.json bob bob
-python auth.py add-user users.json charlie charlie
-export HEDWIG_USERS_FILE="users.json"
+python auth.py add-user users.json newuser admin
 ```
+Set the environment variable: `HEDWIG_USERS_FILE=users.json`.
 
 ---
 
-## 5. Live Dashboards & Web Interface
+## 🛡️ 7. Threat Catalog & Detection Mechanics
 
-```
-+-----------------------------------------------------------------------------------------------+
-| HEDWIG QDS SECURE COMM SUITE                    [ Link: OPEN ] [ Circuit Breaker: Active ]   |
-+-----------------------------------------------------------------------------------------------+
-|  ADMIN (Alice) CONSOLE           |  BOB (Verifier 1)               |  CHARLIE (Verifier 2)    |
-|  - Compose & Sign Payload        |  - Verification Verdict (Pass)  |  - Forwarded Verification|
-|  - Arm Threat Scenario           |  - Elimination Table Visualizer |  - Elimination Table     |
-|  - Quantum Router Topology       |  - Tier 1 & Tier 2 Diagnostics  |  - Security Bounds Card  |
-|  - Circuit Breaker Controller    |  - Download Signed Q-Cert Audit |  - Dishonest Bob Warning |
-|  - Hash Chain Ledger Inspection  |  - Action: Dishonest Forward    |  - Download Audit Record |
-+-----------------------------------------------------------------------------------------------+
-```
+HEDWIG implements **11 simulated threat scenarios** executed via `src/quantum_engine/threats.py`:
 
-- **Admin Console (`/admin`):** Allows the operator (Alice) to input message text, adjust quantum token length ($L \in \{16, 32, 64\}$), arm attack injectors, monitor real-time router link states, review incident logs, and trigger administrative link resets.
-- **Bob's Terminal (`/bob`):** Displays Bob's verification decision, elimination matrix, binomial channel tests, and signed Q-Cert certificate. Provides a **Dishonest Bob Forward** button to test forged forwarding to Charlie.
-- **Charlie's Terminal (`/charlie`):** Independently evaluates direct signatures from Alice or forwarded payloads from Bob with specialized threshold limits.
-
----
-
-## 6. Simulated Threat Catalog & Detection Mechanics
-
-HEDWIG includes 8 realistic threat simulation scenarios:
-
-| Attack Scenario | Injected Mechanism | Observable Evidence | System Verdict & Response |
+| Threat Type | Mechanism | Detection Layer | Action |
 | :--- | :--- | :--- | :--- |
 | **`authentic`** | Honest transmission under typical depolarising channel noise ($p=0.01$). | $k \le \text{Threshold}$, Mismatches $\le \lfloor s_a n \rfloor$. | **ACCEPTED** (Link: `OPEN`) |
 | **`eve_forgery`** | Adversary replaces Alice's revealed classical signature with random guesses. | Elimination mismatches ($\approx 25\%$) + commitment mismatch. | **EXTERNAL_FORGERY** (reject the package; quantum routes remain available) |
@@ -301,6 +247,18 @@ HEDWIG includes 8 realistic threat simulation scenarios:
 
 > **Fair-Sampling Assumption in QDS with Erasure:**
 > In lossy quantum channels, heralded token loss (erasure) is treated as benign physical attenuation rather than an active attack, provided the channel satisfies the *fair-sampling assumption* (loss occurs independently of token state or measurement basis). An adversary exploiting loss (`eve_loss_exploit`) attempts to bypass detection by discarding poorly-measured tokens. HEDWIG prevents this vulnerability by enforcing a minimum surviving token count $n_{\min}$ (e.g., $\ge 60\%$ of planned tokens); if surviving tokens drop below $n_{\min}$, the session aborts with `INSUFFICIENT_TOKENS` and places the link on `WATCH` rather than accepting compromised subsets.
+| `authentic` | Normal transmission over noisy channel | Acceptance | `OPEN` |
+| `eve_forgery` | Eve manufactures random tokens without Alice's keys | Elimination Table (~25% contradictions) | `QUARANTINED` |
+| `dishonest_bob` | Bob alters signature bits and forwards to Charlie | Forward Elimination Check ($s_v$ threshold) | `QUARANTINED` |
+| `eve_intercept` | Intercept-resend measuring in random Pauli bases | Tier 1 Channel Test QBER (Eavesdropping) | `QUARANTINED` |
+| `message_tampering`| Eve modifies plaintext $M \to M'$ in flight | Classical Commitment & SHA-256 Digest Mismatch | Link stays `OPEN` (Prevents DoS) |
+| `repudiation` | Alice signs, but selectively flips revealed tokens | Tier 2 Attribution (Disturbance vs Signature mismatch) | `QUARANTINED` |
+| `replay` | Replaying previously captured valid transmission | Context Nonce & Timestamp Verification | Link stays `OPEN` (Prevents DoS) |
+| `impersonation` | Claiming Alice's identity without valid distribution | Sender Identity & Distribution Record Check | Link stays `OPEN` (Prevents DoS) |
+| `eve_loss_exploit` | Eve blocks disturbed tokens simulating photon loss | Readout / Channel Loss Anomaly Detector | `WATCH` / `QUARANTINED` |
+| `eve_cloning` | Eve uses optimal quantum cloner (Universal / Phase) | Cloner fidelity bound violation | `QUARANTINED` |
+| `eve_partial_intercept`| Eve intercepts only a fraction of tokens ($5\%$) | Sequential Early Abort / Fisher's Escalation | `WATCH` $\to$ `QUARANTINED` |
+| `eve_collective` | Eve couples an ancilla to every token with the same controlled-Ry($\theta$) and measures the ancillas after basis announcement. **One concrete collective attack, not a proof against collective attacks in general.** | Dephasing of X-basis tokens raises test-token QBER (Tier 1). At $\theta=\pi/2$: Eve guesses 67.7% of bits, verifier mismatch 3.8%, detected in 59-65% of transmissions (`experiments/sweep_collective.py`) | `WATCH` / `QUARANTINED` when detected |
 
 ### 6.1 Optional N-verifier extension (recipient scaling)
 
@@ -352,86 +310,54 @@ The one-time quantum evidence is still not persisted, so after a restart a pendi
 
 ---
 
-## 7. Mathematical Foundation & Statistical Detection
+## ⚙️ 8. Configuration & Environment Variables
 
-### 7.1 Statistical Thresholds & Bounds
-
-Let $e_0 = 0.02$ denote the baseline honest channel QBER, and $p_{\min} = 1/6$ the minimum theoretical mismatch rate of an unauthorized verifier.
-
-- **Direct Acceptance Threshold ($s_a$):**
-  $$s_a = \mu_h + \frac{p_{\min} - \mu_h}{3} \quad \text{where } \mu_h = \frac{e_0}{2}$$
-- **Forwarded Acceptance Threshold ($s_v$):**
-  $$s_v = \mu_h + \frac{2(p_{\min} - \mu_h)}{3}$$
-
-**Finite-Sample Hoeffding Security Bounds:**
-- **False Rejection Probability:**
-  $$P(\text{False Reject}) \le \exp\left(-2 (s_a - \mu_h)^2 n\right)$$
-- **Forgery Acceptance Probability:**
-  $$P(\text{Forgery Accepted}) \le \exp\left(-2 (p_{\min} - s_a)^2 n\right)$$
-- **Repudiation Bound:**
-  $$P(\text{Repudiation}) \le 2 \exp\left(-\frac{(s_v - s_a)^2 n}{2}\right)$$
-
-### 7.2 Two-Tier Blind Threat Discrimination
-
-1. **Tier 1 (Binomial Channel Test):** Evaluates test token errors $k$ out of $n$ against Binomial distribution $B(n, e_0)$ at significance level $\alpha = 0.01$.
-2. **Tier 2 (Disturbance Attribution):** Given total errors $D = e_{\text{test}} + m_{\text{sig}}$, computes conditional contradiction probability $\pi = \frac{n/2}{t + n/2}$:
-   - If $P(B(D, \pi) \ge m) \le 0.05 \implies$ **Signer Inconsistency / Repudiation**
-   - Else if $P(B(t, e_0) \ge e) \le 0.10 \implies$ **Channel Disturbance / Eavesdropping**
-   - Else $\implies$ **`UNDETERMINED_DISTURBANCE`** (abstains from false attribution).
+| Variable | Default | Options | Description |
+| :--- | :--- | :--- | :--- |
+| `PORT` | `8000` | Integer | HTTP web server port |
+| `HOST` | `0.0.0.0` | IP string | Bind host address |
+| `HEDWIG_BACKEND` | `qiskit` | `qiskit`, `statevector` | Quantum simulation engine |
+| `HEDWIG_DB` | `data/hedwig.db` | Path | SQLite persistent database path |
+| `HEDWIG_AUDIT_KEY` | `data/audit_ed25519.pem` | Path | Ed25519 audit authority private key path |
+| `HEDWIG_AUDIT_PQ` | `auto` | `auto`, `require`, `off` | Enforce ML-DSA-65 post-quantum dual signing |
+| `HEDWIG_USERS_FILE` | None | Path to JSON | PBKDF2 hashed credentials file path |
+| `EARLY_ABORT` | `on` | `on`, `off`, `true`, `false` | Enable/disable sequential early abort |
+| `DETECTION_TIERS` | `2` | `1`, `2` | Detection tier depth (ablation toggle) |
 
 ---
 
-## 8. Quantum Circuit Breaker & Incident Response
+## 📡 9. REST API & WebSocket Endpoints
 
-The Quantum Circuit Breaker (QCB) manages link state transitions deterministically:
-
-```
-          Weak Alert (p ≤ 0.05)            Fisher Combined p ≤ 0.01 or 3 Alerts
-  OPEN ───────────────────────────► WATCH ──────────────────────────────────────► QUARANTINED
-   ▲   ◄───────────────────────────   │  (15-min Window Decay)                         │   ▲
-   │                                  └──────── Strong Alert (p ≤ 0.001) ──────────────┤   │
-   │                                                                                   │   │ Any
-   │   1 Clean Transmission                                                            │   │ Alert
-   └─────────────────────────────── RESET_PENDING (Probation) ◄── Admin Reset (Reason) ┘   │
-                                             └─────────────────────────────────────────────┘
-```
-
-- **Fisher's Method for Evidence Accumulation:**
-  Combinative test statistic: $-2 \sum_{i=1}^k \ln(p_i) \sim \chi^2_{2k}$
-- **Adaptive Test Allocation:** While in `WATCH` or `PROBATION`, the system automatically doubles the number of test tokens allocated to future transmissions.
-- **Sequential Early Abort:** Streams are evaluated in 4 blocks. Malicious channels with high QBER abort after 1 or 2 blocks, saving **33% to 46% of quantum bandwidth**.
+| Endpoint | Method | Role | Description |
+| :--- | :--- | :--- | :--- |
+| `/api/login` | `POST` | Public | Authenticates credentials and sets role session cookie |
+| `/api/logout` | `POST` | Public | Revokes session token and deletes cookie |
+| `/api/sign-and-send` | `POST` | `admin` | Executes token prep, teleportation, commitment, and verification |
+| `/api/dishonest-bob-forward` | `POST` | `bob` | Triggers dishonest Bob forwarding attack to Charlie |
+| `/api/channel/reset` | `POST` | `admin` | Resets quarantined link to probation (Requires reason) |
+| `/api/channel` | `GET` | Any | Returns current Quantum Circuit Breaker status |
+| `/api/topology` | `GET` | Any | Returns simulated quantum router and network topology |
+| `/api/history` | `GET` | Any | Returns recent transmission records (scrubbed of ground-truth) |
+| `/api/audit/{artifact_id}` | `GET` | Any | Downloads signed Q-Cert certificate JSON |
+| `/api/audit/chain` | `GET` | `admin` | Retrieves entire SHA-256 hash chain and validation report |
+| `/api/audit-public-key` | `GET` | Public | Keyring endpoint with active and retired public keys |
+| `/api/audit/verify` | `POST` | Public | Independent verification of supplied Q-Cert certificate |
+| `/api/metrics` | `GET` | `admin` | Telemetry, latency statistics, and error counters |
+| `/results` | `GET` | Any | Experiment results page (ROC, ablations, baselines, tightness, hardware, manifest) read from `experiments/results/` |
+| `/ws/{role}` | `WebSocket` | Role-Specific | Full-duplex WebSocket stream for real-time console updates |
 
 ---
 
-## 9. Q-Cert Audit Chain & Post-Quantum Signatures
+## 🧪 10. Automated Testing & Verification
 
-Every transmission, circuit breaker isolation, and administrator reset is permanently sealed into an immutable, hash-chained ledger:
+The repository contains an extensive automated test suite executed with `pytest`:
 
-```
-[ Audit Record N-1 ] ── SHA-256 Hash ──► [ Audit Record N ] ── SHA-256 Hash ──► [ Audit Record N+1 ]
-  - Payload Digest                         - Prev Record Hash                      - Prev Record Hash
-  - Verifier Elimination Tables            - Payload Digest                        - Payload Digest
-  - Statistical P-Values & Bounds          - Verifier Observations                 - Incident Details
-  - Hybrid Signature:                      - Hybrid Signature:                     - Hybrid Signature:
-    * Ed25519 (Classical)                    * Ed25519 (Classical)                   * Ed25519 (Classical)
-    * ML-DSA-65 (NIST FIPS 204 PQ)           * ML-DSA-65 (NIST FIPS 204 PQ)          * ML-DSA-65 (NIST FIPS 204)
-```
-
-### Independent Offline Verification Tool
-
-Audit certificates can be verified independently without connecting to the server:
 ```bash
-# 1. Download active public keyring from running server:
-curl http://127.0.0.1:8000/api/audit-public-key -o keyring.json
+# Run all tests
+pytest -v
 
-# 2. Verify a single transaction record:
-python tools/verify_audit.py hedwig-audit-TX-XXXXXXXX.json --keys keyring.json
-
-# 3. Verify the complete hash chain integrity:
-python tools/verify_audit.py chain.json --chain --keys keyring.json
-
-# 4. Enforce strict Post-Quantum ML-DSA-65 verification:
-python tools/verify_audit.py hedwig-audit-TX-XXXXXXXX.json --keys keyring.json --require-pq
+# Run fast execution without verbose logging
+pytest -q
 ```
 
 ---
@@ -508,53 +434,49 @@ HEDWIG supports realistic quantum computer noise profiles using IBM backend cali
 | `GET /api/metrics` | Admin | Performance, latency breakdown (p50/p95/p99), and throughput |
 | `GET /api/security-events` | Admin | Security audit log (failed logins, forbidden queries) |
 | `WS /ws/{role}` | Role-Specific | Full-duplex WebSocket stream for real-time UI updates |
+**Key Test Coverage:**
+- `test_teleportation.py`: Bell-pair teleportation fidelity and feed-forward Pauli operations.
+- `test_cloning.py`: Universal and phase-covariant cloner fidelity bounds.
+- `test_detector_blind.py`: Blind threat detection without ground-truth labels.
+- `test_enforcement_audit.py`: Circuit breaker state machine and Q-Cert hash chain.
+- `test_noise_readout.py`, `test_loss.py`, `test_noise_damping.py`: Quantum channel noise models.
+- `test_partial_intercept.py`: Opt-in partial intercept-resend attack dynamics.
+- `test_ablations.py`: Toggles and metrics for sequential early abort and 1-tier vs 2-tier detection.
+- `test_harness.py`: Resumable grid experiment runner and RNG determinism.
+- `test_make_roc.py`: Verifier mismatch ROC generation and AUC interval estimation.
+- `test_api.py`: FastAPI endpoints, cookie validation, and role enforcement.
 
 ---
 
-## 13. Automated Testing & Empirical Benchmarks
+## 🔬 11. Scientific Reproducibility & Experiments
 
-### 13.1 Running the Automated Test Suite
-
-The test suite includes **155 automated tests** covering quantum teleportation fidelity, blind threat discrimination, replay defenses, circuit breaker transitions, hybrid cryptographic signatures, and IBM fake-backend noise models:
+Every experiment result, table, and ROC curve can be reproduced with a single command:
 
 ```bash
-python -m pytest tests -v
+python run_experiments.py --seed 2026            # full run, tens of minutes
+python run_experiments.py --quick                # smoke test: every step at tiny trial counts (~10 s)
+python run_experiments.py --seed 2026 --resume   # skip steps already finished with identical settings
 ```
 
-### 13.2 Empirical Benchmark Results
-
-*Evaluated with seed 2026, 200 trials per cell on Statevector backend ($p = 0.01$ channel noise, 95% Wilson confidence intervals):*
-
-| Metric / Scenario | $L = 16$ | $L = 32$ | $L = 64$ |
-| :--- | :--- | :--- | :--- |
-| **Honest False Rejection Rate** | 3.0% [1.4, 6.4] | **0.0% [0.0, 1.9]** | **0.0% [0.0, 1.9]** |
-| **Honest Single-Run False Quarantine** | **0.0%** | **0.0%** | **0.0%** |
-| **Eve Forgery Detection Rate** | **100.0%** | **100.0%** | **100.0%** |
-| **Dishonest Bob Caught (Overall)** | **100.0%** | **100.0%** | **100.0%** |
-| *(Quantum Elimination Check Alone)* | 88.0% | 95.5% | 98.5% |
-| **Eve Intercept Caught & Identified**<br>*(Flagged / Identified as Intercept)* | 98.5% (91.0% identified) | **100.0% (98.5% identified)** | **100.0% (100.0% identified)** |
-| **Sequential Early Abort Bandwidth Saved**<br>*(Triggers Abort / Tokens Saved)* | 28.5% (33% tokens) | **76.5% (39% tokens)** | **97.5% (46% tokens)** |
-| **Repudiation Caught & Attributed**<br>*(Total Caught / Repudiation vs. Disturbance)* | 98.5% (36.5% rep. / 61.5% dist.) | **98.5% (90.5% rep. / 7.5% dist.)** | **100.0% (100.0% rep. / 0% dist.)** |
-
-> **Table Notation & Paired Values Legend:**
-> - **Eve Intercept:** Displays `Flagged % (Identified as Eavesdropping %)`. The remainder are captured under general channel disturbance.
-> - **Early Abort:** Displays `Runs Triggering Early Abort % (Average Transmitted Tokens Saved %)`.
-> - **Repudiation:** Displays `Total Detected % (Attributed as Repudiation % / Flagged as Undetermined Disturbance %)`. At low $L=16$, finite-sample variance leads the detector to conservatively classify disturbances before conclusively attributing dishonest signer behavior at $L \ge 32$.
+Outputs are saved under `experiments/results/`:
+- `raw.jsonl`: Raw per-trial execution records.
+- `summary.csv`: Aggregated detection and false-alarm rates with 95% Wilson confidence intervals.
+- `manifest.json`: System provenance, git commit, packages, seed, and per-step execution timing.
+- `PPT_NUMBERS.md`: Verified numerical claims mapped to their origin data files.
 
 ---
 
-## 14. Troubleshooting & FAQ
+## ⚠️ 12. Limitations & Simulation Scope
 
-- **Q: Why does the dashboard show HTTP 423 (Locked)?**  
-  *A:* A link was quarantined due to a detected attack. Click **Reset Links** in `/admin`, provide a mandatory reason, and submit an honest transmission to return the link to `OPEN`.
-- **Q: Why are L=16 honest transmissions occasionally rejected (~3%)?**  
-  *A:* Finite-sample binomial variance causes occasional statistical overlap at small signature lengths. The system classifies these as `UNDETERMINED_DISTURBANCE` and places the link on `WATCH` rather than immediate quarantine. Use $L \ge 32$ for high assurance.
-- **Q: How to reset the database and start completely fresh?**  
-  *A:* Stop the server and delete `data/hedwig.db`.
+In strict adherence to academic and engineering integrity:
+1. **Simulation Platform:** This software is a **classical numerical and circuit simulation** using Qiskit Aer and NumPy statevectors. It executes on classical CPUs and **does not provide physical quantum hardware security**.
+2. **Channel Assumptions:** Quantum channels, fiber loss, and detector clicks are modeled using statistical noise models (depolarizing, amplitude damping, asymmetric readout error).
+3. **Post-Quantum Reference Implementation:** `dilithium-py` provides a pure-Python reference implementation of ML-DSA-65 suitable for demonstration; it is not side-channel hardened for production environments.
+4. **Computational Binding:** The commitment scheme relies on the computational preimage and collision resistance of SHA-256.
 
 ---
 
-## 15. Glossary
+## 👥 13. Team & Attribution
 
 - **QDS (Quantum Digital Signatures):** Signatures offering theoretical unforgeability based on the fundamental laws of quantum physics rather than computational hardness *(note: this repository simulates the protocol via classical statevector and circuit emulation, so it does not provide physical quantum-channel security)*.
 - **Bell Pair ($|\Phi^+\rangle$):** Maximally entangled two-qubit quantum state used as a resource channel for quantum teleportation.
@@ -569,3 +491,5 @@ python -m pytest tests -v
 The admin console now supports a JSON topology, hop-by-hop teleportation, independent edge probes, and fresh-session rerouting around WATCH or QUARANTINED links. Activate **Multi-hop demo (R1/R2 + R3)** under **Links & router → Quantum routes** to try the middle-link attack and alternate path. The legacy star remains the default.
 
 See [the implementation and demonstration guide](MULTI_HOP_ROUTING_IMPLEMENTATION.md) for policies, APIs, assumptions, historical graph/table/matrix views, and evaluation commands.
+Developed by **Team ATHENA** for SIH 2026.  
+For complete beginner guidance, analogies, and viva preparation, read [FOR_DUMMIES.md](FOR_DUMMIES.md).

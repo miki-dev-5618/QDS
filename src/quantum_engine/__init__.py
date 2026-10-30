@@ -21,7 +21,7 @@ from .threats import ThreatSuite, ThreatType, ThreatScenarioConfig, NoPackageToR
 from .detection import QDSDetectionEngine, ThreatReport, ThreatClassification
 from .discriminator import TierTwoResult, tier_two
 from .security import SecurityParameters
-from .channel import ChannelModel, ChannelTestResult, estimate_channel_qber, make_amplitude_damping_channel, make_readout_channel, make_lossy_channel
+from .channel import ChannelModel, ChannelTestResult, estimate_channel_qber, make_amplitude_damping_channel, make_readout_channel, make_lossy_channel, make_cloning_channel
 from .binding import SignedContext, SignedPackage, commitment, message_digest
 from .verifier import VerifierNode, VerificationResult, DistributionRecord, estimate_readout_mismatch_overhead
 from .policy import ResponsePolicy, ResponseDecision, decide
@@ -34,6 +34,8 @@ from .monitoring import probe_edges
 from .audit import (AuditAuthority, build_record, build_evidence, build_reset_record, verify_certificate,
                     verify_certificate_report, verify_chain)
 from .signers import pq_provider
+from .cloning import (build_cloning_circuit, measure_cloner_fidelity, simulate_eve_cloning_step,
+                      UNIVERSAL_FIDELITY, UNIVERSAL_ERROR, PHASE_COVARIANT_FIDELITY, PHASE_COVARIANT_ERROR)
 
 __all__ = [
     "TeleportationQDS", "QDSExecutionResult", "VERIFIERS", "UnknownParticipant",
@@ -44,7 +46,7 @@ __all__ = [
     "QDSDetectionEngine", "ThreatReport", "ThreatClassification",
     "TierTwoResult", "tier_two",
     "SecurityParameters",
-    "ChannelModel", "ChannelTestResult", "estimate_channel_qber", "make_amplitude_damping_channel", "make_readout_channel", "make_lossy_channel",
+    "ChannelModel", "ChannelTestResult", "estimate_channel_qber", "make_amplitude_damping_channel", "make_readout_channel", "make_lossy_channel", "make_cloning_channel",
     "SignedContext", "SignedPackage", "commitment", "message_digest",
     "VerifierNode", "VerificationResult", "DistributionRecord", "estimate_readout_mismatch_overhead",
     "ResponsePolicy", "ResponseDecision", "decide",
