@@ -37,6 +37,12 @@ from src.quantum_engine import (
 from src.quantum_engine import noise_profiles
 from src.quantum_engine.audit import strip_evidence
 from src.quantum_engine.enforcement import LINK_FORWARD, LINK_SIGNER
+from src.quantum_engine.roster import ConfigurationError, SessionConfig, limits as roster_limits
+from src.quantum_engine.topology import Topology, TopologyError
+from src.quantum_engine.enforcement import edge_scope, EMERGENCY
+from src.quantum_engine.routing import freshness
+from src.quantum_engine.monitoring import probe_edges
+from src.quantum_engine.routing_demo import run_failover_demo
 
 app = FastAPI(title="HEDWIG V2.2 - Teleportation QDS & Threat Detection System")
 
@@ -50,10 +56,12 @@ def _pq_setting() -> Optional[bool]:
 
 
 auth = Authenticator()
-store = Store(os.environ.get("HEDWIG_DB", os.path.join(CURRENT_DIR, "data", "hedwig.db")))
+db_url = os.environ.get("HEDWIG_DATABASE_URL")
+store = Store(db_url) if db_url else Store(os.environ.get("HEDWIG_DB", os.path.join(CURRENT_DIR, "data", "hedwig.db")))
 audit_authority = AuditAuthority(os.environ.get(
     "HEDWIG_AUDIT_KEY", os.path.join(CURRENT_DIR, "data", "audit_ed25519.pem")), pq=_pq_setting(), store=store)
-qds_engine = TeleportationQDS(backend=os.environ.get("HEDWIG_BACKEND", "qiskit"), store=store, audit=audit_authority)
+qds_engine = TeleportationQDS(backend=os.environ.get("HEDWIG_BACKEND", "qiskit"), store=store, audit=audit_authority,
+                              topology=os.environ.get("HEDWIG_TOPOLOGY"))
 engine_lock = asyncio.Lock()
 
 
@@ -84,7 +92,8 @@ class SystemState:
         s = self.stats
         s["total_sent"] += 1
         detected = tx["threat_report"]["is_threat_detected"]
-        injected = tx["ground_truth"].get("injected_scenario", "authentic") != "authentic"
+        injected = (tx["ground_truth"].get("injected_scenario", "authentic") != "authentic" or
+                    bool(tx["ground_truth"].get("traversed_injected_edges")))
         s["threats_detected" if detected else "verified_authentic"] += 1
         s["attacks_injected"] += int(injected)
         s["attacks_missed"] += int(injected and not detected)
@@ -128,11 +137,57 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+_PRIVATE_EVIDENCE = ("eliminated_states", "held_tokens")
+
+
+def _strip_private(v: Optional[Dict[str, Any]], role: str) -> Optional[Dict[str, Any]]:
+    """Another participant's private distribution evidence is never shown to a verifier."""
+    if not v or v.get("verifier") == role:
+        return v
+    return {k: val for k, val in v.items() if k not in _PRIVATE_EVIDENCE}
+
+
 def view_for(role: str, tx: Dict[str, Any]) -> Dict[str, Any]:
-    """Verifier dashboards never receive the injector's ground truth or the signer's private states."""
+    """
+    Verifier dashboards never receive the injector's ground truth, the signer's private states,
+    other participants' private distribution evidence, or the per-recipient symmetrisation decisions.
+    Extra roster members are visible in the admin view only (initial release).
+    """
     if role == "admin":
         return tx
-    return {k: v for k, v in tx.items() if k not in ("ground_truth", "alice")}
+    out = {k: v for k, v in tx.items() if k not in ("ground_truth", "alice", "symmetrisation")}
+    for key in ("bob", "charlie"):
+        out[key] = _strip_private(tx.get(key), role)
+    out["additional_verifications"] = [_strip_private(v, role) for v in tx.get("additional_verifications", [])
+                                       if v.get("verifier") in ("bob", "charlie")]
+    if "participants" in tx:
+        out["participants"] = [r for r in tx["participants"] if r.get("verifier") in ("bob", "charlie")]
+    if "events" in tx:
+        out["events"] = [e for e in tx["events"] if e.get("verifier") in ("bob", "charlie")]
+    if tx.get("routing"):
+        out["routing"] = route_view(role, tx["routing"])
+    return out
+
+
+def route_view(role, record):
+    if role == "admin":
+        return record
+    import copy
+    result = copy.deepcopy(record)
+    plan = result["plan"]
+    if role not in plan["roster"]:
+        return None
+    plan["roster"] = [role]
+    plan["routes"] = {role: plan["routes"][role]}
+    plan["candidates"] = {role: plan["candidates"][role]}
+    plan.pop("scope_snapshot", None)
+    execution = result.get("execution")
+    if execution:
+        stats = execution["recipients"][role]
+        execution["recipients"] = {role: stats}
+        execution["edges"] = stats["edges"]
+        execution["route_tests"] = {role: execution["route_tests"][role]}
+    return result
 
 
 async def security_event(kind: str, detail: str, request_path: str = "", client: str = ""):
@@ -200,6 +255,13 @@ class SignAndSendRequest(BaseModel):
     readout_p10: Optional[float] = 0.0
     readout_location: Optional[str] = "both"
     eta_loss: Optional[float] = 0.0
+    # Optional N-verifier extension (defaults keep the original Bob + Charlie workflow)
+    n_verifiers: Optional[int] = None
+    roster: Optional[List[str]] = None
+    delivery: str = "direct"
+    max_depth: Optional[int] = None
+    dishonest_verifier: Optional[str] = None
+    forward_alteration: str = "message"
     cloner_type: Optional[str] = "universal"
     cloning_rate: Optional[float] = 1.0
     partial_intercept_fraction: Optional[float] = 0.05
@@ -329,9 +391,10 @@ async def api_session(request: Request):
 
 
 # ---------------------------------------------------------- protocol API
-async def _run_and_publish(scenario: ThreatScenarioConfig, message: str, n_bits: int, sender: str, channel: Optional[ChannelModel] = None):
+async def _run_and_publish(scenario: ThreatScenarioConfig, message: str, n_bits: int, sender: str,
+                           channel: Optional[ChannelModel] = None, config: Optional[SessionConfig] = None):
     result = await asyncio.to_thread(qds_engine.execute_protocol, message_text=message, n_bits=n_bits,
-                                     sender=sender, scenario=scenario, channel=channel)
+                                     sender=sender, scenario=scenario, channel=channel, config=config)
     tx = result.to_dict()
     tx["noise"] = noise_profiles.describe_channel(channel or qds_engine.default_channel)
     state.record(tx)
@@ -344,9 +407,7 @@ def _refused(q: ChannelQuarantined, started_ns: int, extra: Optional[Dict[str, A
     qds_engine.latency.add(refusal_us=refusal_us)
     state.stats["refused_sends"] += 1
     return JSONResponse(status_code=423, content={
-        "status": "quarantined", "link": q.link, "detail": q.info, "refusal_us": refusal_us,
-        "message": "Circuit is broken after a qualifying alert: all messages are refused until an admin "
-                   "resets it from the admin console (the link then enters probation).", **(extra or {})})
+        **q.payload(), "refusal_us": refusal_us, **(extra or {})})
 
 
 @app.post("/api/sign-and-send")
@@ -358,18 +419,17 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
         raise HTTPException(400, f"Unknown threat_type {req.threat_type}")
     sender = SIGNER_IDENTITY["admin"]   # from the authenticated session, never from the client
     n_bits = max(8, min(64, req.n_bits))
-    scenario = ThreatScenarioConfig(
-        threat_type=t_type,
-        tampered_message_text=req.tampered_text,
-        claimed_sender=sender,
-        cloner_type=req.cloner_type or "universal",
-        cloning_rate=float(req.cloning_rate if req.cloning_rate is not None else 1.0),
-        partial_intercept_fraction=float(req.partial_intercept_fraction if req.partial_intercept_fraction is not None else 0.05),
-        collective_theta=float(req.collective_theta) if req.collective_theta is not None else (3.141592653589793 / 4),
-    )
+    scenario = ThreatScenarioConfig(threat_type=t_type, tampered_message_text=req.tampered_text,
+                                    claimed_sender=sender, dishonest_verifier=req.dishonest_verifier,
+                                    forward_alteration=req.forward_alteration)
+    try:   # unsupported combinations are configuration errors, reported before any evidence is prepared
+        config = SessionConfig.build(roster=req.roster, n_verifiers=req.n_verifiers, delivery=req.delivery,
+                                     max_depth=req.max_depth)
+        ThreatSuite.validate(scenario, config)
+    except ConfigurationError as e:
+        raise HTTPException(400, f"Configuration error: {e}")
 
-    # Optional channel noise configuration. Requests that use only the original fields keep their exact
-    # behaviour; a new profile name or a noise_param goes through the noise selector's profiles.
+    # Optional channel noise configuration
     channel = None
     try:
         profile = noise_profiles.canonical(req.noise_profile)
@@ -391,18 +451,23 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
     async with engine_lock:
         try:
             try:
-                published.append(await _run_and_publish(scenario, req.message_text, n_bits, sender, channel=channel))
+                published.append(await _run_and_publish(scenario, req.message_text, n_bits, sender, channel=channel,
+                                                        config=config))
             except NoPackageToReplay:
                 # Replay needs a genuinely accepted earlier package: send one honestly, then replay it.
-                published.append(await _run_and_publish(ThreatScenarioConfig(), req.message_text, n_bits, sender, channel=channel))
+                published.append(await _run_and_publish(ThreatScenarioConfig(), req.message_text, n_bits, sender,
+                                                        channel=channel, config=config))
                 if qds_engine.last_accepted_package is None:
                     return JSONResponse(status_code=409, content={
                         "status": "no_package", "transmissions": published,
                         "message": "The honest preamble was rejected (channel noise), so there is no accepted "
                                    "package to replay yet. Try again."})
-                published.append(await _run_and_publish(scenario, req.message_text, n_bits, sender, channel=channel))
+                published.append(await _run_and_publish(scenario, req.message_text, n_bits, sender, channel=channel,
+                                                        config=config))
         except ChannelQuarantined as q:
             return _refused(q, started_ns, {"transmissions": published})
+        except ConfigurationError as exc:
+            raise HTTPException(400, str(exc))
     return {"status": "success", "transmission": published[-1], "transmissions": published, "stats": state.stats}
 
 
@@ -455,7 +520,7 @@ async def api_channel_reset(payload: Optional[Dict[str, str]] = Body(default=Non
     """Authorised reset: needs the admin role; issues a signed reset record."""
     link = (payload or {}).get("link") or None
     reason = ((payload or {}).get("reason") or "").strip() or "admin reset"
-    if link not in (None, LINK_SIGNER, LINK_FORWARD):
+    if link is not None and (link not in qds_engine.guard.to_dict() or link == EMERGENCY):
         raise HTTPException(400, "Unknown link")
     async with engine_lock:
         transitions = qds_engine.guard.request_reset(link, actor=session["username"], reason=reason)
@@ -471,6 +536,26 @@ async def api_channel_reset(payload: Optional[Dict[str, str]] = Body(default=Non
                                                         "chain_seq": cert["record"]["chain"]["seq"]}}
 
 
+@app.get("/api/roster")
+async def api_roster(session: Dict = Depends(require_role("admin"))):
+    """Enrolled identities and supported configuration limits of the N-verifier extension."""
+    return {**roster_limits(), "default": SessionConfig().to_dict(),
+            "scope": "Optional recipient-scaling extension: more pre-enrolled verifiers can independently "
+                     "authenticate one signer's message. It adds no security by itself, is not universal "
+                     "verification and is not multi-party approval; collusion is not covered."}
+
+
+@app.get("/api/sessions/{session_id}/events")
+async def api_session_events(session_id: str, session: Dict = Depends(require_role("admin"))):
+    """Durable event history of one session (admin only): roster, every verification event, parent links."""
+    stored = store.get_session(session_id)
+    events = qds_engine.ledger.events(session_id)
+    if stored is None and not events:
+        raise HTTPException(404, "Unknown session")
+    return {"session": stored, "events": events,
+            "note": "Audit history only: one-time quantum evidence is not recoverable for new verification."}
+
+
 @app.get("/api/channel")
 async def api_channel(session: Dict = Depends(require_any)):
     return qds_engine.guard.to_dict()
@@ -483,7 +568,141 @@ async def api_channel_transitions(session: Dict = Depends(require_role("admin"))
 
 @app.get("/api/topology")
 async def api_topology(session: Dict = Depends(require_any)):
-    return {"router": qds_engine.router.to_dict(), "channel_state": qds_engine.guard.to_dict()}
+    topology = qds_engine.topology
+    probes = store.get_json("edge_probes", {})
+    states = qds_engine.guard.to_dict()
+    edges = [{**e.to_dict(), "scope": edge_scope(e.id, topology.digest),
+        "state": states.get(edge_scope(e.id, topology.digest), {}).get("state", "open"),
+        "monitoring": freshness(probes.get(edge_scope(e.id, topology.digest)), qds_engine.clock(), qds_engine.routing_policy),
+        "probe": probes.get(edge_scope(e.id, topology.digest)) if session["role"] == "admin" else None}
+        for e in topology.edges.values()]
+    router = qds_engine.router.to_dict()
+    if session["role"] != "admin":
+        router = {"note": router["note"]}
+    return {"router": router, "channel_state": states, "topology": topology.to_dict(),
+        "digest": topology.digest, "edges": edges, "timestamp": qds_engine.clock(),
+        "policy": qds_engine.routing_policy.__dict__,
+        "injections": {k: v.__dict__ for k, v in qds_engine.edge_injections.items()} if session["role"] == "admin" else None}
+
+
+@app.post("/api/topology")
+async def api_activate_topology(payload: Dict[str, Any] = Body(...), session: Dict = Depends(require_role("admin"))):
+    async with engine_lock:
+        try:
+            document = Topology.preset(payload["preset"]).to_dict() if isinstance(payload.get("preset"), str) else payload.get("topology", payload)
+            topology = qds_engine.activate_topology(document, session["username"])
+        except (TopologyError, ValueError) as exc:
+            raise HTTPException(400, str(exc))
+    return {"status": "success", "topology": topology.to_dict(), "digest": topology.digest}
+
+
+@app.get("/api/routing/history")
+async def api_route_history(session: Dict = Depends(require_any)):
+    rows = [route_view(session["role"], row) for row in store.route_history()]
+    return {"sessions": [r for r in rows if r is not None]}
+
+
+@app.post("/api/routing/preview")
+async def api_route_preview(payload: Dict[str, Any] = Body(default={}), session: Dict = Depends(require_role("admin"))):
+    try:
+        config = SessionConfig.build(roster=payload.get("roster"), n_verifiers=payload.get("n_verifiers"),
+            delivery=payload.get("delivery", "direct"), max_depth=payload.get("max_depth"))
+    except (ConfigurationError, ValueError, TypeError) as exc:
+        raise HTTPException(400, str(exc))
+    return qds_engine.preview_routes(config)
+
+
+@app.post("/api/routing/demo")
+async def api_route_demo(session: Dict = Depends(require_role("admin"))):
+    try:
+        report = await asyncio.to_thread(run_failover_demo, qds_engine.backend.name, qds_engine.params)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    artifact = "FAILOVER-" + __import__("uuid").uuid4().hex
+    report["test_id"] = artifact
+    store.put_json(artifact, report)
+    audit_authority.issue({"version": "hedwig-audit/3", "kind": "routing_self_test", "issued_at": qds_engine.clock(),
+        "report": report}, artifact)
+    return report
+
+
+@app.get("/api/routing/refusals")
+async def api_route_refusals(session: Dict = Depends(require_role("admin"))):
+    return {"refusals": store.route_refusals()}
+
+
+@app.get("/api/sessions/{session_id}/routes")
+async def api_session_routes(session_id: str, session: Dict = Depends(require_any)):
+    row = store.route_session(session_id)
+    result = route_view(session["role"], row) if row else None
+    if result is None:
+        raise HTTPException(404, "No authorized route history for this session")
+    return result
+
+
+@app.post("/api/routing/fault")
+async def api_route_fault(payload: Dict[str, Any] = Body(...), session: Dict = Depends(require_role("admin"))):
+    """Experimental ground truth is separate from observed detector evidence."""
+    eid, action = payload.get("edge"), payload.get("action", "manual")
+    reason = payload.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        raise HTTPException(400, "A reason is required")
+    if not isinstance(eid, str) or eid not in qds_engine.topology.edges:
+        raise HTTPException(400, "Unknown edge")
+    scope = edge_scope(eid, qds_engine.topology.digest)
+    if action == "manual":
+        try:
+            transition = await asyncio.to_thread(qds_engine.guard.manual, scope,
+                payload.get("state", "quarantined"), session["username"], reason)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+    elif action in ("attack", "clear_attack"):
+        async with engine_lock:
+            if eid not in qds_engine.topology.edges:
+                raise HTTPException(400, "Topology changed; select a current edge")
+            if action == "attack":
+                qds_engine.edge_injections[eid] = ChannelModel(depolarizing=0, intercept_rate=1.0)
+            else:
+                qds_engine.edge_injections.pop(eid, None)
+        transition = None
+    else:
+        raise HTTPException(400, "Unknown action")
+    event = {"edge": eid, "scope": scope, "action": action, "actor": session["username"], "reason": reason,
+                 "timestamp": qds_engine.clock(), "experimental_ground_truth": True, "transition": transition}
+    artifact = "FAULT-" + __import__("uuid").uuid4().hex
+    store.put_json(artifact, event)
+    audit_authority.issue({"version": "hedwig-audit/3", "kind": "manual_fault", "issued_at": qds_engine.clock(),
+                               "event": event}, artifact)
+    if transition and transition.get("incident_id"):
+        audit_authority.issue({"version": "hedwig-audit/3", "kind": "incident", "issued_at": qds_engine.clock(),
+            "incident_id": transition["incident_id"], "link": scope, "scope_label": eid,
+            "experimental_ground_truth": True,
+            "trigger": {"classification": "MANUAL_FAULT_INJECTION", "evidence_p": None},
+            "event": event}, transition["incident_id"])
+    return {"status": "success", "event": event}
+
+
+@app.post("/api/routing/probe")
+async def api_route_probe(payload: Dict[str, Any] = Body(...), session: Dict = Depends(require_role("admin"))):
+    async with engine_lock:
+        try:
+            ids = payload.get("edges", list(qds_engine.topology.edges))
+            if not isinstance(ids, list) or any(not isinstance(e, str) for e in ids):
+                raise ValueError("edges must be an array of edge IDs")
+            observations = await asyncio.to_thread(probe_edges, qds_engine, ids, np.random.default_rng(), payload.get("count", 512))
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+    return {"status": "success", "observations": observations}
+
+
+@app.post("/api/routing/emergency")
+async def api_route_emergency(payload: Dict[str, Any] = Body(...), session: Dict = Depends(require_role("admin"))):
+    if type(payload.get("enabled")) is not bool or not isinstance(payload.get("reason"), str) or not payload["reason"].strip():
+        raise HTTPException(400, "enabled boolean and reason are required")
+    change = await asyncio.to_thread(qds_engine.guard.emergency, payload["enabled"], session["username"], payload["reason"])
+    audit_authority.issue({"version": "hedwig-audit/3", "kind": "emergency_stop", "issued_at": qds_engine.clock(),
+        "transition": change}, "STOP-" + __import__("uuid").uuid4().hex)
+    return {"status": "success", "transition": change}
 
 
 @app.get("/api/history")
@@ -530,7 +749,9 @@ async def api_audit(artifact_id: str, evidence: bool = True, session: Dict = Dep
     cert = store.get_audit(artifact_id)
     if cert is None:
         raise HTTPException(404, "No audit record with that id")
-    return JSONResponse(cert if evidence else strip_evidence(cert),
+    if session["role"] != "admin" and (cert["record"].get("kind") in ("manual_fault", "edge_probe", "topology_activation", "emergency_stop", "routing_self_test") or cert["record"].get("experimental_ground_truth")):
+        raise HTTPException(403, "This audit record is admin-only")
+    return JSONResponse(cert if evidence and session["role"] == "admin" else strip_evidence(cert),
                         headers={"Content-Disposition": f'attachment; filename="hedwig-audit-{artifact_id}.json"'})
 
 

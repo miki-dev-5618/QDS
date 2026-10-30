@@ -1,0 +1,923 @@
+{
+  "seed": 2026,
+  "trials_per_config": 40,
+  "backend": "statevector",
+  "channel": "ChannelModel() default depolarising",
+  "results": [
+    {
+      "N": 2,
+      "delivery": "direct",
+      "H": 1,
+      "L": 32,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 79,
+        "rejected": 1,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 0.9875,
+      "event_accept_ci95": [
+        0.9325,
+        0.9978
+      ],
+      "session_outcomes": {
+        "all_accepted": 39,
+        "rejected": 1
+      },
+      "classifications": {
+        "BENIGN_AUTHENTIC": 30,
+        "CHANNEL_NOISE": 9,
+        "UNDETERMINED_DISTURBANCE": 1
+      },
+      "tokens_planned_mean": 154.0,
+      "tokens_sent_mean": 154.0,
+      "reserve_positions_mean": 28.0,
+      "copies_per_verifier": {
+        "mean": 32.0,
+        "min": 26,
+        "max": 38
+      },
+      "distribution_ms_p50": 86.46,
+      "total_ms_p50": 91.0,
+      "audit_bytes_mean": 9088
+    },
+    {
+      "N": 2,
+      "delivery": "chain",
+      "H": 1,
+      "L": 32,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 78,
+        "rejected": 1,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 0.9873,
+      "event_accept_ci95": [
+        0.9317,
+        0.9978
+      ],
+      "session_outcomes": {
+        "all_accepted": 39,
+        "rejected": 1
+      },
+      "classifications": {
+        "BENIGN_AUTHENTIC": 30,
+        "CHANNEL_NOISE": 9,
+        "REPUDIATION_ATTEMPT": 1
+      },
+      "tokens_planned_mean": 154.0,
+      "tokens_sent_mean": 154.0,
+      "reserve_positions_mean": 28.0,
+      "copies_per_verifier": {
+        "mean": 32.0,
+        "min": 26,
+        "max": 38
+      },
+      "distribution_ms_p50": 85.49,
+      "total_ms_p50": 94.28,
+      "audit_bytes_mean": 11688
+    },
+    {
+      "N": 3,
+      "delivery": "direct",
+      "H": 1,
+      "L": 32,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 120,
+        "rejected": 0,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 1.0,
+      "event_accept_ci95": [
+        0.969,
+        1.0
+      ],
+      "session_outcomes": {
+        "all_accepted": 40
+      },
+      "classifications": {
+        "CHANNEL_NOISE": 17,
+        "BENIGN_AUTHENTIC": 23
+      },
+      "tokens_planned_mean": 214.0,
+      "tokens_sent_mean": 214.0,
+      "reserve_positions_mean": 28.0,
+      "copies_per_verifier": {
+        "mean": 32.0,
+        "min": 20,
+        "max": 43
+      },
+      "distribution_ms_p50": 116.98,
+      "total_ms_p50": 123.17,
+      "audit_bytes_mean": 10750
+    },
+    {
+      "N": 3,
+      "delivery": "chain",
+      "H": 2,
+      "L": 32,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 120,
+        "rejected": 0,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 1.0,
+      "event_accept_ci95": [
+        0.969,
+        1.0
+      ],
+      "session_outcomes": {
+        "all_accepted": 40
+      },
+      "classifications": {
+        "CHANNEL_NOISE": 17,
+        "BENIGN_AUTHENTIC": 23
+      },
+      "tokens_planned_mean": 214.0,
+      "tokens_sent_mean": 214.0,
+      "reserve_positions_mean": 28.0,
+      "copies_per_verifier": {
+        "mean": 32.0,
+        "min": 20,
+        "max": 43
+      },
+      "distribution_ms_p50": 112.07,
+      "total_ms_p50": 124.33,
+      "audit_bytes_mean": 16227
+    },
+    {
+      "N": 5,
+      "delivery": "direct",
+      "H": 1,
+      "L": 32,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 199,
+        "rejected": 1,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 0.995,
+      "event_accept_ci95": [
+        0.9722,
+        0.9991
+      ],
+      "session_outcomes": {
+        "all_accepted": 39,
+        "rejected": 1
+      },
+      "classifications": {
+        "BENIGN_AUTHENTIC": 16,
+        "CHANNEL_NOISE": 23,
+        "UNDETERMINED_DISTURBANCE": 1
+      },
+      "tokens_planned_mean": 334.0,
+      "tokens_sent_mean": 334.0,
+      "reserve_positions_mean": 28.0,
+      "copies_per_verifier": {
+        "mean": 32.0,
+        "min": 22,
+        "max": 46
+      },
+      "distribution_ms_p50": 179.03,
+      "total_ms_p50": 188.32,
+      "audit_bytes_mean": 14100
+    },
+    {
+      "N": 5,
+      "delivery": "chain",
+      "H": 4,
+      "L": 32,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 199,
+        "rejected": 1,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 0.995,
+      "event_accept_ci95": [
+        0.9722,
+        0.9991
+      ],
+      "session_outcomes": {
+        "all_accepted": 39,
+        "rejected": 1
+      },
+      "classifications": {
+        "BENIGN_AUTHENTIC": 16,
+        "CHANNEL_NOISE": 23,
+        "DISHONEST_VERIFIER_FORGERY": 1
+      },
+      "tokens_planned_mean": 334.0,
+      "tokens_sent_mean": 334.0,
+      "reserve_positions_mean": 28.0,
+      "copies_per_verifier": {
+        "mean": 32.0,
+        "min": 22,
+        "max": 46
+      },
+      "distribution_ms_p50": 177.56,
+      "total_ms_p50": 197.93,
+      "audit_bytes_mean": 25131
+    },
+    {
+      "N": 10,
+      "delivery": "direct",
+      "H": 1,
+      "L": 32,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 400,
+        "rejected": 0,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 1.0,
+      "event_accept_ci95": [
+        0.9905,
+        1.0
+      ],
+      "session_outcomes": {
+        "all_accepted": 40
+      },
+      "classifications": {
+        "CHANNEL_NOISE": 33,
+        "BENIGN_AUTHENTIC": 7
+      },
+      "tokens_planned_mean": 634.0,
+      "tokens_sent_mean": 634.0,
+      "reserve_positions_mean": 28.0,
+      "copies_per_verifier": {
+        "mean": 32.0,
+        "min": 17,
+        "max": 51
+      },
+      "distribution_ms_p50": 348.02,
+      "total_ms_p50": 362.84,
+      "audit_bytes_mean": 22406
+    },
+    {
+      "N": 10,
+      "delivery": "chain",
+      "H": 9,
+      "L": 32,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 400,
+        "rejected": 0,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 1.0,
+      "event_accept_ci95": [
+        0.9905,
+        1.0
+      ],
+      "session_outcomes": {
+        "all_accepted": 40
+      },
+      "classifications": {
+        "CHANNEL_NOISE": 33,
+        "BENIGN_AUTHENTIC": 7
+      },
+      "tokens_planned_mean": 634.0,
+      "tokens_sent_mean": 634.0,
+      "reserve_positions_mean": 28.0,
+      "copies_per_verifier": {
+        "mean": 32.0,
+        "min": 17,
+        "max": 51
+      },
+      "distribution_ms_p50": 336.43,
+      "total_ms_p50": 374.12,
+      "audit_bytes_mean": 48086
+    },
+    {
+      "N": 2,
+      "delivery": "direct",
+      "H": 1,
+      "L": 64,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 80,
+        "rejected": 0,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 1.0,
+      "event_accept_ci95": [
+        0.9542,
+        1.0
+      ],
+      "session_outcomes": {
+        "all_accepted": 40
+      },
+      "classifications": {
+        "CHANNEL_NOISE": 21,
+        "BENIGN_AUTHENTIC": 19
+      },
+      "tokens_planned_mean": 162.0,
+      "tokens_sent_mean": 162.0,
+      "reserve_positions_mean": 0.0,
+      "copies_per_verifier": {
+        "mean": 64.0,
+        "min": 51,
+        "max": 77
+      },
+      "distribution_ms_p50": 89.0,
+      "total_ms_p50": 94.43,
+      "audit_bytes_mean": 8877
+    },
+    {
+      "N": 2,
+      "delivery": "chain",
+      "H": 1,
+      "L": 64,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 80,
+        "rejected": 0,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 1.0,
+      "event_accept_ci95": [
+        0.9542,
+        1.0
+      ],
+      "session_outcomes": {
+        "all_accepted": 40
+      },
+      "classifications": {
+        "CHANNEL_NOISE": 21,
+        "BENIGN_AUTHENTIC": 19
+      },
+      "tokens_planned_mean": 162.0,
+      "tokens_sent_mean": 162.0,
+      "reserve_positions_mean": 0.0,
+      "copies_per_verifier": {
+        "mean": 64.0,
+        "min": 51,
+        "max": 77
+      },
+      "distribution_ms_p50": 100.49,
+      "total_ms_p50": 106.89,
+      "audit_bytes_mean": 11512
+    },
+    {
+      "N": 3,
+      "delivery": "direct",
+      "H": 1,
+      "L": 64,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 120,
+        "rejected": 0,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 1.0,
+      "event_accept_ci95": [
+        0.969,
+        1.0
+      ],
+      "session_outcomes": {
+        "all_accepted": 40
+      },
+      "classifications": {
+        "BENIGN_AUTHENTIC": 13,
+        "CHANNEL_NOISE": 27
+      },
+      "tokens_planned_mean": 226.0,
+      "tokens_sent_mean": 226.0,
+      "reserve_positions_mean": 0.0,
+      "copies_per_verifier": {
+        "mean": 64.0,
+        "min": 47,
+        "max": 80
+      },
+      "distribution_ms_p50": 151.63,
+      "total_ms_p50": 157.55,
+      "audit_bytes_mean": 10445
+    },
+    {
+      "N": 3,
+      "delivery": "chain",
+      "H": 2,
+      "L": 64,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 120,
+        "rejected": 0,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 1.0,
+      "event_accept_ci95": [
+        0.969,
+        1.0
+      ],
+      "session_outcomes": {
+        "all_accepted": 40
+      },
+      "classifications": {
+        "BENIGN_AUTHENTIC": 13,
+        "CHANNEL_NOISE": 27
+      },
+      "tokens_planned_mean": 226.0,
+      "tokens_sent_mean": 226.0,
+      "reserve_positions_mean": 0.0,
+      "copies_per_verifier": {
+        "mean": 64.0,
+        "min": 47,
+        "max": 80
+      },
+      "distribution_ms_p50": 146.95,
+      "total_ms_p50": 156.53,
+      "audit_bytes_mean": 15788
+    },
+    {
+      "N": 5,
+      "delivery": "direct",
+      "H": 1,
+      "L": 64,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 200,
+        "rejected": 0,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 1.0,
+      "event_accept_ci95": [
+        0.9812,
+        1.0
+      ],
+      "session_outcomes": {
+        "all_accepted": 40
+      },
+      "classifications": {
+        "BENIGN_AUTHENTIC": 10,
+        "CHANNEL_NOISE": 30
+      },
+      "tokens_planned_mean": 354.0,
+      "tokens_sent_mean": 354.0,
+      "reserve_positions_mean": 0.0,
+      "copies_per_verifier": {
+        "mean": 64.0,
+        "min": 43,
+        "max": 86
+      },
+      "distribution_ms_p50": 235.44,
+      "total_ms_p50": 243.66,
+      "audit_bytes_mean": 13586
+    },
+    {
+      "N": 5,
+      "delivery": "chain",
+      "H": 4,
+      "L": 64,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 200,
+        "rejected": 0,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 1.0,
+      "event_accept_ci95": [
+        0.9812,
+        1.0
+      ],
+      "session_outcomes": {
+        "all_accepted": 40
+      },
+      "classifications": {
+        "BENIGN_AUTHENTIC": 10,
+        "CHANNEL_NOISE": 30
+      },
+      "tokens_planned_mean": 354.0,
+      "tokens_sent_mean": 354.0,
+      "reserve_positions_mean": 0.0,
+      "copies_per_verifier": {
+        "mean": 64.0,
+        "min": 43,
+        "max": 86
+      },
+      "distribution_ms_p50": 237.84,
+      "total_ms_p50": 252.92,
+      "audit_bytes_mean": 24355
+    },
+    {
+      "N": 10,
+      "delivery": "direct",
+      "H": 1,
+      "L": 64,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 400,
+        "rejected": 0,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 1.0,
+      "event_accept_ci95": [
+        0.9905,
+        1.0
+      ],
+      "session_outcomes": {
+        "all_accepted": 40
+      },
+      "classifications": {
+        "CHANNEL_NOISE": 35,
+        "BENIGN_AUTHENTIC": 5
+      },
+      "tokens_planned_mean": 674.0,
+      "tokens_sent_mean": 674.0,
+      "reserve_positions_mean": 0.0,
+      "copies_per_verifier": {
+        "mean": 64.0,
+        "min": 45,
+        "max": 87
+      },
+      "distribution_ms_p50": 473.5,
+      "total_ms_p50": 492.47,
+      "audit_bytes_mean": 21389
+    },
+    {
+      "N": 10,
+      "delivery": "chain",
+      "H": 9,
+      "L": 64,
+      "trials": 40,
+      "scenario": "authentic",
+      "events": {
+        "accepted": 400,
+        "rejected": 0,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 1.0,
+      "event_accept_ci95": [
+        0.9905,
+        1.0
+      ],
+      "session_outcomes": {
+        "all_accepted": 40
+      },
+      "classifications": {
+        "CHANNEL_NOISE": 35,
+        "BENIGN_AUTHENTIC": 5
+      },
+      "tokens_planned_mean": 674.0,
+      "tokens_sent_mean": 674.0,
+      "reserve_positions_mean": 0.0,
+      "copies_per_verifier": {
+        "mean": 64.0,
+        "min": 45,
+        "max": 87
+      },
+      "distribution_ms_p50": 494.95,
+      "total_ms_p50": 522.64,
+      "audit_bytes_mean": 46468
+    },
+    {
+      "N": 3,
+      "delivery": "chain",
+      "H": 2,
+      "L": 64,
+      "trials": 40,
+      "scenario": "dishonest_forwarder/message",
+      "events": {
+        "accepted": 39,
+        "rejected": 40,
+        "inconclusive": 1,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 0.4875,
+      "event_accept_ci95": [
+        0.3811,
+        0.5951
+      ],
+      "session_outcomes": {
+        "rejected": 40
+      },
+      "classifications": {
+        "DISHONEST_VERIFIER_FORGERY": 40
+      },
+      "tokens_planned_mean": 226.0,
+      "tokens_sent_mean": 226.0,
+      "reserve_positions_mean": 0.0,
+      "copies_per_verifier": {
+        "mean": 64.0,
+        "min": 45,
+        "max": 78
+      },
+      "distribution_ms_p50": 156.74,
+      "total_ms_p50": 163.83,
+      "audit_bytes_mean": 12164,
+      "altered_package_accepted_by_next_recipient": 0,
+      "rejection_cause": {
+        "digest": 40
+      }
+    },
+    {
+      "N": 3,
+      "delivery": "chain",
+      "H": 2,
+      "L": 64,
+      "trials": 40,
+      "scenario": "dishonest_forwarder/signature",
+      "events": {
+        "accepted": 40,
+        "rejected": 40,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 0.5,
+      "event_accept_ci95": [
+        0.393,
+        0.607
+      ],
+      "session_outcomes": {
+        "rejected": 40
+      },
+      "classifications": {
+        "DISHONEST_VERIFIER_FORGERY": 40
+      },
+      "tokens_planned_mean": 303.0,
+      "tokens_sent_mean": 303.0,
+      "reserve_positions_mean": 0.0,
+      "copies_per_verifier": {
+        "mean": 64.28,
+        "min": 48,
+        "max": 78
+      },
+      "distribution_ms_p50": 201.54,
+      "total_ms_p50": 210.55,
+      "audit_bytes_mean": 12256,
+      "altered_package_accepted_by_next_recipient": 0,
+      "rejection_cause": {
+        "commitment": 40
+      }
+    },
+    {
+      "N": 10,
+      "delivery": "chain",
+      "H": 9,
+      "L": 64,
+      "trials": 40,
+      "scenario": "dishonest_forwarder/message",
+      "events": {
+        "accepted": 40,
+        "rejected": 40,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 0.5,
+      "event_accept_ci95": [
+        0.393,
+        0.607
+      ],
+      "session_outcomes": {
+        "rejected": 40
+      },
+      "classifications": {
+        "DISHONEST_VERIFIER_FORGERY": 40
+      },
+      "tokens_planned_mean": 674.0,
+      "tokens_sent_mean": 674.0,
+      "reserve_positions_mean": 0.0,
+      "copies_per_verifier": {
+        "mean": 64.0,
+        "min": 47,
+        "max": 96
+      },
+      "distribution_ms_p50": 484.77,
+      "total_ms_p50": 492.87,
+      "audit_bytes_mean": 13419,
+      "altered_package_accepted_by_next_recipient": 0,
+      "rejection_cause": {
+        "digest": 40
+      }
+    },
+    {
+      "N": 10,
+      "delivery": "chain",
+      "H": 9,
+      "L": 64,
+      "trials": 40,
+      "scenario": "dishonest_forwarder/signature",
+      "events": {
+        "accepted": 40,
+        "rejected": 40,
+        "inconclusive": 0,
+        "distribution_aborted": 0
+      },
+      "event_accept_rate": 0.5,
+      "event_accept_ci95": [
+        0.393,
+        0.607
+      ],
+      "session_outcomes": {
+        "rejected": 40
+      },
+      "classifications": {
+        "DISHONEST_VERIFIER_FORGERY": 40
+      },
+      "tokens_planned_mean": 751.0,
+      "tokens_sent_mean": 751.0,
+      "reserve_positions_mean": 0.0,
+      "copies_per_verifier": {
+        "mean": 63.65,
+        "min": 45,
+        "max": 81
+      },
+      "distribution_ms_p50": 555.18,
+      "total_ms_p50": 568.39,
+      "audit_bytes_mean": 13509,
+      "altered_package_accepted_by_next_recipient": 0,
+      "rejection_cause": {
+        "commitment": 40
+      }
+    }
+  ],
+  "depth_rules": [
+    {
+      "n_checked": 32,
+      "H": 1,
+      "limits_by_depth": [
+        0,
+        0
+      ],
+      "all_meet_targets": false
+    },
+    {
+      "n_checked": 32,
+      "H": 3,
+      "limits_by_depth": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "all_meet_targets": false
+    },
+    {
+      "n_checked": 32,
+      "H": 9,
+      "limits_by_depth": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "all_meet_targets": false
+    },
+    {
+      "n_checked": 64,
+      "H": 1,
+      "limits_by_depth": [
+        3,
+        3
+      ],
+      "all_meet_targets": true
+    },
+    {
+      "n_checked": 64,
+      "H": 3,
+      "limits_by_depth": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "all_meet_targets": true
+    },
+    {
+      "n_checked": 64,
+      "H": 9,
+      "limits_by_depth": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "all_meet_targets": true
+    },
+    {
+      "n_checked": 128,
+      "H": 1,
+      "limits_by_depth": [
+        4,
+        11
+      ],
+      "all_meet_targets": true
+    },
+    {
+      "n_checked": 128,
+      "H": 3,
+      "limits_by_depth": [
+        4,
+        6,
+        8,
+        11
+      ],
+      "all_meet_targets": true
+    },
+    {
+      "n_checked": 128,
+      "H": 9,
+      "limits_by_depth": [
+        4,
+        4,
+        5,
+        6,
+        7,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "all_meet_targets": true
+    },
+    {
+      "n_checked": 256,
+      "H": 1,
+      "limits_by_depth": [
+        7,
+        28
+      ],
+      "all_meet_targets": true
+    },
+    {
+      "n_checked": 256,
+      "H": 3,
+      "limits_by_depth": [
+        7,
+        14,
+        21,
+        28
+      ],
+      "all_meet_targets": true
+    },
+    {
+      "n_checked": 256,
+      "H": 9,
+      "limits_by_depth": [
+        7,
+        9,
+        11,
+        14,
+        16,
+        18,
+        21,
+        23,
+        25,
+        28
+      ],
+      "all_meet_targets": true
+    }
+  ],
+  "notes": [
+    "Per-event statistics only; no session-level aggregate risk is claimed.",
+    "Zero accepted attacks in finite trials is not a proof of zero forgery probability.",
+    "Latency is simulator wall time on this host (statevector backend), not hardware timing."
+  ]
+}

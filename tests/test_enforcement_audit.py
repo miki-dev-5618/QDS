@@ -101,13 +101,13 @@ def test_watch_expires_after_window(clock):
     assert g.apply(LINK_SIGNER, WEAK, "TX-2")["new_state"] == "watch"  # fresh window, not an escalation
 
 
-def test_strong_alert_quarantines_immediately_and_blocks_all_links(clock):
+def test_strong_alert_quarantines_only_the_required_link(clock):
     g = ChannelGuard(clock=clock)
     g.apply(LINK_FORWARD, STRONG, "TX-1")
     assert g.state(LINK_SIGNER) == "open"
-    for link in (LINK_SIGNER, LINK_FORWARD):
-        with pytest.raises(ChannelQuarantined):
-            g.check_open(link)
+    g.check_open(LINK_SIGNER)
+    with pytest.raises(ChannelQuarantined):
+        g.check_open(LINK_FORWARD)
     g.request_reset(actor="admin")
     g.check_open(LINK_SIGNER)
     g.check_open(LINK_FORWARD)
@@ -128,7 +128,7 @@ def test_transitions_are_logged_with_actor_and_policy(clock):
     last = g.transitions[-1]
     assert last["actor"] == "admin" and last["reason"] == "false positive check"
     assert last["old_state"] == "quarantined" and last["new_state"] == "reset_pending"
-    assert all(t["policy_version"] == "hedwig-qcb/2" for t in g.transitions)
+    assert all(t["policy_version"] == g.policy.version for t in g.transitions)
 
 
 def test_link_state_survives_restart(tmp_path, clock):
@@ -240,7 +240,7 @@ def test_audit_record_verifies(cert):
     authority, c = cert
     assert verify_certificate(c, authority.trusted_keys())
     rec = c["record"]
-    assert rec["version"] == "hedwig-audit/2" and len(rec["evidence_digests"]["full_evidence_sha256"]) == 64
+    assert rec["version"] == "hedwig-audit/3" and len(rec["evidence_digests"]["full_evidence_sha256"]) == 64
     assert set(rec["evidence_digests"]["elimination_sha3_256"]) == {"bob/direct", "charlie/direct"}
     assert rec["evidence_digests"]["symmetrisation_actions_sha3_256"]
     assert rec["message"]["plaintext_included"] is False

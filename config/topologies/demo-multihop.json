@@ -1,0 +1,29 @@
+{
+  "schema": "hedwig-topology/1",
+  "version": "demo-multihop/1",
+  "description": "Primary path alice->R1->R2->{bob,charlie,dave,erin}; noisier, lossier alternative alice->R3->{...}. Other enrolled verifiers are deliberately unreachable.",
+  "max_hops": 4,
+  "nodes": [
+    {"id": "alice", "role": "signer"},
+    {"id": "R1", "role": "relay"},
+    {"id": "R2", "role": "relay"},
+    {"id": "R3", "role": "relay"},
+    {"id": "bob", "role": "verifier"},
+    {"id": "charlie", "role": "verifier"},
+    {"id": "dave", "role": "verifier"},
+    {"id": "erin", "role": "verifier"}
+  ],
+  "edges": [
+    {"id": "alice->R1", "src": "alice", "dst": "R1", "depolarizing": 0.002, "cost": 1.0},
+    {"id": "R1->R2", "src": "R1", "dst": "R2", "depolarizing": 0.002, "cost": 1.0},
+    {"id": "R2->bob", "src": "R2", "dst": "bob", "depolarizing": 0.001, "cost": 1.0},
+    {"id": "R2->charlie", "src": "R2", "dst": "charlie", "depolarizing": 0.001, "cost": 1.0},
+    {"id": "R2->dave", "src": "R2", "dst": "dave", "depolarizing": 0.001, "cost": 1.0},
+    {"id": "R2->erin", "src": "R2", "dst": "erin", "depolarizing": 0.001, "cost": 1.0},
+    {"id": "alice->R3", "src": "alice", "dst": "R3", "depolarizing": 0.004, "eta_loss": 0.02, "cost": 2.0},
+    {"id": "R3->bob", "src": "R3", "dst": "bob", "depolarizing": 0.004, "eta_loss": 0.02, "cost": 2.0},
+    {"id": "R3->charlie", "src": "R3", "dst": "charlie", "depolarizing": 0.004, "eta_loss": 0.02, "cost": 2.0},
+    {"id": "R3->dave", "src": "R3", "dst": "dave", "depolarizing": 0.004, "eta_loss": 0.02, "cost": 2.0},
+    {"id": "R3->erin", "src": "R3", "dst": "erin", "depolarizing": 0.004, "eta_loss": 0.02, "cost": 2.0}
+  ]
+}

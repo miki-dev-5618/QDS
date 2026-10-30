@@ -33,7 +33,7 @@ Two-stage rule (n1 main copies, n2 precommitted reserve copies):
   more extreme than any stage-2 outcome), which is valid under the stopping.
 """
 import math
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, replace
 from functools import lru_cache
 from typing import Any, Dict, Optional, Tuple
 
@@ -117,6 +117,8 @@ class EliminationRule:
     p_borderline_honest: float  # P(a1 < M1 <= r1 | honest): reserve-opening / inconclusive rate
     p_borderline_forger: float
     sufficient: bool          # both targets met by this rule
+    depth: int = 0            # forwarding depth this rule applies to (0 = received from the signer)
+    max_depth: int = 1        # the session's maximum depth H
 
     @property
     def two_stage(self) -> bool:
@@ -154,6 +156,8 @@ class EliminationRule:
                 s += f"; reject iff M1 > {self.r1}; {self.a1} < M1 <= {self.r1} is INCONCLUSIVE"
         else:
             s += " (otherwise reject)"
+        if self.max_depth > 1:
+            s += f" [depth {self.depth} of H = {self.max_depth}]"
         return s
 
     def to_dict(self) -> Dict[str, Any]:
@@ -258,6 +262,45 @@ def exact_rule(n1: int, n2: int, mu_h: float, p_f: float, fr_target: float, fa_t
     fr, fa = _two_stage_errors(n1, n2, a1, r1, a2, mu_h, p_f)
     return EliminationRule(single.mode, "exact", n1, n2, a1, r1, a2, mu_h, p_f, fr_target, fa_target, fr, fa,
                            single.p_borderline_honest, single.p_borderline_forger, False)
+
+
+def depth_rule(n1: int, n2: int, mu_h: float, p_f: float, fr_target: float, fa_target: float,
+               depth: int, max_depth: int) -> EliminationRule:
+    """
+    Exact rule at forwarding depth ``depth`` of a session with maximum depth H = ``max_depth``.
+
+    Depth 0 uses the direct rule (k_fr, strictest limit meeting reliability) and depth H the
+    forwarded rule (k_fa, most permissive limit meeting the forgery budget); H = 1 is exactly the
+    original direct/forwarded pair. In between, limits are evenly spaced whole numbers in [k_fr, k_fa],
+    non-decreasing in depth, so every level meets both risk targets whenever the endpoints do.
+    Adjacent levels may share a limit at short sample sizes; no distinct thresholds are invented.
+    When the evidence is too thin (inconclusive band, or a reserve fallback below target) the
+    intermediate levels keep the direct rule: no transfer margin is granted that cannot be supported.
+    Two-stage designs keep the direct stage-1 limits and widen only the pooled limit a2, clamped to
+    the largest value still meeting the forgery budget.
+    """
+    h = max(1, int(max_depth))
+    l = max(0, min(int(depth), h))
+    if l == 0 or l == h:
+        r = exact_rule(n1, n2, mu_h, p_f, fr_target, fa_target, forwarded=l > 0)
+        return replace(r, depth=l, max_depth=h)
+    d = exact_rule(n1, n2, mu_h, p_f, fr_target, fa_target, forwarded=False)
+    f = exact_rule(n1, n2, mu_h, p_f, fr_target, fa_target, forwarded=True)
+    rule = d
+    if not d.two_stage and not f.two_stage and d.r1 == d.a1 and f.r1 == f.a1 and d.sufficient:
+        a = d.a1 + (l * (f.a1 - d.a1)) // h
+        rule = _single("forwarded", "exact", n1, a, a, mu_h, p_f, fr_target, fa_target)
+    elif d.two_stage and f.two_stage and d.sufficient:
+        target = d.a2 + (l * (f.a2 - d.a2)) // h
+        a2, fr, fa = d.a2, d.false_reject, d.forgery_accept
+        for cand in range(d.a2 + 1, target + 1):
+            fr_c, fa_c = _two_stage_errors(n1, n2, d.a1, d.r1, cand, mu_h, p_f)
+            if fa_c > fa_target:
+                break
+            a2, fr, fa = cand, fr_c, fa_c
+        rule = replace(d, a2=a2, false_reject=fr, forgery_accept=fa,
+                       sufficient=fr <= fr_target and fa <= fa_target)
+    return replace(rule, mode="forwarded", depth=l, max_depth=h)
 
 
 def legacy_rule(n: int, limit_rate: float, mu_h: float, p_f: float, fr_target: float, fa_target: float,
