@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hedwig-client"
+version = "0.1.0"
+description = "Python SDK wrapping the HEDWIG V2.2 Teleportation QDS REST API."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["quantum", "qds", "hedwig", "sdk", "rest", "client"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "httpx>=0.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "fastapi[standard]>=0.111",
+    "httpx>=0.24.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hedwig_client*"]
+
+[tool.setuptools.package-data]
+hedwig_client = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

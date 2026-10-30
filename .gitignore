@@ -1,21 +1,62 @@
-# Runtime state, database & audit signing keys - never commit
+# ── Runtime state, database & audit signing keys ─────────────────────────────
 data/
 *.pem
 *.key
 
-# Environment & credentials
+# ── Environment & credentials ────────────────────────────────────────────────
 .env
 .env.*
 users.json
 
-# Bytecode & test caches
+# ── Python bytecode & test caches ────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
 
-# Virtual environments & scratch
+# ── Virtual environments ──────────────────────────────────────────────────────
 venv/
 .venv/
 env/
+
+# ── Python packaging & build artefacts ───────────────────────────────────────
+*.egg-info/
+dist/
+build/
+*.egg
+MANIFEST
+__editable__.*
+pip-*.pth
+
+# ── Coverage & profiling ──────────────────────────────────────────────────────
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.prof
+
+# ── Type-checker & linter caches ─────────────────────────────────────────────
+.mypy_cache/
+.ruff_cache/
+.pytype/
+
+# ── OS noise ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor / IDE ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Misc data files ───────────────────────────────────────────────────────────
 *.xlsx
+
+# ── Experiment results (generated, not source) ───────────────────────────────
+experiments/results/
