@@ -259,6 +259,7 @@ class SignAndSendRequest(BaseModel):
     max_depth: Optional[int] = None
     dishonest_verifier: Optional[str] = None
     forward_alteration: str = "message"
+    attack_edge: Optional[str] = None   # eve_intercept: which quantum link Eve taps
 
 
 class ForwardRequest(BaseModel):
@@ -294,6 +295,7 @@ def _page(role: str, template: str):
 
 app.add_api_route("/admin", _page("admin", "admin.html"), methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/alice", _page("admin", "admin.html"), methods=["GET"], response_class=HTMLResponse)
+app.add_api_route("/admin/routing", _page("admin", "routing.html"), methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/bob", _page("bob", "bob.html"), methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/charlie", _page("charlie", "charlie.html"), methods=["GET"], response_class=HTMLResponse)
 
@@ -357,7 +359,7 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
     n_bits = max(8, min(64, req.n_bits))
     scenario = ThreatScenarioConfig(threat_type=t_type, tampered_message_text=req.tampered_text,
                                     claimed_sender=sender, dishonest_verifier=req.dishonest_verifier,
-                                    forward_alteration=req.forward_alteration)
+                                    forward_alteration=req.forward_alteration, attack_edge=req.attack_edge)
     try:   # unsupported combinations are configuration errors, reported before any evidence is prepared
         config = SessionConfig.build(roster=req.roster, n_verifiers=req.n_verifiers, delivery=req.delivery,
                                      max_depth=req.max_depth)

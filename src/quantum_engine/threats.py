@@ -66,6 +66,7 @@ class ThreatScenarioConfig:
     loss_exploit_block_rate: float = 0.5
     dishonest_verifier: Optional[str] = None     # forwarding scenarios: the one dishonest roster member
     forward_alteration: str = "message"          # dishonest_forwarder: "message" | "signature"
+    attack_edge: Optional[str] = None            # eve_intercept: the quantum link Eve taps (None = whole send)
 
 
 class NoPackageToReplay(Exception):
@@ -256,6 +257,10 @@ class ThreatSuite:
         cfg = config or engine.default_config
 
         if t == ThreatType.AUTHENTIC:
+            return engine.transmit(sender, message, n_bits, rng, channel, config=cfg)
+
+        if t == ThreatType.EVE_INTERCEPT and scenario.attack_edge:
+            # Eve sits on one link; execute_protocol installs her there as an edge injection.
             return engine.transmit(sender, message, n_bits, rng, channel, config=cfg)
 
         if t == ThreatType.EVE_INTERCEPT:

@@ -179,6 +179,24 @@ def test_end_to_end_alarm_restricts_paths_without_fabricating_edge_attribution(r
     assert result.to_dict()["revealed"] is False
 
 
+def test_live_alarm_on_edge_attack_quarantines_that_edge_not_the_route(tmp_path, rng):
+    store = Store(str(tmp_path / "localize.db"))
+    engine = demo(store=store, audit=AuditAuthority(str(tmp_path / "key.pem"), store=store, pq=False))
+    engine.edge_injections["R1->R2"] = ChannelModel(depolarizing=0, intercept_rate=1)
+    result = engine.execute_protocol("attacked middle edge", 32, rng=rng).to_dict()
+    states = engine.guard.to_dict()
+    digest = engine.topology.digest
+    assert states[edge_scope("R1->R2", digest)]["state"] == "quarantined"
+    for clean in ("alice->R1", "R2->bob", "R2->charlie"):
+        assert states.get(edge_scope(clean, digest), {}).get("state", "open") == "open"
+    assert not any(scope.startswith("path:") and s["state"] != "open" for scope, s in states.items())
+    assert result["enforcement"]["attribution"] == "edge localized by independent probes: R1->R2"
+    assert verify_chain(store.audit_chain())["valid"]
+    after = engine.execute_protocol("fresh", 32, rng=rng).to_dict()
+    assert after["routing"]["plan"]["routes"]["bob"]["nodes"] == ["alice", "R3", "bob"]
+    assert after["session_outcome"] == "all_accepted"
+
+
 @pytest.mark.parametrize("backend", [StatevectorTeleportationBackend, QiskitTeleportationBackend])
 def test_multihop_bell_corrections_preserve_all_bb84_states(backend, rng):
     routes = [[TeleportJob(bit, basis, basis)] + [TeleportJob(0, 0, basis) for _ in range(hops-1)]
@@ -305,3 +323,43 @@ def test_duplicate_assessment_is_idempotent_and_emergency_is_explicit(tmp_path):
         guard.check_open(LINK_SIGNER)
     guard.emergency(False, "admin", "maintenance complete")
     guard.check_open(LINK_SIGNER)
+
+
+def star_dishonest_bob(engine, rng, channel=None):
+    from src.quantum_engine.threats import ThreatScenarioConfig, ThreatType
+    return engine.execute_protocol("forwarded", 32, rng=rng, channel=channel,
+        scenario=ThreatScenarioConfig(threat_type=ThreatType.DISHONEST_BOB)).to_dict()
+
+
+def test_star_qubit_evidence_quarantines_the_attacked_edge_not_the_forwarding_link(rng):
+    engine = TeleportationQDS(backend="statevector", channel=ChannelModel(depolarizing=0))
+    engine.edge_injections["QR-1->bob"] = ChannelModel(depolarizing=0, intercept_rate=1)
+    result = star_dishonest_bob(engine, rng)
+    assert result["threat_report"]["classification"] == "EAVESDROPPING_TAMPERING"
+    assert engine.guard.state(edge_scope("QR-1->bob", engine.topology.digest)) == "quarantined"
+    assert engine.guard.state(edge_scope("QR-1->charlie", engine.topology.digest)) == "open"
+    assert engine.guard.state(LINK_FORWARD) == "open"
+    assert engine.guard.state(LINK_SIGNER) == "open"
+
+
+def test_star_unlocalized_qubit_evidence_restricts_the_signer_not_the_forwarding_link(rng):
+    engine = TeleportationQDS(backend="statevector", channel=ChannelModel(depolarizing=0))
+    result = star_dishonest_bob(engine, rng, channel=ChannelModel(depolarizing=0, intercept_rate=1))
+    assert result["threat_report"]["classification"] == "EAVESDROPPING_TAMPERING"
+    assert engine.guard.state(LINK_FORWARD) == "open"
+    assert engine.guard.state(LINK_SIGNER) in ("watch", "quarantined")
+    assert result["enforcement"]["attribution"] == "route observation; probes found no faulty edge"
+
+
+@pytest.mark.parametrize("topology,edge", [(None, "QR-1->bob"), ("demo-multihop", "R1->R2")])
+def test_threat_studio_eve_on_a_link_is_located_automatically(rng, topology, edge):
+    from src.quantum_engine.threats import ThreatScenarioConfig, ThreatType
+    engine = TeleportationQDS(backend="statevector", channel=ChannelModel(depolarizing=0), topology=topology)
+    result = engine.execute_protocol("tapped", 32, rng=rng,
+        scenario=ThreatScenarioConfig(threat_type=ThreatType.EVE_INTERCEPT, attack_edge=edge)).to_dict()
+    assert result["threat_report"]["is_threat_detected"]
+    assert engine.guard.state(edge_scope(edge, engine.topology.digest)) == "quarantined"
+    assert result["enforcement"]["attribution"] == f"edge localized by independent probes: {edge}"
+    assert engine.guard.state(LINK_SIGNER) == "open"
+    assert edge not in engine.edge_injections          # Eve leaves once the send is assessed
+    assert result["ground_truth"]["edge_injections"] == {edge: result["ground_truth"]["edge_injections"][edge]}

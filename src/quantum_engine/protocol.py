@@ -67,6 +67,7 @@ from .enforcement import (ChannelGuard, LatencyStats, LINK_FORWARD, LINK_SIGNER,
 from .topology import Topology, legacy_star
 from .routing import allocate, RoutingPolicy, RoutePlan, RouteUnavailable, required_scopes, freshness
 from .multihop import hop_jobs, count_traversal
+from .monitoring import probe_edges
 from .policy import ResponseDecision, ResponsePolicy, decide
 from .roster import DEFAULT_CONFIG, VERIFIER_POOL, ConfigurationError, SessionConfig
 from .router import SimulatedRouter
@@ -790,10 +791,30 @@ class TeleportationQDS:
         assessment_id = evidence_hash({"session": transcript.package.context.session_id,
             "events": [r.event_id for r in transcript.results],
             "channel": transcript.channel_test.to_dict() if transcript.channel_test else None})
-        if custom_routes and channel_finding:
+        localized, probe_incidents = [], set()
+        # Qubit evidence is localized on every topology, including the legacy star; it is
+        # never charged to the classical forwarding link the transcript happens to carry.
+        localize = bool(channel_finding and session and session.route_plan)
+        if localize:
             plan_routes = session.route_plan.to_dict()["routes"]
             targets = list(route_alarms) or list(plan_routes)
-            for v in targets:
+            # A session test cannot say which hop failed, so probe every edge of the alarmed
+            # routes independently. Edges whose own probe fails are restricted by the probe;
+            # a route is restricted as a whole only when none of its edges could be blamed.
+            suspects = list(dict.fromkeys(e for v in targets for e in plan_routes[v]["edges"]))
+            try:
+                observations = probe_edges(self, suspects, np.random.default_rng())
+            except ValueError:
+                observations = []
+            localized = [o for o in observations if o["decision"]["response_action"] != "none"]
+            for o in localized:
+                if o["transition"]:
+                    route_transitions.append(o["transition"])
+                    probe_incidents.add(o["transition"].get("incident_id"))
+            blamed = {o["edge"] for o in localized}
+            for v in (targets if custom_routes else []):
+                if blamed & set(plan_routes[v]["edges"]):
+                    continue
                 scope = plan_routes[v]["route_id"]
                 local_decision = decision
                 if v in route_alarms:
@@ -806,9 +827,15 @@ class TeleportationQDS:
                     actor="route_observation (no edge localization)")
                 if change:
                     route_transitions.append(change)
+            if not custom_routes and not localized:
+                # Star with no faulty edge found: restrict the signer's quantum distribution, as direct sends do.
+                link = LINK_SIGNER
+                route_transitions.append(self.guard.apply(link, decision, assessment_id, accepted=False))
+                route_transitions = [t for t in route_transitions if t]
             transition = next((t for t in route_transitions if t["new_state"] == QUARANTINED),
                               route_transitions[0] if route_transitions else None)
-            link = transition["link"] if transition else plan_routes[targets[0]]["route_id"]
+            link = transition["link"] if transition else (localized[0]["scope"] if localized else
+                LINK_SIGNER if not custom_routes else plan_routes[targets[0]]["route_id"])
         else:
             transition = self.guard.apply(link, decision, assessment_id,
                 accepted=all_accepted and not report.is_threat_detected)
@@ -841,7 +868,9 @@ class TeleportationQDS:
             "action": action, "link": link, "link_state": new_state, "purged_records": purged,
             "transition": transition,
             "route_transitions": route_transitions,
-            "attribution": "route observation; no edge localization" if custom_routes and channel_finding else None,
+            "attribution": None if not localize else (
+                "edge localized by independent probes: " + ", ".join(o["edge"] for o in localized) if localized
+                else "route observation; probes found no faulty edge"),
             "incident_id": transition.get("incident_id") if transition else None,
         }
 
@@ -877,13 +906,15 @@ class TeleportationQDS:
         if self.audit is not None:
             tx = result.to_dict()
             evidence = build_evidence(tx)
-            if enforcement["incident_id"]:
+            # Incidents raised by the localization probes were already signed by probe_edges.
+            if enforcement["incident_id"] and enforcement["incident_id"] not in probe_incidents:
                 t3 = time.perf_counter_ns()
                 inc = build_incident_record(enforcement["incident_id"], transition, tx, evidence_hash(evidence),
                                             self.policy.to_dict())
                 result.incident_cert = self.audit.issue(inc, enforcement["incident_id"])
                 for extra_transition in route_transitions:
-                    if extra_transition.get("incident_id") and extra_transition["incident_id"] != enforcement["incident_id"]:
+                    if (extra_transition.get("incident_id") and extra_transition["incident_id"] != enforcement["incident_id"]
+                            and extra_transition["incident_id"] not in probe_incidents):
                         extra = build_incident_record(extra_transition["incident_id"], extra_transition, tx,
                             evidence_hash(evidence), self.policy.to_dict())
                         self.audit.issue(extra, extra_transition["incident_id"])
@@ -943,8 +974,22 @@ class TeleportationQDS:
         cfg.validate()
         ThreatSuite.validate(scenario, cfg)
         started = time.perf_counter_ns()
-        transcript = ThreatSuite.run(self, scenario, message_text, n_bits, sender, rng, channel, config=cfg)
-        result = self.assess(transcript, started_ns=started)
+        tapped = scenario.attack_edge if scenario.threat_type == ThreatType.EVE_INTERCEPT else None
+        if tapped is not None and tapped not in self.topology.edges:
+            raise ConfigurationError(f"Unknown attack link {tapped!r} for the active topology")
+        previous = self.edge_injections.get(tapped) if tapped else None
+        if tapped:
+            # A physical tap persists while the link is examined, so the post-alarm probes can find her.
+            self.edge_injections[tapped] = ChannelModel(depolarizing=0, intercept_rate=scenario.channel_intercept_rate)
+        try:
+            transcript = ThreatSuite.run(self, scenario, message_text, n_bits, sender, rng, channel, config=cfg)
+            result = self.assess(transcript, started_ns=started)
+        finally:
+            if tapped:
+                if previous is None:
+                    self.edge_injections.pop(tapped, None)
+                else:
+                    self.edge_injections[tapped] = previous
         # Ground truth is attached only after the detector has returned.
         cm = transcript.channel_model
         result.ground_truth = {

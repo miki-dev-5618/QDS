@@ -12,7 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initThreatCards();
   initRecipientControls();
   initComposer();
-  document.getElementById('btnResetLinks').addEventListener('click', resetLinks);
   document.getElementById('btnCheckChain').addEventListener('click', checkChain);
   loadHistory();
   refreshMetrics();
@@ -27,6 +26,7 @@ function handleMessage(msg) {
     renderLinks(msg.data.channel_state);
   } else if (msg.event === 'new_transmission') {
     handleNewTransmission(msg.data.transmission);
+    renderQubitFlow(msg.data.transmission, true);
     if (msg.data.stats) updateStatsDisplay(msg.data.stats);
     refreshMetrics();
     refreshTopology();
@@ -69,8 +69,8 @@ function setArmedThreatUI(threatType) {
   });
   const tamperedGroup = document.getElementById('tamperedGroup');
   if (tamperedGroup) tamperedGroup.style.display = threatType === 'message_tampering' ? 'block' : 'none';
+  document.getElementById('attackEdgeGroup').style.display = threatType === 'eve_intercept' ? 'block' : 'none';
   updateForwarderControls();
-  if (changed && typeof refreshRoutingPreview === 'function') refreshRoutingPreview();
   const badge = document.getElementById('activeThreatBadge');
   if (badge) {
     badge.textContent = threatType.toUpperCase();
@@ -84,8 +84,14 @@ const cap = v => v.charAt(0).toUpperCase() + v.slice(1);
 
 function initRecipientControls() {
   ['nVerifiers', 'deliveryMode', 'maxDepth'].forEach(id =>
-    document.getElementById(id).addEventListener('change', () => syncRecipientControls(id)));
+    document.getElementById(id).addEventListener('change', () => { syncRecipientControls(id); refreshRoutingPreview(); }));
   syncRecipientControls();
+}
+
+// The next-route preview plans for the roster currently chosen in the composer.
+function routingPreviewConfig() {
+  const { n_verifiers, delivery, max_depth } = recipientPayload();
+  return { n_verifiers, delivery, max_depth };
 }
 
 function syncRecipientControls(changed) {
@@ -242,6 +248,7 @@ function initComposer() {
         noise_profile: isReadout ? 'readout' : 'depolarizing',
         ...recipientPayload(),
       };
+      if (currentThreat === 'eve_intercept') payload.attack_edge = document.getElementById('attackEdge').value || null;
       if (isReadout) {
         payload.readout_location = locElem ? locElem.value : 'both';
         payload.readout_p01 = p01Elem ? parseFloat(p01Elem.value) || 0.0 : 0.0;
@@ -357,7 +364,6 @@ function participantSummary(tx) {
 function handleNewTransmission(tx) {
   if (seenTx.has(tx.transmission_id)) return;
   seenTx.add(tx.transmission_id);
-  if (typeof explainRoutingEvent === 'function') explainRoutingEvent(tx);
   const container = document.getElementById('recentTxList');
   if (!container) return;
   if (seenTx.size === 1) container.innerHTML = '';
@@ -414,40 +420,7 @@ function handleNewTransmission(tx) {
   renderParticipants(tx);
 }
 
-function renderLinks(channelState) {
-  if (!channelState) return;
-  renderChannelBanner(channelState);
-  const el = document.getElementById('linkStates');
-  if (!el) return;
-  el.innerHTML = Object.entries(channelState).filter(([link, s]) => !link.startsWith('edge:') && !link.startsWith('path:') || s.state !== 'open').map(([link, s]) =>
-    `<span class="link-chip ${s.state}">${escapeHtml(typeof routingScopeLabel === 'function' ? routingScopeLabel(link) : link)}: ${s.state.replace('_', ' ').toUpperCase()}` +
-    `${s.strikes ? ` · strikes ${s.strikes}` : ''}${s.refused ? ` · refused ${s.refused}` : ''}</span>`).join('');
-}
-
-async function resetLinks() {
-  try {
-    const { data } = await api('/api/channel/reset', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
-    }, 'admin');
-    renderLinks(data.channel_state);
-    refreshTopology();
-    const n = (data.transitions || []).length;
-    logTerminal('SYS', n
-      ? `${n} link(s) reset by admin: quarantined → probation, watch → open. Signed reset record #${data.reset_record.chain_seq}.`
-      : 'No link needed a reset.');
-  } catch (err) {
-    logTerminal('ERR', `Reset failed: ${err.message}`);
-  }
-}
-
 const HOP_COLOURS = { up: 'var(--success-ink)', degraded: 'var(--warning-ink)', probation: 'var(--info-ink)', down: 'var(--danger-ink)' };
-
-async function refreshTopology() {
-  try {
-    const { data } = await api('/api/topology', {}, 'admin');
-    await renderRouting(data);
-  } catch (e) { /* informational */ }
-}
 
 function renderTopology(router) {
   const svg = document.getElementById('topologySvg');
@@ -589,6 +562,7 @@ async function loadHistory() {
     if (data.stats) updateStatsDisplay(data.stats);
     renderLinks(data.channel_state);
     (data.transmissions || []).slice(-5).forEach(tx => handleNewTransmission(tx));
+    renderQubitFlow((data.transmissions || []).at(-1), false);
   } catch (e) {
     console.error('History load error:', e);
   }

@@ -60,7 +60,7 @@ def probe_edges(engine, edge_ids, rng, count=512):
         state = engine.guard.to_dict().get(scope, {})
         marker = (state.get("reset_epoch") or state.get("since")) if state.get("state") == RESET_PENDING else None
         rec = recovery.get(scope, {})
-        if rec.get("reset_since") != marker:
+        if rec.get("reset_since") != marker or "tested" not in rec:
             rec = {"reset_since": marker, "tested": 0, "rounds": 0}
         if action == "none" and marker is not None:
             rec["tested"] += tested
