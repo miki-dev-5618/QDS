@@ -6,7 +6,7 @@
 [![Audit](https://img.shields.io/badge/Audit-Ed25519%20%2B%20ML--DSA--65-orange.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **Beginner Guide Available:** If you are new to Quantum Digital Signatures or want an intuitive, plain-English breakdown with analogies and viva preparation, see [FOR_DUMMIES.md](FOR_DUMMIES.md).
+> **Beginner Guide Available:** If you are new to Quantum Digital Signatures or want an intuitive, plain-English breakdown with analogies and viva preparation, see [docs/FOR_DUMMIES.md](docs/FOR_DUMMIES.md).
 
 ---
 
@@ -32,6 +32,7 @@ However, classical-quantum networked QDS systems face realistic vulnerabilities:
 - **Sequential Early Abort:** Block-by-block channel testing that halts quantum token transmission immediately when error thresholds are decisively crossed, saving quantum resources and link bandwidth.
 - **Adaptive Quantum Circuit Breaker (QCB):** Multi-state per-link enforcement engine (`OPEN`, `WATCH`, `QUARANTINED`, `RESET_PENDING`) featuring sequential early abort and Fisher's combined p-value escalation.
 - **Tamper-Evident Q-Cert Audit Ledger:** Immutable SHA-256 hash-chained audit ledger dual-signed with classical **Ed25519** and NIST FIPS 204 **ML-DSA-65 (Dilithium)**.
+- **Optional extensions:** N-verifier recipient groups (2–10 verifiers, direct or chain delivery; §8.1), multi-hop relay routing with link-aware rerouting and independent edge probes (§8.2), a Python SDK (§14), and an isolated IBM-hardware teleportation benchmark (§11.1).
 
 ---
 
@@ -97,8 +98,10 @@ graph TD
 - **Quantum Simulation:** `qiskit` (2.5.2), `qiskit-aer` (0.17.2), `numpy` (2.3.2)
 - **Backend API & Web Server:** `fastapi` (0.115.0), `uvicorn` (0.30.6), `websockets` (16.0), `jinja2` (3.1.6)
 - **Classical & Post-Quantum Cryptography:** `cryptography` (48.0.0), `dilithium-py` (1.4.0, NIST FIPS 204 ML-DSA-65)
-- **Persistence & Auditing:** SQLite 3 (`sqlite3` standard library), Ed25519 PEM keys, SoftHSM2 (PKCS#11 token support), JSON-canonical hash chains
-- **Testing & Quality Assurance:** `pytest` (24 automated test suites)
+- **Persistence & Auditing:** SQLite 3 by default (optional PostgreSQL via `HEDWIG_DATABASE_URL`), Ed25519 PEM keys, SoftHSM2 (PKCS#11 token support), JSON-canonical hash chains
+- **SDK:** `httpx` (≥ 0.24) for the `hedwig_client` package
+- **Deployment & Load Testing:** Docker / Docker Compose, Locust (`locustfile.py`), Render (`render.yaml`, `Procfile`)
+- **Testing & Quality Assurance:** `pytest` (protocol, noise, API, routing, N-verifier, SDK and hardware-script suites)
 - **Experiments & Benchmarking:** Multiprocessing trial harnesses with seeded RNGs, Wilson score intervals, and ROC curves
 
 ---
@@ -114,11 +117,18 @@ graph TD
 ├── requirements-dev.txt             # Development and testing dependencies
 ├── run_v2.bat                       # One-click Windows launch script
 ├── run_experiments.py               # Reproducible experiment runner & manifest generator
+├── pyproject.toml                   # hedwig-client SDK packaging
+├── Dockerfile, docker-compose.yml   # Container image and App + PostgreSQL 15 bundle
+├── locustfile.py                    # Locust load-test scenarios
+├── hedwig_client/                   # Python SDK wrapping the REST API (§14)
+├── examples/quickstart.py           # SDK demo script
+├── docs/                            # CONTEXT.md, FOR_DUMMIES.md, GEMINI.md, PROOF.md, SECURITY_ARGUMENT.md
 ├── templates/                       # Jinja2 HTML templates
 │   ├── login.html                   # Multi-role login interface
 │   ├── admin.html                   # Alice sender console, threat injector, circuit reset
 │   ├── bob.html                     # Bob verifier terminal & dishonest forward trigger
-│   └── charlie.html                 # Charlie verifier terminal & cross-check audit view
+│   ├── charlie.html                 # Charlie verifier terminal & cross-check audit view
+│   └── routing.html                 # Multi-hop routing dashboard
 ├── static/                          # Styling and client-side logic
 │   ├── css/style.css                # Custom vanilla CSS design system
 │   ├── js/app.js                    # WebSocket listeners, dynamic DOM updating, charts
@@ -142,11 +152,20 @@ graph TD
 │   ├── signers.py                   # Ed25519 and ML-DSA-65 post-quantum signing logic
 │   ├── store.py                     # SQLite persistence for sessions, transitions & audits
 │   ├── router.py                    # Simulated quantum network routing and link state
+│   ├── topology.py                  # Validated, immutable directed topologies (legacy star / multi-hop)
+│   ├── routing.py                   # Bounded deterministic route allocation before preparation
+│   ├── multihop.py                  # Per-hop channels and traversal records
+│   ├── monitoring.py                # Independent edge probes & monitored recovery
+│   ├── roster.py, ledger.py         # N-verifier session config and verification-event ledger
+│   ├── key_provider.py              # Software / SoftHSM2 (PKCS#11) audit keys
 │   ├── schedule.py                  # Measurement basis scheduling
 │   ├── thresholds.py                # Exact binomial limits & reserve stage planning
 │   └── security.py                  # Theoretical security parameters and bound models
-├── tests/                           # 24 test suites covering protocol, noise, API & ablations
+├── tests/                           # pytest suites: protocol, noise, API, ablations, routing, N-verifier, SDK, hardware
 └── experiments/                     # Scientific evaluation harness, sweeps, ROC & ablation scripts
+    ├── hardware/                    # IBM QPU 3-qubit teleportation benchmark (§11.1)
+    ├── routing_eval.py              # Primary vs failover routing trials
+    ├── n_verifier_eval.py           # N-verifier evaluation
     ├── harness.py                   # Resumable grid harness (seed x scenario x L x noise)
     ├── make_roc.py                  # ROC curve generation with seeded bootstrap AUC intervals
     ├── ablate_early_abort.py        # Sequential early abort evaluation & bandwidth savings
@@ -169,8 +188,8 @@ graph TD
 
 1. **Clone the repository:**
    ```bash
-   git clone <repository-url>
-   cd "sih 2026"
+   git clone https://github.com/miki-dev-5618/QDS.git
+   cd QDS
    ```
 
 2. **Create and activate a virtual environment:**
@@ -213,9 +232,9 @@ graph TD
    ```
    Open your browser to: **`http://localhost:8000`**
 
-### 5.4 Docker & Docker Compose Deployment (Optional)
+### 5.3 Docker & Docker Compose Deployment (Optional)
 To deploy the application stack using Docker:
-- **Full Bundle (App + PostgreSQL 15):**
+- **Full Bundle (App + PostgreSQL 15):** compose sets `HEDWIG_DATABASE_URL=postgresql://…@db:5432/hedwig`; remove it to fall back to SQLite.
   ```bash
   docker compose up --build
   ```
@@ -226,7 +245,7 @@ To deploy the application stack using Docker:
   ```
 The image runs securely as non-root (`uid: 10001`), packages post-quantum signatures (`dilithium-py`), and includes automatic HTTP container healthchecks on `/health`.
 
-### 5.3 Hardware Security Module / SoftHSM2 (Optional)
+### 5.4 Hardware Security Module / SoftHSM2 (Optional)
 By default (`HEDWIG_KEY_PROVIDER=software`), Ed25519 and ML-DSA-65 keys reside in `data/`. For PKCS#11 hardware token or software emulator (SoftHSM2) signing:
 1. Initialize a token: `softhsm2-util --init-token --free --label hedwig`
 2. Run with environment variables set:
@@ -288,6 +307,8 @@ HEDWIG implements **11 simulated threat scenarios** executed via `src/quantum_en
 | `HOST` | `0.0.0.0` | IP string | Bind host address |
 | `HEDWIG_BACKEND` | `qiskit` | `qiskit`, `statevector` | Quantum simulation engine |
 | `HEDWIG_DB` | `data/hedwig.db` | Path | SQLite persistent database path |
+| `HEDWIG_DATABASE_URL` | None | `postgresql://…` | Use PostgreSQL instead of SQLite (set by `docker-compose.yml`) |
+| `HEDWIG_TOPOLOGY` | `legacy-star/1` | `demo-multihop` | Topology selected at startup (a persisted activation is otherwise restored) |
 | `HEDWIG_AUDIT_KEY` | `data/audit_ed25519.pem` | Path | Ed25519 audit authority private key path |
 | `HEDWIG_AUDIT_PQ` | `auto` | `auto`, `require`, `off` | Enforce ML-DSA-65 post-quantum dual signing |
 | `HEDWIG_KEY_PROVIDER` | `software` | `software`, `softhsm` | Audit key provider backend (file vs. PKCS#11 SoftHSM2) |
@@ -297,8 +318,12 @@ HEDWIG implements **11 simulated threat scenarios** executed via `src/quantum_en
 | `HEDWIG_USERS_FILE` | None | Path to JSON | PBKDF2 hashed credentials file path |
 | `EARLY_ABORT` | `on` | `on`, `off`, `true`, `false` | Enable/disable sequential early abort |
 | `DETECTION_TIERS` | `2` | `1`, `2` | Detection tier depth (ablation toggle) |
+| `ESCALATION` | `fisher` | `fisher`, `fisher_only`, `counter` | Circuit-breaker escalation rule |
+| `HEDWIG_NOISE_PROFILE` | None | `ibm_fake`, `lossy` | Force a default channel profile |
 
-### 6.1 Optional N-verifier extension (recipient scaling)
+### 8.1 Optional N-verifier extension (recipient scaling)
+
+Full design notes: [N_VERIFIER_EXTENSION.md](N_VERIFIER_EXTENSION.md).
 
 One signer (Alice) can serve a fixed group of **2 to 10 pre-enrolled verifiers**. The default is unchanged: Alice with Bob and Charlie, direct delivery, one re-forward hop. The extension lets more recipients independently authenticate the same signed message, including through a bounded forwarding chain. Example: headquarters issues an instruction and each regional office checks it before acting. It is an optional add-on; the project's focus remains threat detection.
 
@@ -346,6 +371,17 @@ The one-time quantum evidence is still not persisted, so after a restart a pendi
 - Distribution cost grows linearly with N (one copy per recipient per position). See `experiments/n_verifier_eval.md`.
 - Published multiparty QDS work (e.g. arXiv:1505.07509) is a reference for this analysis, not a proof that applies to this codebase.
 
+### 8.2 Optional multi-hop routing & link-aware rerouting
+
+Full design notes: [MULTI_HOP_ROUTING_IMPLEMENTATION.md](MULTI_HOP_ROUTING_IMPLEMENTATION.md).
+
+- **Topologies.** The default is the backward-compatible `legacy-star/1` (Alice → QR-1 → verifiers). Admins can activate the bundled `demo-multihop` preset (Alice → R1 → R2 → recipients, with an R3 bypass) or upload a validated topology JSON; it applies to future sessions only.
+- **Routing.** Routes are allocated deterministically for the whole roster before any tokens are prepared. Blocked edges are pruned, and preference goes OPEN > probation > explicitly permitted WATCH, then monitoring freshness, cost and edge ID. If no route exists, the send returns HTTP 423 listing affected recipients and rejected candidates.
+- **Per-hop teleportation.** Each hop consumes a fresh Bell pair with Bell measurement and Pauli correction; only the destination measures. Heralded loss ends a token at that hop.
+- **Edge monitoring.** Independent probes (64–4096 fresh test tokens per edge) attribute faults to individual edges; end-to-end observations only restrict whole paths. Recovery after reset needs ≥ 1024 surviving probe tests over ≥ 2 rounds.
+- **Records.** Topology, route plan and execution are bound into signed audit commitments. Participants see only their own route.
+- **Limits.** Run with **one Uvicorn worker** (live guards are process-local). Relays are assumed honest and classical channels authenticated. IBM fake-backend calibration works only for the legacy star.
+
 ---
 
 ## 📡 9. REST API & WebSocket Endpoints
@@ -365,6 +401,15 @@ The one-time quantum evidence is still not persisted, so after a restart a pendi
 | `/api/audit-public-key` | `GET` | Public | Keyring endpoint with active and retired public keys |
 | `/api/audit/verify` | `POST` | Public | Independent verification of supplied Q-Cert certificate |
 | `/api/metrics` | `GET` | `admin` | Telemetry, latency statistics, and error counters |
+| `/api/roster` | `GET` | `admin` | Enrolled verifier identities and N-verifier limits |
+| `/api/sessions/{id}/events` | `GET` | `admin` | Durable roster and verification-event history |
+| `/api/topology` | `POST` | `admin` | Activate `demo-multihop` preset or a custom topology |
+| `/api/routing/history`, `/api/sessions/{id}/routes` | `GET` | Authorized | Stored route plans and execution (recipient-filtered) |
+| `/api/routing/refusals` | `GET` | `admin` | Persisted routing preflight refusals |
+| `/api/routing/fault` | `POST` | `admin` | Inject/clear an edge attack or set manual WATCH/QUARANTINED |
+| `/api/routing/probe` | `POST` | `admin` | Independent edge probe |
+| `/api/routing/emergency` | `POST` | `admin` | Toggle emergency stop |
+| `/health` | `GET` | Public | Liveness check |
 | `/results` | `GET` | Any | Experiment results page (ROC, ablations, baselines, tightness, hardware, manifest) read from `experiments/results/` |
 | `/ws/{role}` | `WebSocket` | Role-Specific | Full-duplex WebSocket stream for real-time console updates |
 
@@ -393,6 +438,10 @@ pytest -q
 - `test_harness.py`: Resumable grid experiment runner and RNG determinism.
 - `test_make_roc.py`: Verifier mismatch ROC generation and AUC interval estimation.
 - `test_api.py`: FastAPI endpoints, cookie validation, and role enforcement.
+- `test_n_verifier.py`: N-verifier configuration, chain delivery, forwarding attacks, transfer records.
+- `test_multihop_routing.py`, `test_routing_api.py`: Topology validation, rerouting, probes, recovery, route audit tampering, routing API authorization.
+- `test_ibm_hardware.py`: Hardware benchmark scripts on the local simulator (no token or QPU time).
+- `test_sdk.py`: `hedwig_client` SDK via `httpx.MockTransport`.
 
 ---
 
@@ -412,6 +461,22 @@ Outputs are saved under `experiments/results/`:
 - `manifest.json`: System provenance, git commit, packages, seed, and per-step execution timing.
 - `PPT_NUMBERS.md`: Verified numerical claims mapped to their origin data files.
 
+Extension evaluations: `python experiments/n_verifier_eval.py --trials 40 --seed 2026` and `python experiments/routing_eval.py --trials 10 --seed 2026 --output experiments/routing_results.json`. The checked-in routing sample is a 3-trial functional smoke test, not a production rate.
+
+### 11.1 IBM Hardware Teleportation Benchmark (optional)
+
+`experiments/hardware/` runs **only** the isolated 3-qubit deferred-measurement teleportation circuit for `|0>`, `|1>`, `|+>`, `|->` on IBM QPUs. **The full QDS protocol is not run on hardware.**
+
+```bash
+pip install -r experiments/hardware/requirements-hardware.txt
+export IBM_QUANTUM_TOKEN='<your-token>'                               # env only, never hardcoded
+python experiments/hardware/run_ibm_teleport.py --dry-run --shots 2000  # local Aer, no token
+python experiments/hardware/run_ibm_teleport.py --shots 2000            # real QPU
+python experiments/hardware/compare_hw_vs_sim.py experiments/hardware/result_<timestamp>.json
+```
+
+See [experiments/hardware/README.md](experiments/hardware/README.md) for job recovery (`--job-id`), the result schema and the claim template.
+
 ---
 
 ## ⚠️ 12. Limitations & Simulation Scope
@@ -421,19 +486,19 @@ In strict adherence to academic and engineering integrity:
 2. **Channel Assumptions:** Quantum channels, fiber loss, and detector clicks are modeled using statistical noise models (depolarizing, amplitude damping, asymmetric readout error).
 3. **Post-Quantum Reference Implementation:** `dilithium-py` provides a pure-Python reference implementation of ML-DSA-65 suitable for demonstration; it is not side-channel hardened for production environments.
 4. **Computational Binding:** The commitment scheme relies on the computational preimage and collision resistance of SHA-256.
+5. **Single Process:** Live circuit-breaker guards and one-time quantum evidence are process-local; run one Uvicorn worker. Pending sessions must be redistributed after a restart.
+6. **Extensions are not security upgrades:** More recipients or relay hops do not add security; collusion and malicious relays are not modelled.
 
 ---
 
 ## 👥 13. Team & Attribution
 
 Developed by **Team ATHENA** for SIH 2026.  
-For complete beginner guidance, analogies, and viva preparation, read [FOR_DUMMIES.md](FOR_DUMMIES.md).
+For complete beginner guidance, analogies, and viva preparation, read [docs/FOR_DUMMIES.md](docs/FOR_DUMMIES.md).
 
 ---
 
 ## 🐍 14. Python SDK — `hedwig-client` (Feature E55)
-
-> **Python SDK wrapping the REST API.**
 
 The `hedwig_client/` package lets you drive the HEDWIG server from any Python
 script or notebook without a browser.  Install it in editable mode alongside

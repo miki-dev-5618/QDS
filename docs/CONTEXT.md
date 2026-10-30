@@ -7,7 +7,7 @@
 
 ## Quick-Start Checklist for AI Agents
 
-1. Read `GEMINI.md` (one-line rules already in your system prompt) and this file.
+1. Read `docs/GEMINI.md` (one-line rules already in your system prompt) and this file.
 2. Locate the source module(s) relevant to your task and read them.
 3. Trace all callers/callees affected by your change before touching code.
 4. Follow existing conventions; do **not** refactor unrelated code.
@@ -47,20 +47,35 @@ No real quantum hardware is involved.
 | SHA-256 hash-chained audit records | `src/quantum_engine/audit.py`, `store.py` |
 | SQLite persistence (circuit-breaker state, nonces, audit chain) | `src/quantum_engine/store.py` |
 | FastAPI web UI with role-based sessions and WebSocket broadcast | `server.py`, `auth.py` |
-| Docker Compose deployment & Locust load testing harness | `Dockerfile`, `docker-compose.yml`, `locustfile.py` |
+| Docker Compose deployment (App + PostgreSQL 15) & Locust load testing harness | `Dockerfile`, `docker-compose.yml`, `locustfile.py`, `run_experiments_docker_locust.py`, `parse_locust_csv.py` |
+| N-verifier extension (2–10 verifiers, direct/chain delivery) — §15 | `roster.py`, `ledger.py`, `verifier.py`, `thresholds.py` |
+| Multi-hop routing, link-aware rerouting, edge probes — §16 | `topology.py`, `routing.py`, `multihop.py`, `monitoring.py` |
+| `hedwig-client` Python SDK — §14 | `hedwig_client/` |
+| IBM QPU 3-qubit teleportation benchmark (protocol NOT on hardware) — §17 | `experiments/hardware/` |
 
 ---
 
 ## 2. Repository Map
 
 ```
-sih 2026/
-├── server.py                 # FastAPI app + all HTTP/WS route handlers (531 lines)
+QDS/                          # github.com/miki-dev-5618/QDS (line counts below are historical)
+├── server.py                 # FastAPI app + all HTTP/WS route handlers
 ├── auth.py                   # PBKDF2-SHA256 authenticator; role session management (128 lines)
 ├── users.json                # Hashed demo credentials (DO NOT put real creds here)
-├── GEMINI.md                 # Hard rules for AI agents (read this first)
 ├── README.md                 # Full human-readable documentation with Mermaid diagrams
-├── FOR_DUMMIES.md            # Plain-English beginner guide + viva prep
+├── N_VERIFIER_EXTENSION.md   # N-verifier design + evaluation (implemented)
+├── MULTI_HOP_ROUTING_IMPLEMENTATION.md   # Multi-hop routing implementation notes (implemented 2026-10-30)
+├── QDS_N_Verifier_Implementation_Plan.md, QDS_Multi_Hop_Routing_Blueprint.md,
+│   QDS_Alternate_Routing_Implementation_and_Visualisation_Guide.md   # Pre-implementation plans (may diverge from code)
+├── docs/
+│   ├── CONTEXT.md            # This file
+│   ├── GEMINI.md             # Hard rules for AI agents (read this first)
+│   ├── FOR_DUMMIES.md        # Plain-English beginner guide + viva prep
+│   └── PROOF.md, SECURITY_ARGUMENT.md   # Security reasoning notes
+├── hedwig_client/, examples/, pyproject.toml   # SDK (§14)
+├── Dockerfile, docker-compose.yml, render.yaml, Procfile, runtime.txt   # Deployment
+├── locustfile.py, run_experiments_docker_locust.py, parse_locust_csv.py # Load testing
+├── requirements-hsm.txt      # Optional PKCS#11 deps
 ├── requirements.txt          # Core production deps (fastapi, uvicorn, qiskit, cryptography)
 ├── requirements-pq.txt       # Adds dilithium-py for ML-DSA-65; extends requirements.txt
 ├── requirements-dev.txt      # Adds pytest, httpx, matplotlib; extends requirements.txt
@@ -70,7 +85,7 @@ sih 2026/
 │   ├── hedwig.db             # SQLite database (auto-created; do not commit)
 │   └── audit_ed25519.pem     # Ed25519 private key (auto-generated; do not commit or leak)
 ├── src/
-│   └── quantum_engine/       # Entire simulation core (27 Python files)
+│   └── quantum_engine/       # Entire simulation core (also: topology, routing, multihop, monitoring, roster, ledger, key_provider — see §15/§16)
 │       ├── __init__.py       # Public API: re-exports all user-facing symbols
 │       ├── protocol.py       # TeleportationQDS orchestrator -- main entry point (537 lines)
 │       ├── teleportation.py  # Bell-circuit + statevector backends; TeleportJob/Outcome (728 lines)
@@ -102,12 +117,13 @@ sih 2026/
 │   ├── login.html            # Multi-role login
 │   ├── admin.html            # Alice console (sign, inject attacks, reset circuit breaker)
 │   ├── bob.html              # Bob verifier + dishonest-forward trigger
-│   └── charlie.html          # Charlie verifier + cross-check
+│   ├── charlie.html          # Charlie verifier + cross-check
+│   └── routing.html          # Multi-hop routing dashboard
 ├── static/
 │   ├── css/style.css         # Vanilla CSS design system
 │   ├── js/app.js             # WebSocket client; dynamic DOM; Chart.js charts
 │   └── img/icons.svg         # SVG icon sprites
-├── tests/                    # 24 test suites (pytest)
+├── tests/                    # pytest suites (see §10)
 │   ├── conftest.py           # Shared fixtures: FakeClock, rng (seed 12345), engine
 │   └── test_*.py             # See Section 10 for full list
 └── experiments/              # Scientific evaluation harnesses and ablation scripts
@@ -116,7 +132,10 @@ sih 2026/
     ├── ablate_*.py           # Feature ablation studies
     ├── baselines.py          # 11% QBER cutoff baseline comparison
     ├── sweep_*.py            # Parameter sweeps
-    └── run_trials.py         # False lock-out measurement over honest sequences
+    ├── run_trials.py         # False lock-out measurement over honest sequences
+    ├── n_verifier_eval.py    # N-verifier evaluation -> n_verifier_eval.md/.json
+    ├── routing_eval.py       # Primary vs fresh-session failover routing trials
+    └── hardware/             # IBM QPU teleportation benchmark (§17)
 ```
 
 ---
@@ -143,6 +162,8 @@ bob -----classical-----------    charlie   (forwarded signatures)
 ```
 
 Hop states mirror link state: `up` (open), `degraded` (watch), `probation` (reset_pending), `down` (quarantined).
+
+This is the default `legacy-star/1` topology. Under N-verifier the star is redrawn per roster, with one classical hop per forwarding edge used. Custom/multi-hop topologies add **edge- and path-scoped** restrictions plus an explicit emergency stop (§16). The legacy star keeps the pooled two-link convention.
 
 ### 3.3 Circuit Breaker State Machine (from `enforcement.py`)
 
@@ -312,8 +333,9 @@ Default parameters (verified in source):
 
 ### `audit.py` — `AuditAuthority`
 
-- Certificate format: `hedwig-audit/2`.
-- Three artifact kinds on one append-only chain: `transaction`, `incident`, `link_reset`.
+- Certificate format: `hedwig-audit/3` for new records (adds session config/outcome, reveal events, `events_sha3_256`). `hedwig-audit/2` certificates still verify under their original rules.
+- Artifact kinds on one append-only chain: `transaction`, `incident`, `link_reset`, `transfer` (one per N-verifier chain forwarding event, linked by `parent_record`).
+- Multi-hop: topology/plan/execution commitments are signed. Admin downloads include the route evidence; participant downloads omit it.
 - Canonical JSON (`canonical.py`) is the signed payload; `payload_sha256` stored alongside.
 - Each record includes `chain.prev_sha256` linking to the previous artifact.
 - Evidence (verifier records, channel test) is unsigned but bound by `evidence_digests` inside the signed record.
@@ -326,7 +348,9 @@ Default parameters (verified in source):
 - `pq_provider()` returns `"liboqs"`, `"dilithium-py"`, or `None`.
 - A hybrid certificate is valid only when **all** listed signatures verify.
 
-### `store.py` — SQLite Schema (4 tables, verified in source)
+### `store.py` — SQLite Schema (core 4 tables; PostgreSQL when `HEDWIG_DATABASE_URL=postgresql://…`)
+
+Extensions add `sessions` + `verification_events` (N-verifier, insert-only) and stores for topology snapshots, route plans/execution, probe observations, activations and refusals (multi-hop).
 
 - `kv (key TEXT PK, value TEXT)`: generic JSON key-value; key `"links"` stores circuit-breaker link state.
 - `transitions`: timestamped log of every circuit-breaker state change.
@@ -381,6 +405,8 @@ Top-level result of one protocol run. `to_dict()` produces the transmission JSON
 | `HOST` | `0.0.0.0` | Bind address |
 | `HEDWIG_BACKEND` | `qiskit` | Simulation backend: `qiskit` or `statevector` |
 | `HEDWIG_DB` | `data/hedwig.db` | SQLite database path |
+| `HEDWIG_DATABASE_URL` | (none) | `postgresql://…` selects PostgreSQL in `store.py` (set by docker-compose) |
+| `HEDWIG_TOPOLOGY` | (legacy star) | `demo-multihop` selects the bundled multi-hop demo at startup |
 | `HEDWIG_AUDIT_KEY` | `data/audit_ed25519.pem` | Ed25519 private key path |
 | `HEDWIG_AUDIT_PQ` | `auto` | ML-DSA-65 mode: `auto`, `require`, `off` |
 | `HEDWIG_KEY_PROVIDER` | `software` | Key provider: `software` (file-backed) or `softhsm` (PKCS#11) |
@@ -394,6 +420,7 @@ Top-level result of one protocol run. `to_dict()` produces the transmission JSON
 | `HEDWIG_NOISE_PROFILE` | (none) | Force default channel: `ibm_fake`, `lossy` |
 | `HEDWIG_IBM_MODE` | (none) | IBM channel mode: `calibrated` or `full` |
 | `HEDWIG_ETA_LOSS` | `0.1` | Loss fraction when `HEDWIG_NOISE_PROFILE=lossy` |
+| `IBM_QUANTUM_TOKEN` / `IBM_QUANTUM_CHANNEL` | (none) / `ibm_quantum_platform` | Hardware benchmark scripts only; never hardcode the token |
 
 ---
 
@@ -428,6 +455,15 @@ Top-level result of one protocol run. `to_dict()` produces the transmission JSON
 | `GET` | `/api/metrics` | admin | Latency, stats, QCB state, parameters |
 | `GET` | `/results` | any | Experiment results page (ROC, ablations, baselines) |
 | `GET` | `/api/security-events` | admin | Last 100 security events |
+| `GET` | `/api/roster` | admin | Enrolled verifier pool, limits (N-verifier) |
+| `GET` | `/api/sessions/{id}/events` | admin | Session roster + durable event history |
+| `POST` | `/api/topology` | admin | Activate `{preset:"demo-multihop"}` or `{topology:…}` |
+| `GET` | `/api/routing/refusals` | admin | Persisted preflight refusals |
+| `GET` | `/api/routing/history` | authorized | Stored route plans/execution (recipient-filtered) |
+| `GET` | `/api/sessions/{id}/routes` | authorized | Historical topology, plan, decisions, execution |
+| `POST` | `/api/routing/fault` | admin | `attack` / `clear_attack` / `manual` (watch, quarantined) on an edge |
+| `POST` | `/api/routing/probe` | admin | Edge probes, 64–4096 fresh tokens per edge |
+| `POST` | `/api/routing/emergency` | admin | Emergency stop (`enabled`, reason); not cleared by ordinary reset |
 | `WS` | `/ws/{role}` | role cookie | Full-duplex broadcast stream |
 
 ---
@@ -459,7 +495,7 @@ run_v2.bat
 ### Running Tests
 
 ```bash
-pytest -v                                     # verbose, all 24 suites
+pytest -v                                     # verbose, all suites
 pytest -q                                     # quiet fast run
 pytest tests/test_enforcement_audit.py -v     # single suite
 ```
@@ -505,6 +541,11 @@ Outputs land in `experiments/results/`: `raw.jsonl`, `summary.csv`, `manifest.js
 | `test_statistics.py` | Statistical helper functions |
 | `test_baselines.py` | QBER cutoff baseline comparisons |
 | `test_run_experiments.py` | Experiment runner smoke test |
+| `test_n_verifier.py` | N-verifier config, chains, forwarding attacks, transfer records, restart history |
+| `test_multihop_routing.py` | Topology identity, rerouting, probes, recovery, loss, route-audit tampering |
+| `test_routing_api.py` | Routing endpoints and authorization |
+| `test_ibm_hardware.py` | Hardware scripts on local simulator (no token/QPU) |
+| `test_sdk.py` | SDK via `httpx.MockTransport` (16 tests) |
 | `conftest.py` | `FakeClock`, `rng` (seed 12345), `engine` (statevector, noiseless) |
 
 ---
@@ -565,12 +606,16 @@ Outputs land in `experiments/results/`: `raw.jsonl`, `summary.csv`, `manifest.js
 | **`canonical.py` must be stable** | `canonical_json()` is the basis for all signatures and hash chains. Do not change its output format for any existing field. |
 | **`HEDWIG_USERS_FILE` not set** | Server logs a warning and uses demo credentials. Do not expose beyond localhost without it. |
 | **`data/` files must not be committed** | `hedwig.db` and `audit_ed25519.pem` are auto-generated and excluded by `.gitignore`. |
+| **One Uvicorn worker only** | Live guards, hidden experimental attacks and quantum evidence are process-local; SQLite/Postgres durability gives no cross-process coordination. |
+| **`INVALID_TRANSFER` is classical-only** | Like replay/impersonation, it must never lock a link (anyone can trigger it). |
+| **No edge attribution from end-to-end evidence** | Only independent probes (`monitoring.py`) restrict individual edges; session evidence restricts recorded paths. Migration never fabricates edge attribution. |
+| **Hardware scope** | Only the isolated teleportation circuit runs on IBM hardware. Never claim the QDS protocol ran on a QPU; cite only real `result_<timestamp>.json` files. |
 
 ---
 
 ## 13. Instructions for Future AI Coding Sessions
 
-1. **Read before editing.** Read this file, `GEMINI.md`, and the specific source module(s) for your task. Do not guess.
+1. **Read before editing.** Read this file, `docs/GEMINI.md`, and the specific source module(s) for your task. Do not guess.
 
 2. **Trace callers and callees.** Before changing a function signature or return type, search for all callers. Before changing a dataclass field, find every `to_dict()`, `from_dict()`, and test that references it.
 
@@ -654,3 +699,48 @@ pip install -e ".[dev]"              # install SDK + dev deps
 python examples/quickstart.py        # requires server running on :8000
 pytest tests/test_sdk.py -v          # 16 tests, no live server needed
 ```
+
+---
+
+## 15. N-Verifier Extension (implemented; details in `N_VERIFIER_EXTENSION.md`)
+
+- Optional; omitting the new request fields gives the original Alice + Bob + Charlie flow.
+- `POST /api/sign-and-send` extra fields: `n_verifiers` or `roster`, `delivery` (`direct`|`chain`), `max_depth`, `dishonest_verifier`, `forward_alteration` (`message`|`signature`). Invalid configs raise `ConfigurationError` (HTTP 400).
+- Pool: `bob, charlie, dave, erin, frank, grace, heidi, ivan, judy, kim`; N = 2–10; `direct` H = 1, `chain` 1 ≤ H ≤ N−1.
+- Decision gates chosen: uniform final holder (N > 2; N = 2 keeps keep-or-forward), exact depth limits `k_fr + floor(l·(k_fa−k_fr)/H)` (`thresholds.depth_rule`; legacy `s_l` only under `threshold_policy="legacy"`), immutable linked `transfer` records.
+- Transfer depth is derived from the verifier's own record + sender, never from the package; invalid transfers are judged at depth 0 → `INVALID_TRANSFER`.
+- Reserve bound is now **per session across all channels**; one forwarded delivery per verifier per session.
+- New scenarios: `dishonest_forwarder`, `forward_withheld`, `route_manipulation`, `forward_replay`, `unknown_forwarder` (admin threat cards 10–14).
+- Session outcomes: `all_accepted`, `rejected`, `inconclusive`, `incomplete`, `distribution_aborted` (no majority rule).
+- Recorded eval (seed 2026, 40 trials): altered package accepted 0/160; planned tokens at L=64 grow linearly (162 → 674 for N=2 → 10). Depth limits only separate from L ≈ 128; UI caps L at 64.
+- Bob/Charlie terminals unchanged; extra verifiers are admin-only.
+
+## 16. Multi-Hop Routing (implemented 2026-10-30; details in `MULTI_HOP_ROUTING_IMPLEMENTATION.md`)
+
+| Module | Responsibility |
+|---|---|
+| `topology.py` | Bounded directed graphs, exactly one signer, immutable; canonical serialization/digest |
+| `routing.py` | Deterministic bounded simple-path search; prunes blocked edges; priority OPEN > probation > permitted WATCH, then freshness, cost, edge ID; `RouteUnavailable(ChannelQuarantined)` → HTTP 423; exhausted budget = "incomplete search", not disconnection |
+| `multihop.py` | Ordered per-hop channels; one Bell pair per edge attempt; heralded loss ends the token |
+| `monitoring.py` | Independent edge probes; round r spends `alpha·6/(pi·r)²`; recovery needs ≥ 1024 surviving probe tests over ≥ 2 rounds after reset |
+| `teleportation.py` | Per-hop Bell measurement + Pauli correction for both backends; no intermediate measurement |
+| `protocol.py` | Freezes plans, preflights all recipients, rechecks scopes before each block and before reveal; a changed restriction aborts the session |
+
+- Default topology stays `legacy-star/1`; `demo-multihop` = Alice → R1 → R2 → recipients with R3 bypass (supports Bob, Charlie, Dave, Erin).
+- Per-hop channel order: loss → interception → Pauli channels → damping → Bell measurement → correction. Per-basis transfer: X `(1−4p/3)·sqrt(1−g)`, Z `(1−4p/3)·(1−g)`, multiplied along the route.
+- IBM fake-backend calibration only supports the exact legacy star; custom topologies need `statevector`/`qiskit`.
+- Assumptions: honest relays, authenticated classical channels; not a composable security proof.
+- Eval: `python experiments/routing_eval.py --trials 10 --seed 2026 --output experiments/routing_results.json`. The checked-in sample (3 trials) is a smoke test only.
+
+## 17. IBM Hardware Benchmark (`experiments/hardware/`)
+
+- Runs only the 3-qubit **deferred-measurement** teleportation circuit (`build_deferred_teleportation_circuit`) for `|0>,|1>,|+>,|->` in one `SamplerV2` job. **Full QDS protocol is NOT run on hardware.**
+- `qiskit-ibm-runtime` lives in `experiments/hardware/requirements-hardware.txt`, deliberately not in `requirements.txt`.
+- Commands: `run_ibm_teleport.py --dry-run` (local Aer), `--shots N [--backend X]` (QPU), `--job-id` (recover without QPU time); `compare_hw_vs_sim.py result_<ts>.json`. If the fake provider is missing, the comparison falls back to a "generic surrogate" that must not be quoted as device calibration.
+
+## 18. Open Items / Unverified
+
+- Contradiction: README lists 11 core threat scenarios; `N_VERIFIER_EXTENSION.md` says "the original nine scenarios". Not reconciled against `ThreatType`.
+- No real hardware result file was verified while these docs were updated; do not quote hardware numbers.
+- The live demo URL (`qds.navyaa-dev.me`, Render) appears only in a personal note and is unverified.
+- Blueprint/plan docs at the repo root predate implementation; treat the `*_IMPLEMENTATION.md` / `*_EXTENSION.md` files as authoritative.
