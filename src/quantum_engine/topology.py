@@ -39,6 +39,7 @@ import json
 import math
 import os
 from dataclasses import dataclass, asdict, field
+from types import MappingProxyType
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .roster import VERIFIER_POOL, ConfigurationError
@@ -46,6 +47,7 @@ from .roster import VERIFIER_POOL, ConfigurationError
 TOPOLOGY_SCHEMA = "hedwig-topology/1"
 ROLES = ("signer", "relay", "verifier")
 MAX_SUPPORTED_HOPS = 8
+MAX_NODES, MAX_EDGES = 64, 256
 TOPOLOGY_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                             "config", "topologies")
 
@@ -87,8 +89,8 @@ class Edge:
 
     @property
     def honest_flip(self) -> float:
-        """Declared matched-basis error of this hop (depolarising part; damping approximated as gamma / 4)."""
-        return compose_flips([pauli_flip(self.depolarizing), self.damping_gamma / 4.0])
+        """Uniform BB84 error of the Bell-half channel, averaged over correction bits."""
+        return route_model((self,))["expected_qber"]
 
     @property
     def survival(self) -> float:
@@ -102,7 +104,7 @@ class Edge:
         return asdict(self)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Topology:
     version: str
     nodes: Dict[str, Node]
@@ -111,6 +113,16 @@ class Topology:
     description: str = ""
     schema: str = TOPOLOGY_SCHEMA
     _out: Dict[str, List[Edge]] = field(default_factory=dict, repr=False)
+
+    def __post_init__(self):
+        object.__setattr__(self, "nodes", MappingProxyType(dict(self.nodes)))
+        object.__setattr__(self, "edges", MappingProxyType(dict(self.edges)))
+        object.__setattr__(self, "_out", MappingProxyType({n: tuple(sorted(
+            (e for e in self.edges.values() if e.src == n), key=lambda e: e.id)) for n in self.nodes}))
+
+    @property
+    def signer(self):
+        return next(n.id for n in self.nodes.values() if n.role == "signer")
 
     # ------------------------------------------------------------ construction
     @classmethod
@@ -122,10 +134,17 @@ class Topology:
         version = d.get("version")
         if not isinstance(version, str) or not version.strip():
             raise TopologyError("Topology needs a non-empty 'version'.")
+        for key, bound in (("nodes", MAX_NODES), ("edges", MAX_EDGES)):
+            if not isinstance(d.get(key), list) or len(d[key]) > bound:
+                raise TopologyError(f"{key} must be an array with at most {bound} entries.")
+        if len(version) > 128 or not isinstance(d.get("description", ""), str) or len(d.get("description", "")) > 2000:
+            raise TopologyError("Invalid version or description length/type.")
         nodes: Dict[str, Node] = {}
-        for n in d.get("nodes") or []:
+        for n in d["nodes"]:
+            if not isinstance(n, dict):
+                raise TopologyError("Each node must be an object.")
             nid, role = n.get("id"), n.get("role")
-            if not isinstance(nid, str) or not nid:
+            if not isinstance(nid, str) or not nid.strip() or len(nid) > 128:
                 raise TopologyError(f"Node without a valid id: {n!r}")
             if nid in nodes:
                 raise TopologyError(f"Duplicate node id {nid!r}.")
@@ -135,9 +154,11 @@ class Topology:
                 raise TopologyError(f"Verifier node {nid!r} is not an enrolled verifier identity.")
             if role != "verifier" and nid in VERIFIER_POOL:
                 raise TopologyError(f"Enrolled verifier {nid!r} cannot take the role {role!r}.")
+            if n.get("label") is not None and (not isinstance(n["label"], str) or len(n["label"]) > 128):
+                raise TopologyError("Node labels must be strings of at most 128 characters.")
             nodes[nid] = Node(nid, role, n.get("label"))
-        if not any(n.role == "signer" for n in nodes.values()):
-            raise TopologyError("Topology needs at least one signer node.")
+        if sum(n.role == "signer" for n in nodes.values()) != 1:
+            raise TopologyError("Topology needs exactly one signer node.")
         edges: Dict[str, Edge] = {}
         pairs = set()
         for e in d.get("edges") or []:
@@ -149,11 +170,10 @@ class Topology:
             pairs.add((edge.src, edge.dst))
             edges[edge.id] = edge
         max_hops = d.get("max_hops", 4)
-        if not isinstance(max_hops, int) or not 1 <= max_hops <= MAX_SUPPORTED_HOPS:
+        if type(max_hops) is not int or not 1 <= max_hops <= MAX_SUPPORTED_HOPS:
             raise TopologyError(f"max_hops must be an integer in 1..{MAX_SUPPORTED_HOPS}.")
         topo = cls(version=version.strip(), nodes=nodes, edges=edges, max_hops=max_hops,
                    description=str(d.get("description", "")))
-        topo._index()
         return topo
 
     @staticmethod
@@ -161,8 +181,10 @@ class Topology:
         if not isinstance(e, dict):
             raise TopologyError(f"Edge must be an object: {e!r}")
         src, dst = e.get("src"), e.get("dst")
-        eid = e.get("id") or f"{src}->{dst}"
-        if src not in nodes or dst not in nodes:
+        eid = e.get("id", f"{src}->{dst}")
+        if not isinstance(eid, str) or not eid.strip() or len(eid) > 128:
+            raise TopologyError("Edge id must be a nonempty string of at most 128 characters.")
+        if not isinstance(src, str) or not isinstance(dst, str) or src not in nodes or dst not in nodes:
             raise TopologyError(f"Edge {eid!r} references an unknown node ({src!r} -> {dst!r}).")
         if src == dst:
             raise TopologyError(f"Self-edge {eid!r} is not supported.")
@@ -184,11 +206,6 @@ class Topology:
             raise TopologyError(f"Edge {eid!r}: cost must be a positive finite number.")
         return Edge(eid, src, dst, "quantum", vals["depolarizing"], vals["eta_loss"], vals["damping_gamma"],
                     float(cost))
-
-    def _index(self):
-        self._out = {n: [] for n in self.nodes}
-        for e in sorted(self.edges.values(), key=lambda x: x.id):
-            self._out[e.src].append(e)
 
     @classmethod
     def load(cls, path: str) -> "Topology":
@@ -214,7 +231,7 @@ class Topology:
         return {"schema": self.schema, "version": self.version, "description": self.description,
                 "max_hops": self.max_hops,
                 "nodes": [{"id": n.id, "role": n.role, **({"label": n.label} if n.label else {})}
-                          for n in self.nodes.values()],
+                          for n in sorted(self.nodes.values(), key=lambda n: n.id)],
                 "edges": [e.to_dict() for e in sorted(self.edges.values(), key=lambda x: x.id)]}
 
     @property
@@ -229,7 +246,11 @@ class Topology:
             return []
         out: List[Tuple[Edge, ...]] = []
         stack: List[Tuple[str, Tuple[Edge, ...], frozenset]] = [(src, (), frozenset([src]))]
+        expansions = 0
         while stack and len(out) < limit:
+            expansions += 1
+            if expansions > 10000:
+                raise TopologyError("Path search incomplete: expansion budget exhausted.")
             node, path, seen = stack.pop()
             if node == dst and path:
                 out.append(path)
@@ -244,9 +265,19 @@ class Topology:
                 stack.append((e.dst, path + (e,), seen | {e.dst}))
         return out
 
-    def reachability(self, signer: str = "alice") -> Dict[str, bool]:
-        return {n.id: bool(self.simple_paths(signer, n.id, limit=1))
-                for n in self.nodes.values() if n.role == "verifier"}
+    def reachability(self, signer: Optional[str] = None) -> Dict[str, bool]:
+        """Physical reachability in O(nodes + edges), respecting the hop bound."""
+        signer = signer or self.signer
+        depths = {signer: 0}
+        queue = [signer]
+        for node in queue:
+            if depths[node] >= self.max_hops:
+                continue
+            for edge in self._out.get(node, ()):
+                if edge.dst not in depths:
+                    depths[edge.dst] = depths[node] + 1
+                    queue.append(edge.dst)
+        return {n.id: n.id in depths for n in self.nodes.values() if n.role == "verifier"}
 
     def summary(self) -> Dict[str, Any]:
         return {"version": self.version, "digest": self.digest, "max_hops": self.max_hops,
@@ -262,3 +293,23 @@ def legacy_star(roster: Sequence[str] = VERIFIER_POOL) -> Topology:
          "edges": [{"id": "alice->QR-1", "src": "alice", "dst": "QR-1"}]
                   + [{"id": f"QR-1->{v}", "src": "QR-1", "dst": v} for v in roster]}
     return Topology.from_dict(d)
+
+
+def route_model(edges) -> Dict[str, float]:
+    """Diagonal Bloch transfer of depolarization then Bell-half damping per hop.
+
+    Teleportation averages the Bell resource over Pauli corrections (a unital
+    channel). Compose X/Z transfer coefficients, never scalar damping QBERs.
+    Labels and descriptions are included in the topology digest.
+    """
+    lx = lz = survival = 1.0
+    cost = 0.0
+    for e in edges:
+        dep = 1.0 - 4.0 * e.depolarizing / 3.0
+        lx *= dep * math.sqrt(1.0 - e.damping_gamma)
+        lz *= dep * (1.0 - e.damping_gamma)
+        survival *= e.survival
+        cost += e.cost
+    x, z = (1.0 - lx) / 2.0, (1.0 - lz) / 2.0
+    return {"qber_x": x, "qber_z": z, "expected_qber": (x + z) / 2.0,
+            "qber_bound": max(x, z), "survival": survival, "cost": cost}

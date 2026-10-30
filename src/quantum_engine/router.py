@@ -1,38 +1,15 @@
-"""
-Simulated channel router: maps each logical link to the hops it uses and
-reflects circuit-breaker state per hop.
+"""Simulation resource counters for topology-specific quantum edges.
 
-Default topology (a star through one quantum relay, plus the classical transfer link):
-
-    alice ──q── QR-1 ──q── bob
-                  └───q── charlie
-    bob ──────c────────── charlie     (forwarded signatures)
-
-    q = quantum channel carrying teleportation Bell halves (+ classical corrections)
-    c = authenticated classical channel
-
-With a larger session roster (N-verifier extension) every roster member gets
-its own ``QR-1->v`` quantum hop on the signer link, and every verifier-to-
-verifier transfer edge that is actually used gets its own classical hop on
-the transfer link. Distribution hops and transfer hops stay separate.
-
-Isolation granularity: the breaker acts on the two *logical* links (signer
-distribution, pooled verifier transfers), because the channel test is pooled
-over the whole distribution stream and transfer evidence is classical. Hop
-states mirror their link; per-hop counters show traffic but are not a basis
-for per-edge attribution.
-
-Hop states follow the link: ``up`` (open), ``degraded`` (watch), ``probation``
-(reset pending) and ``down`` (quarantined). A ``down`` hop drops the
-transmission before any token is prepared, so no Bell pairs are spent on a
-quarantined link. This is a software model of routing decisions: no physical
-fibre is switched and no physical qubit is destroyed.
+Session plans choose actual routes. Each edge records attempted/received/lost
+copies and consume-on-attempt Bell pairs; loss ends traversal. Restrictions
+are independent edge/path/signer/classical scopes. Probe traffic is reported
+separately by monitoring.py. Legacy named-hop counters remain for clients.
 """
 import threading
 from dataclasses import dataclass, asdict
 from typing import Dict, List, Optional, Sequence
 
-from .enforcement import LINK_FORWARD, LINK_SIGNER
+from .enforcement import LINK_FORWARD, LINK_SIGNER, edge_scope
 
 _HOP_STATE = {"open": "up", "watch": "degraded", "reset_pending": "probation", "quarantined": "down"}
 
@@ -52,6 +29,10 @@ class Hop:
     tokens_carried: int = 0
     transmissions: int = 0
     dropped: int = 0
+    attempted: int = 0
+    received: int = 0
+    lost: int = 0
+    bell_pairs: int = 0
 
     def to_dict(self):
         return asdict(self)
@@ -66,10 +47,48 @@ class SimulatedRouter:
         self.active_forward_hops: List[str] = []
         self._link_state: Dict[str, str] = {}
         self._lock = threading.Lock()
+        self.topology = None
+        self.latest_plan = None
+
+    def configure_topology(self, topology, plan=None):
+        with self._lock:
+            if self.topology is None or self.topology.digest != topology.digest:
+                self.latest_plan = None
+                self.active_signer_hops = []
+                self.active_roster = []
+            self.topology = topology
+            for edge in topology.edges.values():
+                self._ensure(LINK_SIGNER, edge_scope(edge.id, topology.digest), "quantum")
+            if plan:
+                self.latest_plan = plan.to_dict()
+                self.active_roster = list(self.latest_plan["roster"])
+                self.active_signer_hops = list(dict.fromkeys(s for r in self.latest_plan["routes"].values()
+                                                              for s in r["edge_scopes"]))
+
+    def traverse(self, edge, lost, digest):
+        with self._lock:
+            name = edge_scope(edge.id, digest)
+            self._ensure(LINK_SIGNER, name, "quantum")
+            h = self.hops[name]
+            h.attempted += 1
+            h.bell_pairs += 1
+            h.lost += int(lost)
+            h.received += int(not lost)
+            h.tokens_carried += int(not lost)
+            h.transmissions += 1
+            # Preserve the legacy named-hop counters for existing clients.
+            if edge.id in self.hops and edge.id != name:
+                old = self.hops[edge.id]
+                old.attempted += 1
+                old.bell_pairs += 1
+                old.lost += int(lost)
+                old.received += int(not lost)
+                old.tokens_carried += int(not lost)
+                old.transmissions += 1
 
     def _ensure(self, link: str, name: str, kind: str):
         if name not in self.hops:
-            self.hops[name] = Hop(name, kind, _HOP_STATE.get(self._link_state.get(link, "open"), "up"))
+            self.hops[name] = Hop(name, kind, _HOP_STATE.get(self._link_state.get(name, self._link_state.get(link, "open")), "up"))
         if name not in self.routes[link]:
             self.routes[link].append(name)
 
@@ -85,6 +104,8 @@ class SimulatedRouter:
     def sync(self, link: str, link_state: str):
         with self._lock:
             self._link_state[link] = link_state
+            if link in self.hops:
+                self.hops[link].state = _HOP_STATE.get(link_state, "down")
             for h in self.routes.get(link, []):
                 self.hops[h].state = _HOP_STATE.get(link_state, "down")
 
@@ -119,6 +140,7 @@ class SimulatedRouter:
                     "hops": {k: h.to_dict() for k, h in self.hops.items()},
                     "active": {"roster": list(self.active_roster), "signer_hops": list(self.active_signer_hops),
                                "forward_hops": list(self.active_forward_hops)},
-                    "isolation": "per logical link (signer distribution / pooled verifier transfers); "
-                                 "hop counters are not per-edge attribution",
+                    "isolation": "topology-specific quantum edges and exact paths; separate signer and classical forwarding scopes",
+                    "topology": self.topology.to_dict() if self.topology else None,
+                    "latest_plan": self.latest_plan,
                     "note": "Software routing model; no physical fibre or qubit is switched or destroyed."}

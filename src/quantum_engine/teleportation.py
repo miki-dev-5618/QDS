@@ -54,6 +54,8 @@ class TeleportJob:
     readout_p10: float = 0.0          # P(read=0 | true=1)
     readout_location: str = "both"    # "verifier_measurement", "bell_measurement", "both"
     is_lost: bool = False             # heralded photon loss (erasure)
+    extra_paulis: tuple = ()          # independent declared/injected channels, applied in order
+    extra_damping_gamma: float = 0.0
 
 
 def apply_readout_bit_flip(bit: int, p01: float, p10: float, rng: np.random.Generator) -> int:
@@ -199,11 +201,14 @@ def _prep(state: _ThreeQubitState, bit: int, basis: int):
         state.apply(_H, 0)
 
 
-def _teleport_statevector(job: TeleportJob, rng: np.random.Generator, measure: bool = True):
+def _teleport_statevector(job: TeleportJob, rng: np.random.Generator, measure: bool = True, incoming=None):
     if job.is_lost:
         return TeleportOutcome(outcome=-1, m1=0, m2=0, eve_outcome=None, is_lost=True)
     s = _ThreeQubitState()
-    _prep(s, job.bit, job.basis)
+    if incoming is None:
+        _prep(s, job.bit, job.basis)
+    else:
+        s.psi[:2] = incoming
     # Bell pair |Phi+> on q1,q2
     s.apply(_H, 1)
     s.cx(1, 2)
@@ -217,6 +222,10 @@ def _teleport_statevector(job: TeleportJob, rng: np.random.Generator, measure: b
             s.apply(_H, 2)
     if job.noise_pauli:
         s.apply(_PAULIS[job.noise_pauli], 2)
+    for pauli in job.extra_paulis:
+        s.apply(_PAULIS[pauli], 2)
+    if job.extra_damping_gamma:
+        s.apply_kraus(get_damping_kraus_ops(job.extra_damping_gamma), 2, rng)
     # Amplitude / phase damping noise channel
     if job.damping_gamma > 0.0 or job.phase_damping_gamma > 0.0:
         kraus = get_damping_kraus_ops(job.damping_gamma, job.phase_damping_gamma)
@@ -285,6 +294,9 @@ class StatevectorTeleportationBackend:
     def run(self, jobs: Sequence[TeleportJob], rng: np.random.Generator) -> List[TeleportOutcome]:
         return [_teleport_statevector(job, rng) for job in jobs]
 
+    def run_routes(self, routes, rng):
+        return [teleport_route_statevector(jobs, rng) for jobs in routes]
+
 
 # --------------------------------------------------------------------------
 # Qiskit backend
@@ -352,6 +364,19 @@ class QiskitTeleportationBackend:
     def __init__(self):
         from qiskit_aer import AerSimulator
         self._sim = AerSimulator()
+
+    def run_routes(self, routes, rng):
+        active = [(i, jobs) for i, jobs in enumerate(routes) if not any(j.is_lost for j in jobs)]
+        outcomes = [TeleportOutcome(-1, 0, 0, is_lost=True) for _ in routes]
+        if active:
+            circuits = [build_multihop_circuit(jobs) for _, jobs in active]
+            result = self._sim.run(circuits, shots=1, memory=True,
+                seed_simulator=int(rng.integers(0, 2**31 - 1))).result()
+            for idx, (i, jobs) in enumerate(active):
+                bits = result.get_memory(idx)[0].replace(" ", "")[::-1]
+                outcomes[i] = TeleportOutcome(int(bits[2 * len(jobs)]), int(bits[0]), int(bits[1]),
+                    int(bits[2 * len(jobs) + 1]) if jobs[0].eve_basis is not None else None)
+        return outcomes
 
     def run(self, jobs: Sequence[TeleportJob], rng: np.random.Generator) -> List[TeleportOutcome]:
         if not jobs:
@@ -690,4 +715,99 @@ def make_backend(name: str = "qiskit", mode: str = "calibrated"):
     if name == "ibm_fake_full":
         return IBMFakeTeleportationBackend(mode="full")
     raise ValueError(f"Unknown teleportation backend: {name}")
+
+
+def teleport_route_statevector(jobs, rng):
+    """Carry the corrected qubit amplitudes into the next fresh Bell circuit.
+
+    Only Bell bits are measured at relays. The final verifier measurement is
+    performed once. No intermediate preparation-label reconstruction occurs.
+    """
+    incoming = None
+    first_eve = None
+    for index, job in enumerate(jobs):
+        if job.is_lost:
+            return TeleportOutcome(-1, 0, 0, first_eve, True)
+        state, m1, m2, eve = _teleport_statevector(job, rng, measure=False, incoming=incoming)
+        if index == 0:
+            first_eve = eve
+        # Bell qubits are now in known computational states. Extract q2's
+        # conditional pure trajectory using the ACTUAL measured bits (readout
+        # corruption affects correction, not these collapsed qubits).
+        t = state.psi.reshape(2, 4)
+        column = int(np.argmax(np.sum(np.abs(t) ** 2, axis=0)))
+        incoming = t[:, column].copy()
+        incoming /= np.linalg.norm(incoming)
+    if jobs[-1].meas_basis:
+        incoming = _H @ incoming
+    outcome = int(rng.random() < abs(incoming[1]) ** 2)
+    ro = jobs[0]
+    if ro.readout_location.lower() in ("verifier_measurement", "verifier", "both", "all"):
+        outcome = apply_readout_bit_flip(outcome, ro.readout_p01, ro.readout_p10, rng)
+    return TeleportOutcome(outcome, m1, m2, first_eve)
+
+
+def build_multihop_circuit(jobs):
+    """Explicit Qiskit Bell measurement + classical correction for each hop."""
+    from qiskit import QuantumCircuit
+    from qiskit.quantum_info import Kraus
+    count = len(jobs)
+    qc = QuantumCircuit(1 + 2 * count, 3 * count + 1)
+    if jobs[0].bit:
+        qc.x(0)
+    if jobs[0].basis:
+        qc.h(0)
+
+    def readout(q, c, job):
+        # A quantum X before measurement realizes the classical readout
+        # confusion matrix by a CPTP map, also for asymmetric probabilities.
+        p, r = job.readout_p01, job.readout_p10
+        if p or r:
+            qc.append(Kraus([np.diag([np.sqrt(1-p), np.sqrt(1-r)]),
+                np.array([[0, 0], [np.sqrt(p), 0]]),
+                np.array([[0, np.sqrt(r)], [0, 0]])]), [q])
+        qc.measure(q, c)
+
+    for i, job in enumerate(jobs):
+        token, bell, dst = 2 * i, 2 * i + 1, 2 * i + 2
+        qc.h(bell)
+        qc.cx(bell, dst)
+        if job.eve_basis is not None:
+            if job.eve_basis:
+                qc.h(dst)
+            qc.measure(dst, 2 * count + 1 + i)
+            if job.eve_basis:
+                qc.h(dst)
+        for p in (job.noise_pauli, *job.extra_paulis):
+            if p:
+                getattr(qc, p.lower())(dst)
+        if job.extra_damping_gamma:
+            qc.append(Kraus(get_damping_kraus_ops(job.extra_damping_gamma)), [dst])
+        if job.damping_gamma or job.phase_damping_gamma:
+            target = job.damping_target.lower()
+            targets = [token] if target in ("teleported", "token", "q0") else (
+                [bell, dst] if target in ("bell_pair", "q1_q2") else (
+                [token, bell, dst] if target in ("all", "all_qubits") else [dst]))
+            for q in targets:
+                qc.append(Kraus(get_damping_kraus_ops(job.damping_gamma, job.phase_damping_gamma)), [q])
+        qc.cx(token, bell)
+        qc.h(token)
+        if job.readout_location.lower() in ("bell_measurement", "bell", "both", "all"):
+            readout(token, 2*i, job)
+            readout(bell, 2*i+1, job)
+        else:
+            qc.measure(token, 2*i)
+            qc.measure(bell, 2*i+1)
+        with qc.if_test((qc.clbits[2*i+1], 1)):
+            qc.x(dst)
+        with qc.if_test((qc.clbits[2*i], 1)):
+            qc.z(dst)
+    if jobs[-1].meas_basis:
+        qc.h(2 * count)
+    ro = jobs[0]
+    if ro.readout_location.lower() in ("verifier_measurement", "verifier", "both", "all"):
+        readout(2*count, 2*count, ro)
+    else:
+        qc.measure(2*count, 2*count)
+    return qc
 

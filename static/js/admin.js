@@ -70,6 +70,7 @@ function setArmedThreatUI(threatType) {
   const tamperedGroup = document.getElementById('tamperedGroup');
   if (tamperedGroup) tamperedGroup.style.display = threatType === 'message_tampering' ? 'block' : 'none';
   updateForwarderControls();
+  if (changed && typeof refreshRoutingPreview === 'function') refreshRoutingPreview();
   const badge = document.getElementById('activeThreatBadge');
   if (badge) {
     badge.textContent = threatType.toUpperCase();
@@ -253,8 +254,8 @@ function initComposer() {
         body: JSON.stringify(payload)
       }, 'admin');
       if (status === 423) {
-        logTerminal('BLOCK', `Refused in ${data.refusal_us} µs: link ${data.link} is quarantined ` +
-          `(${data.detail.reason}; incident ${data.detail.incident_id}). All messages are blocked until the circuit is reset.`);
+        logTerminal('BLOCK', `Refused in ${data.refusal_us} µs: ${data.message} (${data.detail.reason || data.status}).`);
+        if (typeof renderRouteRefusal === 'function') renderRouteRefusal(data);
         refreshTopology();
       } else {
         data.transmissions.forEach(tx =>
@@ -356,6 +357,7 @@ function participantSummary(tx) {
 function handleNewTransmission(tx) {
   if (seenTx.has(tx.transmission_id)) return;
   seenTx.add(tx.transmission_id);
+  if (typeof explainRoutingEvent === 'function') explainRoutingEvent(tx);
   const container = document.getElementById('recentTxList');
   if (!container) return;
   if (seenTx.size === 1) container.innerHTML = '';
@@ -417,8 +419,8 @@ function renderLinks(channelState) {
   renderChannelBanner(channelState);
   const el = document.getElementById('linkStates');
   if (!el) return;
-  el.innerHTML = Object.entries(channelState).map(([link, s]) =>
-    `<span class="link-chip ${s.state}">${escapeHtml(link)}: ${s.state.replace('_', ' ').toUpperCase()}` +
+  el.innerHTML = Object.entries(channelState).filter(([link, s]) => !link.startsWith('edge:') && !link.startsWith('path:') || s.state !== 'open').map(([link, s]) =>
+    `<span class="link-chip ${s.state}">${escapeHtml(typeof routingScopeLabel === 'function' ? routingScopeLabel(link) : link)}: ${s.state.replace('_', ' ').toUpperCase()}` +
     `${s.strikes ? ` · strikes ${s.strikes}` : ''}${s.refused ? ` · refused ${s.refused}` : ''}</span>`).join('');
 }
 
@@ -443,7 +445,7 @@ const HOP_COLOURS = { up: 'var(--success-ink)', degraded: 'var(--warning-ink)', 
 async function refreshTopology() {
   try {
     const { data } = await api('/api/topology', {}, 'admin');
-    renderTopology(data.router);
+    await renderRouting(data);
   } catch (e) { /* informational */ }
 }
 
@@ -535,7 +537,7 @@ async function loadIncidents() {
     const items = (data.incidents || []).slice(-6).reverse();
     el.innerHTML = items.length ? items.map(c => {
       const r = c.record;
-      return `<div class="incident-item">${icon('ban', 'icon-sm')}<div><strong>${escapeHtml(r.incident_id)}</strong> · ${escapeHtml(r.link)} · ` +
+      return `<div class="incident-item">${icon('ban', 'icon-sm')}<div><strong>${escapeHtml(r.incident_id)}</strong> · ${escapeHtml(r.scope_label || routingScopeLabel(r.link))} · ` +
         `${escapeHtml(r.trigger.classification)} (p=${fmtP(r.trigger.evidence_p)}) · ` +
         `${new Date(r.issued_at * 1000).toLocaleTimeString()} · chain #${r.chain.seq} ` +
         `<a href="/api/audit/${encodeURIComponent(r.incident_id)}" target="_blank">${icon('download', 'icon-sm')}record</a></div></div>`;

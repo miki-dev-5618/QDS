@@ -33,10 +33,16 @@ class SigningSession:
     # Observer record of the recipients' private symmetrisation decisions, kept for display and audit.
     # The signer's own operations (reveal, open_reserve) never read it.
     actions: Dict[str, List[str]] = field(default_factory=dict)
+    route_plan: Any = None
+    route_execution: Dict[str, Any] = field(default_factory=dict)
+    route_tests: Dict[str, Any] = field(default_factory=dict)
+    route_abort: Optional[str] = None
+    security_params: Any = None
+    edge_ground_truth: Dict[str, Any] = field(default_factory=dict)  # simulator-private, never detector input
 
     @property
     def aborted(self) -> bool:
-        return self.channel_test.alarm or self.insufficient_tokens
+        return self.channel_test.alarm or self.insufficient_tokens or self.route_abort is not None
 
 
 @dataclass

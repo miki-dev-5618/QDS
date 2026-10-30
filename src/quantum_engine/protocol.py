@@ -47,8 +47,9 @@ signed as separate audit records linked to their parent record.
 """
 import time
 import uuid
+import copy
 from collections import OrderedDict, deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -56,13 +57,16 @@ import numpy as np
 from .audit import build_evidence, build_incident_record, build_record, build_transfer_record, evidence_hash
 from .binding import ReserveOpening, SignedContext, SignedPackage, commitment, new_blinding, reserve_commitment
 from .channel import ChannelModel, estimate_channel_qber
-from .detection import QDSDetectionEngine, ThreatReport
+from .detection import QDSDetectionEngine, ThreatReport, ThreatClassification
 import inspect
 
 from .elimination import OrthogonalEliminationEngine, SYMBOL_MAP
 from .ledger import EventLedger, participant_matrix, session_outcome
 from .enforcement import (ChannelGuard, LatencyStats, LINK_FORWARD, LINK_SIGNER, OPEN, QUARANTINED,
-                          RESET_PENDING, WATCH)
+                          RESET_PENDING, WATCH, ChannelQuarantined, edge_scope, path_scope)
+from .topology import Topology, legacy_star
+from .routing import allocate, RoutingPolicy, RoutePlan, RouteUnavailable, required_scopes, freshness
+from .multihop import hop_jobs, count_traversal
 from .policy import ResponseDecision, ResponsePolicy, decide
 from .roster import DEFAULT_CONFIG, VERIFIER_POOL, ConfigurationError, SessionConfig
 from .router import SimulatedRouter
@@ -123,7 +127,7 @@ class QDSExecutionResult:
         t = self.transcript
         session = t.session
         cfg = t.config or (session.config if session is not None else DEFAULT_CONFIG)
-        aborted = bool(session is not None and session.aborted and not t.results)
+        aborted = bool(session is not None and session.aborted)
         from .ledger import event_summary
         rows = participant_matrix(cfg, [event_summary(r, r.forwarded_by or r.claimed_sender) for r in t.results],
                                   aborted)
@@ -162,6 +166,8 @@ class QDSExecutionResult:
             "ground_truth": self.ground_truth,
             "notes": t.notes,
             "allocation": session.allocation if session is not None else None,
+            "routing": {"plan": session.route_plan.to_dict(), "execution": copy.deepcopy(session.route_execution)}
+                       if session is not None and session.route_plan else None,
             "audit": None if self.audit_cert is None else {
                 "artifact_id": self.transmission_id,
                 "payload_sha256": self.audit_cert["payload_sha256"],
@@ -194,6 +200,8 @@ class TeleportationQDS:
         audit=None,
         policy: Optional[ResponsePolicy] = None,
         schedule=None,
+        topology=None,
+        routing_policy=None,
     ):
         self.params = params or SecurityParameters()
         self.backend = make_backend(backend) if isinstance(backend, str) else backend
@@ -217,6 +225,12 @@ class TeleportationQDS:
         self.router = SimulatedRouter()
         self.policy = policy or ResponsePolicy(strong_alpha=self.params.strong_alpha)
         self.guard = ChannelGuard(self.policy, self.store, self.router, clock)
+        saved_topology = self.store.get_json("active_topology")
+        self.topology = (Topology.preset(topology) if isinstance(topology, str) else topology) or (
+            Topology.from_dict(saved_topology) if saved_topology else legacy_star())
+        self.routing_policy = routing_policy or RoutingPolicy()
+        self.edge_injections = {}  # simulator ground truth, never a planner input
+        self.router.configure_topology(self.topology)
         # Nodes of the default roster exist from the start; other enrolled identities get one when a
         # roster first includes them (see ``node``).
         self.verifiers: Dict[str, VerifierNode] = {
@@ -226,11 +240,63 @@ class TeleportationQDS:
         self.detector = QDSDetectionEngine(self.params)
         self.schedule = schedule or RandomSchedule()
         self.audit = audit
+        if self.audit:
+            for correction in self.guard.policy_corrections:
+                from .audit import AUDIT_VERSION
+                self.audit.issue({"version": AUDIT_VERSION, "kind": "policy_correction", "issued_at": self.clock(),
+                    "transition": correction}, "POLICY-" + uuid.uuid4().hex)
         self.latency = LatencyStats()
         self.last_accepted_package: Optional[SignedPackage] = None
         self.recent_packages: deque = deque(maxlen=50)
         self.observed_loss = 0.0           # heralded loss fraction of the previous session (observable)
         self._signer_sessions: "OrderedDict[str, SigningSession]" = OrderedDict()  # Alice's own reserve state
+
+    def activate_topology(self, document, actor="admin"):
+        topology = Topology.from_dict(document)
+        self.store.put_json("active_topology", topology.to_dict())
+        self.store.put_json("topology_activation:" + str(uuid.uuid4()),
+            {"digest": topology.digest, "actor": actor, "timestamp": self.clock()})
+        self.topology = topology
+        self.edge_injections = {}
+        self.router.configure_topology(topology)
+        if self.audit:
+            from .audit import AUDIT_VERSION
+            self.audit.issue({"version": AUDIT_VERSION, "kind": "topology_activation", "issued_at": self.clock(),
+                "topology": topology.to_dict(), "digest": topology.digest, "actor": actor}, "TOPO-" + uuid.uuid4().hex)
+        return topology
+
+    def preview_routes(self, config=None):
+        """Plan the next send without preparing tokens or recording a session."""
+        cfg = config or self.default_config
+        cfg.validate()
+        with self.guard.snapshot() as (states, revision):
+            try:
+                plan = allocate(self.topology, cfg.roster, states, revision, "PREVIEW", self.clock(),
+                    self.routing_policy, self.store.get_json("edge_probes", {}))
+                return {"status": "ready", "plan": plan.to_dict(), "prepared_tokens": 0}
+            except RouteUnavailable as exc:
+                return {**exc.payload(), "prepared_tokens": 0}
+
+    def _check_plan(self, plan):
+        document = plan.to_dict()
+        policy = RoutingPolicy(**document["policy"])
+        self.guard.check_scopes(required_scopes(plan), allow_watch=policy.allow_watch, allow_probation=policy.allow_probation)
+        if not policy.allow_unmonitored:
+            probes = self.store.get_json("edge_probes", {})
+            for route in document["routes"].values():
+                for scope in route["edge_scopes"]:
+                    if freshness(probes.get(scope), self.clock(), policy) != "fresh":
+                        raise ChannelQuarantined(scope, {"reason": "monitoring_required"}, "Required edge monitoring is missing or stale")
+
+    def _abort_route(self, session, reason, scope=None):
+        session.route_abort = reason
+        session.route_execution.update(status="aborted", abort_reason=reason, stopping_scope=scope,
+                                       reveal_allowed=False)
+        for v in session.config.roster:
+            record = self.node(v).records.get(session.context.session_id)
+            if record:
+                record.aborted = True
+        self.store.save_route_execution(session.context.session_id, session.route_execution)
 
     # ------------------------------------------------------------ helpers
     def node(self, name: str) -> VerifierNode:
@@ -273,17 +339,56 @@ class TeleportationQDS:
         self.guard.check_open(LINK_SIGNER)
         channel = channel or self.default_channel
         t_start = time.perf_counter_ns()
-        self.router.configure(roster)
-
-        allocation = self.allocation_plan(n_bits)
+        topology = self.topology
+        injections = dict(self.edge_injections)
+        if sender != topology.signer:
+            raise ConfigurationError("Authenticated signer does not match topology signer")
+        legacy = topology.digest == legacy_star().digest
+        if not hasattr(self.backend, "run_routes") and (not legacy or injections):
+            raise ConfigurationError("This backend has no multi-hop calibration; use statevector or qiskit")
+        ctx = SignedContext.new(sender, roster, message, timestamp=self.clock(),
+                                digest_alg=self.params.digest_alg, delivery=cfg.delivery, max_depth=cfg.max_depth)
+        with self.guard.snapshot() as (states, revision):
+            try:
+                route_plan = allocate(topology, roster, states, revision, ctx.session_id, self.clock(),
+                    self.routing_policy, self.store.get_json("edge_probes", {}))
+            except RouteUnavailable as exc:
+                self.store.put_json("route_refusal:" + ctx.session_id,
+                    {**exc.payload(), "timestamp": self.clock(), "session_id": ctx.session_id})
+                raise
+        plan = route_plan.to_dict()
+        previous = next((row["plan"] for row in self.store.route_history()
+                         if row["plan"]["roster"] == roster and row["plan"]["signer"] == sender), None)
+        if previous:
+            plan["previous_session_id"] = previous["session_id"]
+            for v, route in plan["routes"].items():
+                old = previous["routes"][v]
+                route["previous_route"] = {"session_id": previous["session_id"], "edges": old["edges"], "nodes": old["nodes"]}
+                route["rerouted"] = old["route_id"] != route["route_id"]
+        import json
+        route_plan = RoutePlan(json.dumps(plan, sort_keys=True))
+        self.store.save_route_plan(plan)
+        self.router.configure_topology(topology, route_plan)
+        route_edges = {v: [topology.edges[e] for e in r["edges"]] for v, r in plan["routes"].items()}
+        # A per-basis upper envelope stochastically dominates the heterogeneous
+        # honest Bernoulli errors; never test a heterogeneous stream at its mean.
+        route_params = {v: replace(self.params, honest_qber=(self.params.honest_qber + r["qber_bound"]
+                                    - 2*self.params.honest_qber*r["qber_bound"]))
+                        for v, r in plan["routes"].items()}
+        params = replace(self.params, honest_qber=max(p.honest_qber for p in route_params.values()))
+        expected_loss = max(1-r["survival"] for r in plan["routes"].values())
+        suspicious = any(states.get(s, {}).get("state") in (WATCH, RESET_PENDING) for s in required_scopes(plan))
+        allocation = {"link_state": self.guard.state(LINK_SIGNER), "n_bits": n_bits,
+            "observed_loss": self.observed_loss, "expected_route_loss": expected_loss,
+            "test": params.test_token_plan(n_bits, suspicious, max(expected_loss, self.observed_loss)),
+            "reserve": params.reserve_plan(n_bits, max(expected_loss, self.observed_loss)),
+            "route_honest_qber_bound": params.honest_qber}
         signature = [(int(b), int(ba)) for b, ba in zip(rng.integers(0, 2, n_bits), rng.integers(0, 2, n_bits))]
         copies = self._prepare(signature, rng, roster, prepare_copies)
         n_rsv = allocation["reserve"]["reserve_bits"]
         reserve = [(int(b), int(ba)) for b, ba in zip(rng.integers(0, 2, n_rsv), rng.integers(0, 2, n_rsv))]
         rsv_copies = self._prepare(reserve, rng, roster, prepare_copies if n_rsv else None)
 
-        ctx = SignedContext.new(sender, roster, message, timestamp=self.clock(),
-                                digest_alg=self.params.digest_alg, delivery=cfg.delivery, max_depth=cfg.max_depth)
         blinding = new_blinding()
         commit = commitment(ctx, signature, blinding)
         rsv_blinding = new_blinding()
@@ -305,50 +410,60 @@ class TeleportationQDS:
                     # Reserve copies use basis indices after the main positions so schedules never repeat.
                     slots.append(Slot("rsv", v, i, j, b, ba, self.schedule.basis(ctx, v, n_bits + i, j, rng)))
         n_test = allocation["test"]["test_tokens"]
+        if not legacy:
+            allocation["test"]["tokens_per_route"] = n_test
+            n_test *= len(roster)
+            allocation["test"]["test_tokens"] = n_test
         for j in range(n_test):
             b, ba = int(rng.integers(0, 2)), int(rng.integers(0, 2))
-            slots.append(Slot("test", None, j, 0, b, ba, ba))
+            slots.append(Slot("test", roster[j % len(roster)], j, 0, b, ba, ba))
 
         # Verifiers pick the test-token positions secretly: the stream is a random interleaving.
         stream = [slots[i] for i in rng.permutation(len(slots))]
         events = (adversary.tap(stream, self.schedule.public, rng) if adversary is not None
                   else channel.sample_events(len(stream), rng))
 
-        k_strong = estimate_channel_qber(n_test, 0, self.params.honest_qber, self.params.false_alarm_alpha,
-                                         strong_alpha=self.params.strong_alpha).strong_threshold_errors
+        family_divisor = 1 if legacy else 2  # pooled + route-test families
+        k_strong = estimate_channel_qber(n_test, 0, params.honest_qber, params.false_alarm_alpha / family_divisor,
+                                         strong_alpha=params.strong_alpha / family_divisor).strong_threshold_errors
         outcomes: List[Any] = []
         tested = errors = 0
         total_lost = 0
+        counters = {}
+        route_abort = stopping_scope = None
+        route_stats = {v: {"planned": sum(s.verifier == v for s in stream), "attempted": 0,
+            "received": 0, "lost": 0, "test_planned": sum(s.kind == "test" and s.verifier == v for s in stream),
+            "tested": 0, "errors": 0, "edges": {}} for v in roster}
         for block in np.array_split(np.arange(len(stream)), max(1, self.params.abort_chunks)):
             if len(block) == 0:
                 continue
-            jobs = []
-            for i in block:
-                # Lossy profile: token is lost with probability eta_loss (heralded erasure)
-                is_lost = bool(channel.eta_loss > 0.0 and rng.random() < channel.eta_loss)
-                jobs.append(
-                    TeleportJob(
-                        stream[i].bit,
-                        stream[i].basis,
-                        stream[i].meas_basis,
-                        events[i][0],
-                        events[i][1],
-                        damping_gamma=(channel.amp_damping_gamma if channel.noise_profile == "amp_damping" or channel.amp_damping_gamma > 0 else 0.0),
-                        phase_damping_gamma=channel.phase_damping_gamma,
-                        damping_target=channel.damping_target,
-                        readout_p01=(channel.readout_p01 if channel.noise_profile == "readout" or channel.readout_p01 > 0 else 0.0),
-                        readout_p10=(channel.readout_p10 if channel.noise_profile == "readout" or channel.readout_p10 > 0 else 0.0),
-                        readout_location=channel.readout_location,
-                        is_lost=is_lost,
-                    )
-                )
-            for i, out in zip(block, self.backend.run(jobs, rng)):
-                outcomes.append(out)
-                if out.is_lost:
-                    total_lost += 1
-                elif stream[i].kind == "test":
-                    tested += 1
-                    errors += int(out.outcome != stream[i].bit)
+            try:
+                with self.guard.snapshot():
+                    self._check_plan(route_plan)
+                    jobs = [hop_jobs(stream[i], route_edges[stream[i].verifier], events[i], channel,
+                                     injections, rng) for i in block]
+                    block_outcomes = (self.backend.run_routes(jobs, rng) if hasattr(self.backend, "run_routes")
+                                      else self.backend.run([j[0] for j in jobs], rng))
+                    for i, hop_stream, out in zip(block, jobs, block_outcomes):
+                        slot = stream[i]
+                        stats = route_stats[slot.verifier]
+                        count_traversal(route_edges[slot.verifier], hop_stream, counters, self.router, topology.digest)
+                        count_traversal(route_edges[slot.verifier], hop_stream, stats["edges"])
+                        stats["attempted"] += 1
+                        stats["received"] += int(not out.is_lost)
+                        stats["lost"] += int(out.is_lost)
+                        outcomes.append(out)
+                        if out.is_lost:
+                            total_lost += 1
+                        elif slot.kind == "test":
+                            tested += 1
+                            err = int(out.outcome != slot.bit)
+                            errors += err
+                            stats["tested"] += 1
+                            stats["errors"] += err
+            except ChannelQuarantined as exc:
+                route_abort, stopping_scope = str(exc), exc.link
+                break
             if errors > k_strong and len(outcomes) < len(stream):
                 break  # decisive: the remaining tokens are never sent
         sent = len(outcomes)
@@ -357,8 +472,8 @@ class TeleportationQDS:
 
         surviving_tokens = sent - total_lost
 
-        channel_test = estimate_channel_qber(tested, errors, self.params.honest_qber, self.params.false_alarm_alpha,
-                                             planned_count=n_test, strong_alpha=self.params.strong_alpha,
+        channel_test = estimate_channel_qber(tested, errors, params.honest_qber, params.false_alarm_alpha / family_divisor,
+                                             planned_count=n_test, strong_alpha=params.strong_alpha / family_divisor,
                                              tokens_sent=sent, tokens_planned=len(stream),
                                              tokens_received=surviving_tokens, tokens_lost=total_lost)
 
@@ -368,6 +483,22 @@ class TeleportationQDS:
             and len(stream) > 0
             and surviving_tokens < (self.params.min_surviving_ratio * len(stream))
         )
+        # Bonferroni route tests, with fixed planned counts under losses/early
+        # stopping. A missing recipient cannot hide behind global survival.
+        route_tests = {}
+        for v, stats in route_stats.items():
+            rp = route_params[v]
+            rt = estimate_channel_qber(stats["tested"], stats["errors"], rp.honest_qber,
+                params.false_alarm_alpha / (family_divisor * len(roster)), planned_count=stats["test_planned"],
+                strong_alpha=params.strong_alpha / (family_divisor * len(roster)),
+                tokens_sent=stats["attempted"], tokens_planned=stats["planned"],
+                tokens_received=stats["received"], tokens_lost=stats["lost"])
+            route_tests[v] = rt.to_dict()
+            if rt.alarm and not channel_test.alarm:
+                route_abort = "Route-specific channel test alarm: " + v
+            if (stats["received"] < params.min_surviving_ratio * stats["planned"] or
+                    stats["tested"] < max(1, params.min_surviving_ratio * stats["test_planned"])):
+                insufficient_tokens = True
 
         eliminated: Dict[str, List[List[Optional[str]]]] = {
             v: [[None] * len(held[v][i]) for i in range(n_bits)] for v in roster}
@@ -389,18 +520,18 @@ class TeleportationQDS:
         rsv_clean = {v: [[e for e in row if e is not None] for row in rsv_elim[v]] for v in roster}
         self.observed_loss = (total_lost / sent) if sent else 0.0
 
-        self.router.carry(LINK_SIGNER, sent)
         observation_ms = (time.perf_counter_ns() - t_start) / 1e6
 
         for v in roster:
             self.node(v).receive_distribution(DistributionRecord(
                 session_id=ctx.session_id, sender=sender, commitment=commit,
                 eliminated=eliminated_clean[v], held_desc=desc[v],
-                channel_test=channel_test, aborted=channel_test.alarm,
+                channel_test=channel_test, aborted=channel_test.alarm or route_abort is not None,
                 insufficient_tokens=insufficient_tokens,
-                tokens_received=surviving_tokens, tokens_planned=len(stream),
+                tokens_received=route_stats[v]["received"], tokens_planned=route_stats[v]["planned"],
                 reserve_eliminated=rsv_clean[v], reserve_commitment=rsv_commit,
                 config=cfg,
+                security_params=route_params[v],
             ))
         self.ledger.register_session(ctx.session_id, sender, cfg, ctx.timestamp)
 
@@ -414,7 +545,18 @@ class TeleportationQDS:
             tokens_received=surviving_tokens, insufficient_tokens=insufficient_tokens,
             reserve=reserve, reserve_blinding=rsv_blinding if n_rsv else None, reserve_commitment=rsv_commit,
             allocation=allocation,
+            route_plan=route_plan, route_tests=route_tests, route_abort=route_abort, security_params=params,
+            edge_ground_truth={eid: dict(cm.__dict__) for eid, cm in injections.items()},
+            route_execution={"status": "aborted" if channel_test.alarm or route_abort or insufficient_tokens else "completed",
+                "timestamp": self.clock(), "recipients": route_stats, "edges": counters,
+                "abort_reason": route_abort or ("channel_alarm" if channel_test.alarm else (
+                    "insufficient_recipient_evidence" if insufficient_tokens else None)),
+                "stopping_scope": stopping_scope, "attempted": sent, "planned": len(stream),
+                "reveal_allowed": not (channel_test.alarm or route_abort or insufficient_tokens),
+                "route_tests": route_tests, "resource_convention": "one Bell pair consumed per edge attempt",
+                "backend": self.backend.name},
         )
+        self.store.save_route_execution(ctx.session_id, session.route_execution)
         if n_rsv:
             self._signer_sessions[ctx.session_id] = session
             while len(self._signer_sessions) > 1000:
@@ -450,10 +592,18 @@ class TeleportationQDS:
         actions = {v: ["K" if d == v else d for d in dest[v]] for v in roster}
         return actions, held, desc
 
-    @staticmethod
-    def reveal(session: SigningSession) -> SignedPackage:
-        return SignedPackage(context=session.context, message=session.message,
-                             revealed_signature=list(session.signature), blinding=session.blinding)
+    def reveal(self, session: SigningSession) -> SignedPackage:
+        with self.guard.snapshot():
+            if session.route_plan and not session.aborted:
+                try:
+                    self._check_plan(session.route_plan)
+                except ChannelQuarantined as exc:
+                    self._abort_route(session, str(exc), exc.link)
+            if session.aborted:
+                return SignedPackage(context=session.context, message=session.message,
+                                     revealed_signature=[], blinding="")
+            return SignedPackage(context=session.context, message=session.message,
+                                 revealed_signature=list(session.signature), blinding=session.blinding)
 
     @staticmethod
     def open_reserve(session: Optional[SigningSession], package: SignedPackage) -> Optional[ReserveOpening]:
@@ -461,7 +611,7 @@ class TeleportationQDS:
         Alice's answer to a borderline request: the reserve opening, but only for her own revealed
         message, signature and context. A package with any substituted field gets nothing.
         """
-        if session is None or not session.reserve or session.reserve_blinding is None:
+        if session is None or session.aborted or not session.reserve or session.reserve_blinding is None:
             return None
         if (package.context.to_dict() != session.context.to_dict() or package.message != session.message
                 or [tuple(x) for x in package.revealed_signature] != [tuple(x) for x in session.signature]):
@@ -497,6 +647,11 @@ class TeleportationQDS:
                 session: Optional[SigningSession] = None) -> List[VerificationResult]:
         """Alice's reveal to ``to`` (default: the session's depth-0 recipients)."""
         self.guard.check_open(LINK_SIGNER)
+        stored = self.store.route_session(package.context.session_id)
+        if stored:
+            self._check_plan(RoutePlan(__import__("json").dumps(stored["plan"])))
+        if session is not None and session.aborted:
+            return []
         to = list(to) if to is not None else self.config_for(package).first_recipients()
         results = []
         for v in to:
@@ -577,8 +732,8 @@ class TeleportationQDS:
         package = self.reveal(session)
         kind = "chain" if session.config.delivery == "chain" else "direct"
         if session.aborted:
-            note = ("Channel test alarm: signature never revealed." if session.channel_test.alarm
-                    else f"INSUFFICIENT_TOKENS: surviving tokens {session.tokens_received}/{session.tokens_planned} below safety threshold.")
+            note = session.route_abort or ("Channel test alarm: signature never revealed." if session.channel_test.alarm
+                    else "INSUFFICIENT_TOKENS: a required recipient has too little surviving evidence; signature never revealed.")
             return Transcript(kind=kind, link=LINK_SIGNER, n_bits=n_bits, package=package, results=[],
                               display={}, session=session, channel_test=session.channel_test,
                               channel_model=session.channel_model,
@@ -596,7 +751,25 @@ class TeleportationQDS:
         link = transcript.link
 
         t0 = time.perf_counter_ns()
-        report = self.detector.classify(transcript.results, transcript.channel_test)
+        session = transcript.session
+        detector = QDSDetectionEngine(session.security_params) if session and session.security_params else self.detector
+        report = detector.classify(transcript.results, transcript.channel_test)
+        route_alarms = {v: t for v, t in (session.route_tests if session else {}).items() if t["alarm"]}
+        is_routed = session and session.route_plan and session.route_plan.to_dict()["topology_digest"] != legacy_star().digest
+        if is_routed and transcript.channel_test and transcript.channel_test.alarm:
+            report.evidence_p = min(1.0, report.evidence_p * 2)
+        if route_alarms and not (transcript.channel_test and transcript.channel_test.alarm):
+            report = ThreatReport(ThreatClassification.EAVESDROPPING_TAMPERING, "REJECTED",
+                "Route-specific test alarm; edge attribution is unknown.", True, decided_by="route_tests",
+                evidence_p=min(1.0, min(t["p_value"] for t in route_alarms.values()) * len(session.config.roster) * (2 if is_routed else 1)))
+        elif session and session.insufficient_tokens and not (transcript.channel_test and transcript.channel_test.alarm):
+            report = ThreatReport(ThreatClassification.INSUFFICIENT_TOKENS, "REJECTED",
+                "Insufficient surviving evidence at a required recipient; no signature revealed.", False,
+                decided_by="recipient_evidence", evidence_p=1.0)
+        elif session and session.route_abort and not route_alarms and not (transcript.channel_test and transcript.channel_test.alarm):
+            report = ThreatReport(ThreatClassification.INCONCLUSIVE_EVIDENCE, "INCONCLUSIVE",
+                "Distribution/reveal interrupted by a required scope restriction.", False,
+                decided_by="route_abort", evidence_p=1.0)
         t1 = time.perf_counter_ns()
 
         decision = decide(report, self.policy)
@@ -609,7 +782,40 @@ class TeleportationQDS:
         else:
             direct = [r for r in transcript.results if r.mode == "direct"]
             all_accepted = transcript.kind == "direct" and bool(direct) and all(r.accepted for r in direct)
-        transition = self.guard.apply(link, decision, tx_id, accepted=all_accepted and not report.is_threat_detected)
+        all_accepted = all_accepted and not (session and session.aborted)
+        route_transitions = []
+        custom_routes = session and session.route_plan and session.route_plan.to_dict()["topology_digest"] != legacy_star().digest
+        channel_finding = report.classification in (ThreatClassification.EAVESDROPPING_TAMPERING,
+                                                     ThreatClassification.INSUFFICIENT_TOKENS)
+        assessment_id = evidence_hash({"session": transcript.package.context.session_id,
+            "events": [r.event_id for r in transcript.results],
+            "channel": transcript.channel_test.to_dict() if transcript.channel_test else None})
+        if custom_routes and channel_finding:
+            plan_routes = session.route_plan.to_dict()["routes"]
+            targets = list(route_alarms) or list(plan_routes)
+            for v in targets:
+                scope = plan_routes[v]["route_id"]
+                local_decision = decision
+                if v in route_alarms:
+                    adjusted = min(1.0, route_alarms[v]["p_value"] * 2 * len(plan_routes))
+                    strong = adjusted <= self.policy.strong_alpha
+                    local_decision = ResponseDecision("reject", "quarantine" if strong else "watch",
+                        "strong" if strong else "weak", adjusted,
+                        f"Route-specific test for {v}; family-adjusted p={adjusted:.3g}; no edge localization")
+                change = self.guard.apply(scope, local_decision, assessment_id,
+                    actor="route_observation (no edge localization)")
+                if change:
+                    route_transitions.append(change)
+            transition = next((t for t in route_transitions if t["new_state"] == QUARANTINED),
+                              route_transitions[0] if route_transitions else None)
+            link = transition["link"] if transition else plan_routes[targets[0]]["route_id"]
+        else:
+            transition = self.guard.apply(link, decision, assessment_id,
+                accepted=all_accepted and not report.is_threat_detected)
+        if custom_routes and all_accepted and not channel_finding:
+            for r in session.route_plan.to_dict()["routes"].values():
+                self.guard.apply(r["route_id"], ResponseDecision("accept", "none", "none", 1.0, "route passed"),
+                                 assessment_id, accepted=True)
         purged = 0
         new_state = transition["new_state"] if transition else self.guard.state(link)
         if transition and new_state == QUARANTINED and link == LINK_SIGNER:
@@ -634,6 +840,8 @@ class TeleportationQDS:
         enforcement: Dict[str, Any] = {
             "action": action, "link": link, "link_state": new_state, "purged_records": purged,
             "transition": transition,
+            "route_transitions": route_transitions,
+            "attribution": "route observation; no edge localization" if custom_routes and channel_finding else None,
             "incident_id": transition.get("incident_id") if transition else None,
         }
 
@@ -663,6 +871,8 @@ class TeleportationQDS:
             calibration_date=cal_date,
             effective_error_rate=eff_err,
         )
+        if session and session.route_plan:
+            session.route_execution["session_outcome"] = result.to_dict()["session_outcome"]
 
         if self.audit is not None:
             tx = result.to_dict()
@@ -672,6 +882,11 @@ class TeleportationQDS:
                 inc = build_incident_record(enforcement["incident_id"], transition, tx, evidence_hash(evidence),
                                             self.policy.to_dict())
                 result.incident_cert = self.audit.issue(inc, enforcement["incident_id"])
+                for extra_transition in route_transitions:
+                    if extra_transition.get("incident_id") and extra_transition["incident_id"] != enforcement["incident_id"]:
+                        extra = build_incident_record(extra_transition["incident_id"], extra_transition, tx,
+                            evidence_hash(evidence), self.policy.to_dict())
+                        self.audit.issue(extra, extra_transition["incident_id"])
                 latency["incident_signing_us"] = round((time.perf_counter_ns() - t3) / 1000, 2)
             t4 = time.perf_counter_ns()
             record = build_record(result.to_dict(), self.params.to_dict(), self.policy.to_dict(), evidence,
@@ -686,6 +901,8 @@ class TeleportationQDS:
             latency["protocol_ms"] = round((time.perf_counter_ns() - started_ns) / 1e6, 2)
         self.latency.add(**{k: v for k, v in latency.items() if isinstance(v, (int, float))})
         enforcement["channel_state"] = self.guard.to_dict()
+        if session and session.route_plan:
+            self.store.save_route_execution(session.context.session_id, session.route_execution, sealed=True)
         return result
 
     def _issue_transfer_records(self, result: QDSExecutionResult, transcript: Transcript):
@@ -733,6 +950,9 @@ class TeleportationQDS:
         result.ground_truth = {
             "injected_scenario": scenario.threat_type.value,
             "dishonest_verifier": scenario.dishonest_verifier,
+            "edge_injections": transcript.session.edge_ground_truth if transcript.session else {},
+            "traversed_injected_edges": [eid for eid in (transcript.session.edge_ground_truth if transcript.session else {})
+                if transcript.session.route_execution["edges"].get(eid, {}).get("attempted", 0)],
             "hidden_channel": None if cm is None else {
                 "depolarizing": cm.depolarizing, "intercept_rate": cm.intercept_rate,
                 "expected_qber": round(cm.expected_qber(), 4)},

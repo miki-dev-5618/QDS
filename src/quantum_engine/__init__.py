@@ -28,6 +28,9 @@ from .policy import ResponsePolicy, ResponseDecision, decide
 from .enforcement import ChannelGuard, ChannelQuarantined, LINK_SIGNER, LINK_FORWARD
 from .router import SimulatedRouter
 from .store import Store
+from .topology import Topology, TopologyError, route_model
+from .routing import RoutePlan, RoutingPolicy, RouteUnavailable
+from .monitoring import probe_edges
 from .audit import (AuditAuthority, build_record, build_evidence, build_reset_record, verify_certificate,
                     verify_certificate_report, verify_chain)
 from .signers import pq_provider
@@ -47,6 +50,7 @@ __all__ = [
     "ResponsePolicy", "ResponseDecision", "decide",
     "ChannelGuard", "ChannelQuarantined", "LINK_SIGNER", "LINK_FORWARD",
     "SimulatedRouter", "Store",
+    "Topology", "TopologyError", "route_model", "RoutePlan", "RoutingPolicy", "RouteUnavailable", "probe_edges",
     "AuditAuthority", "build_record", "build_evidence", "build_reset_record",
     "verify_certificate", "verify_certificate_report", "verify_chain",
     "pq_provider",

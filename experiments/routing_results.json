@@ -1,0 +1,1284 @@
+{
+  "schema": "hedwig-routing-eval/1",
+  "seed": 2026,
+  "signature_bits": 32,
+  "backend": "statevector",
+  "topology_digest": "9a1ce818e5502502b797b6877b975c366683654ff320909eacb6f240e030c7a3",
+  "calibration": "bell-half-depolarizing-damping/1",
+  "summary": {
+    "primary": {
+      "trials": 3,
+      "allocated": 3,
+      "accepted": 3,
+      "acceptance_wilson95": [
+        0.43849391955098227,
+        1.0
+      ],
+      "via_R3": 0,
+      "bell_pairs": 1800,
+      "lost": 0,
+      "probe_bell_pairs": 0
+    },
+    "after_probe": {
+      "trials": 3,
+      "allocated": 3,
+      "accepted": 3,
+      "acceptance_wilson95": [
+        0.43849391955098227,
+        1.0
+      ],
+      "via_R3": 3,
+      "bell_pairs": 1258,
+      "lost": 24,
+      "probe_bell_pairs": 1536
+    }
+  },
+  "trials": [
+    {
+      "trial": 0,
+      "seed": 2026,
+      "phase": "primary",
+      "allocated": true,
+      "outcome": "all_accepted",
+      "classification": "CHANNEL_NOISE",
+      "routes": {
+        "bob": [
+          "alice",
+          "R1",
+          "R2",
+          "bob"
+        ],
+        "charlie": [
+          "alice",
+          "R1",
+          "R2",
+          "charlie"
+        ]
+      },
+      "predictions": {
+        "bob": {
+          "expected_qber": 0.0033262269629630303,
+          "survival": 1.0,
+          "cost": 3.0,
+          "hops": 3
+        },
+        "charlie": {
+          "expected_qber": 0.0033262269629630303,
+          "survival": 1.0,
+          "cost": 3.0,
+          "hops": 3
+        }
+      },
+      "execution": {
+        "status": "completed",
+        "timestamp": 1793329444.2258503,
+        "recipients": {
+          "bob": {
+            "planned": 92,
+            "attempted": 92,
+            "received": 92,
+            "lost": 0,
+            "test_planned": 40,
+            "tested": 40,
+            "errors": 1,
+            "edges": {
+              "alice->R1": {
+                "attempted": 92,
+                "received": 92,
+                "lost": 0,
+                "bell_pairs": 92
+              },
+              "R1->R2": {
+                "attempted": 92,
+                "received": 92,
+                "lost": 0,
+                "bell_pairs": 92
+              },
+              "R2->bob": {
+                "attempted": 92,
+                "received": 92,
+                "lost": 0,
+                "bell_pairs": 92
+              }
+            }
+          },
+          "charlie": {
+            "planned": 108,
+            "attempted": 108,
+            "received": 108,
+            "lost": 0,
+            "test_planned": 40,
+            "tested": 40,
+            "errors": 0,
+            "edges": {
+              "alice->R1": {
+                "attempted": 108,
+                "received": 108,
+                "lost": 0,
+                "bell_pairs": 108
+              },
+              "R1->R2": {
+                "attempted": 108,
+                "received": 108,
+                "lost": 0,
+                "bell_pairs": 108
+              },
+              "R2->charlie": {
+                "attempted": 108,
+                "received": 108,
+                "lost": 0,
+                "bell_pairs": 108
+              }
+            }
+          }
+        },
+        "edges": {
+          "alice->R1": {
+            "attempted": 200,
+            "received": 200,
+            "lost": 0,
+            "bell_pairs": 200
+          },
+          "R1->R2": {
+            "attempted": 200,
+            "received": 200,
+            "lost": 0,
+            "bell_pairs": 200
+          },
+          "R2->charlie": {
+            "attempted": 108,
+            "received": 108,
+            "lost": 0,
+            "bell_pairs": 108
+          },
+          "R2->bob": {
+            "attempted": 92,
+            "received": 92,
+            "lost": 0,
+            "bell_pairs": 92
+          }
+        },
+        "abort_reason": null,
+        "stopping_scope": null,
+        "attempted": 200,
+        "planned": 200,
+        "reveal_allowed": true,
+        "route_tests": {
+          "bob": {
+            "test_count": 40,
+            "error_count": 1,
+            "qber_estimate": 0.025,
+            "qber_ci_low": 0.0044,
+            "qber_ci_high": 0.1288,
+            "honest_qber_assumption": 0.02319317788444451,
+            "false_alarm_alpha": 0.0025,
+            "alarm_threshold_errors": 4,
+            "detection_power_at_25pct": 0.984,
+            "alarm": false,
+            "planned_test_count": 40,
+            "p_value": 0.60885,
+            "chernoff_kl_bound": 0.010358,
+            "strong_alpha": 0.00025,
+            "strong_threshold_errors": 6,
+            "early_abort": false,
+            "tokens_sent": 92,
+            "tokens_planned": 92,
+            "tokens_received": 92,
+            "tokens_lost": 0,
+            "exact_false_alarm_level": 0.0022458
+          },
+          "charlie": {
+            "test_count": 40,
+            "error_count": 0,
+            "qber_estimate": 0.0,
+            "qber_ci_low": 0.0,
+            "qber_ci_high": 0.0876,
+            "honest_qber_assumption": 0.02319317788444451,
+            "false_alarm_alpha": 0.0025,
+            "alarm_threshold_errors": 4,
+            "detection_power_at_25pct": 0.984,
+            "alarm": false,
+            "planned_test_count": 40,
+            "p_value": 1.0,
+            "chernoff_kl_bound": 0.010358,
+            "strong_alpha": 0.00025,
+            "strong_threshold_errors": 6,
+            "early_abort": false,
+            "tokens_sent": 108,
+            "tokens_planned": 108,
+            "tokens_received": 108,
+            "tokens_lost": 0,
+            "exact_false_alarm_level": 0.0022458
+          }
+        },
+        "resource_convention": "one Bell pair consumed per edge attempt",
+        "backend": "statevector",
+        "session_outcome": "all_accepted"
+      },
+      "probe": null,
+      "seconds": 0.2005847000000358
+    },
+    {
+      "trial": 0,
+      "seed": 2026,
+      "phase": "after_probe",
+      "allocated": true,
+      "outcome": "all_accepted",
+      "classification": "BENIGN_AUTHENTIC",
+      "routes": {
+        "bob": [
+          "alice",
+          "R3",
+          "bob"
+        ],
+        "charlie": [
+          "alice",
+          "R3",
+          "charlie"
+        ]
+      },
+      "predictions": {
+        "bob": {
+          "expected_qber": 0.005319111111111052,
+          "survival": 0.9603999999999999,
+          "cost": 4.0,
+          "hops": 2
+        },
+        "charlie": {
+          "expected_qber": 0.005319111111111052,
+          "survival": 0.9603999999999999,
+          "cost": 4.0,
+          "hops": 2
+        }
+      },
+      "execution": {
+        "status": "completed",
+        "timestamp": 1793329444.5565047,
+        "recipients": {
+          "bob": {
+            "planned": 116,
+            "attempted": 116,
+            "received": 115,
+            "lost": 1,
+            "test_planned": 42,
+            "tested": 42,
+            "errors": 0,
+            "edges": {
+              "alice->R3": {
+                "attempted": 116,
+                "received": 115,
+                "lost": 1,
+                "bell_pairs": 116
+              },
+              "R3->bob": {
+                "attempted": 115,
+                "received": 115,
+                "lost": 0,
+                "bell_pairs": 115
+              }
+            }
+          },
+          "charlie": {
+            "planned": 96,
+            "attempted": 96,
+            "received": 92,
+            "lost": 4,
+            "test_planned": 42,
+            "tested": 41,
+            "errors": 0,
+            "edges": {
+              "alice->R3": {
+                "attempted": 96,
+                "received": 94,
+                "lost": 2,
+                "bell_pairs": 96
+              },
+              "R3->charlie": {
+                "attempted": 94,
+                "received": 92,
+                "lost": 2,
+                "bell_pairs": 94
+              }
+            }
+          }
+        },
+        "edges": {
+          "alice->R3": {
+            "attempted": 212,
+            "received": 209,
+            "lost": 3,
+            "bell_pairs": 212
+          },
+          "R3->charlie": {
+            "attempted": 94,
+            "received": 92,
+            "lost": 2,
+            "bell_pairs": 94
+          },
+          "R3->bob": {
+            "attempted": 115,
+            "received": 115,
+            "lost": 0,
+            "bell_pairs": 115
+          }
+        },
+        "abort_reason": null,
+        "stopping_scope": null,
+        "attempted": 212,
+        "planned": 212,
+        "reveal_allowed": true,
+        "route_tests": {
+          "bob": {
+            "test_count": 42,
+            "error_count": 0,
+            "qber_estimate": 0.0,
+            "qber_ci_low": 0.0,
+            "qber_ci_high": 0.0838,
+            "honest_qber_assumption": 0.02510634666666661,
+            "false_alarm_alpha": 0.0025,
+            "alarm_threshold_errors": 5,
+            "detection_power_at_25pct": 0.9693,
+            "alarm": false,
+            "planned_test_count": 42,
+            "p_value": 1.0,
+            "chernoff_kl_bound": 0.0030327,
+            "strong_alpha": 0.00025,
+            "strong_threshold_errors": 6,
+            "early_abort": false,
+            "tokens_sent": 116,
+            "tokens_planned": 116,
+            "tokens_received": 115,
+            "tokens_lost": 1,
+            "exact_false_alarm_level": 0.00060433
+          },
+          "charlie": {
+            "test_count": 41,
+            "error_count": 0,
+            "qber_estimate": 0.0,
+            "qber_ci_low": 0.0,
+            "qber_ci_high": 0.0857,
+            "honest_qber_assumption": 0.02510634666666661,
+            "false_alarm_alpha": 0.0025,
+            "alarm_threshold_errors": 5,
+            "detection_power_at_25pct": 0.9693,
+            "alarm": false,
+            "planned_test_count": 42,
+            "p_value": 1.0,
+            "chernoff_kl_bound": 0.0030327,
+            "strong_alpha": 0.00025,
+            "strong_threshold_errors": 6,
+            "early_abort": true,
+            "tokens_sent": 96,
+            "tokens_planned": 96,
+            "tokens_received": 92,
+            "tokens_lost": 4,
+            "exact_false_alarm_level": 0.00060433
+          }
+        },
+        "resource_convention": "one Bell pair consumed per edge attempt",
+        "backend": "statevector",
+        "session_outcome": "all_accepted"
+      },
+      "probe": {
+        "schema": "hedwig-edge-probe/1",
+        "probe_id": "PROBE-30d3c168b3814a2e96b2dd31a8b51b54",
+        "edge": "R1->R2",
+        "scope": "edge:58426cc84f58caee7af6fc4f9d07c29c056a6da2d035ea39112d45736c4e18e2",
+        "topology_digest": "9a1ce818e5502502b797b6877b975c366683654ff320909eacb6f240e030c7a3",
+        "timestamp": 1793329444.4263692,
+        "calibration": "bell-half-depolarizing-damping/1",
+        "round": 1,
+        "alpha_spending": {
+          "round_alpha_per_edge": 0.006079271018540266,
+          "lifetime_alpha": 0.01
+        },
+        "test": {
+          "test_count": 512,
+          "error_count": 133,
+          "qber_estimate": 0.2598,
+          "qber_ci_low": 0.2237,
+          "qber_ci_high": 0.2994,
+          "honest_qber_assumption": 0.001333333333333353,
+          "false_alarm_alpha": 0.006079271018540266,
+          "alarm_threshold_errors": 3,
+          "detection_power_at_25pct": 1.0,
+          "alarm": true,
+          "planned_test_count": 512,
+          "p_value": 0.0,
+          "chernoff_kl_bound": 0.023153,
+          "strong_alpha": 0.0006079271018540267,
+          "strong_threshold_errors": 5,
+          "early_abort": false,
+          "tokens_sent": 512,
+          "tokens_planned": 512,
+          "tokens_received": 512,
+          "tokens_lost": 0,
+          "exact_false_alarm_level": 0.0052339
+        },
+        "execution": {
+          "R1->R2": {
+            "attempted": 512,
+            "received": 512,
+            "lost": 0,
+            "bell_pairs": 512
+          }
+        },
+        "decision": {
+          "verdict": "reject",
+          "response_action": "quarantine",
+          "severity": "strong",
+          "evidence_p": 0.0,
+          "reason": "Independent edge probe: excess matched-basis errors"
+        },
+        "transition": {
+          "ts": 1793329444.4256015,
+          "link": "edge:58426cc84f58caee7af6fc4f9d07c29c056a6da2d035ea39112d45736c4e18e2",
+          "old_state": "open",
+          "new_state": "quarantined",
+          "actor": "independent_edge_probe",
+          "reason": "Independent edge probe: excess matched-basis errors",
+          "evidence_id": "PROBE-30d3c168b3814a2e96b2dd31a8b51b54",
+          "policy_version": "hedwig-qcb/2",
+          "incident_id": "INC-C5E83E70"
+        },
+        "recovery": {
+          "tested": 0,
+          "rounds": 0
+        },
+        "evidence_source": "independent_edge_probe"
+      },
+      "seconds": 0.13290239999969344
+    },
+    {
+      "trial": 1,
+      "seed": 2027,
+      "phase": "primary",
+      "allocated": true,
+      "outcome": "all_accepted",
+      "classification": "BENIGN_AUTHENTIC",
+      "routes": {
+        "bob": [
+          "alice",
+          "R1",
+          "R2",
+          "bob"
+        ],
+        "charlie": [
+          "alice",
+          "R1",
+          "R2",
+          "charlie"
+        ]
+      },
+      "predictions": {
+        "bob": {
+          "expected_qber": 0.0033262269629630303,
+          "survival": 1.0,
+          "cost": 3.0,
+          "hops": 3
+        },
+        "charlie": {
+          "expected_qber": 0.0033262269629630303,
+          "survival": 1.0,
+          "cost": 3.0,
+          "hops": 3
+        }
+      },
+      "execution": {
+        "status": "completed",
+        "timestamp": 1793329444.747172,
+        "recipients": {
+          "bob": {
+            "planned": 100,
+            "attempted": 100,
+            "received": 100,
+            "lost": 0,
+            "test_planned": 40,
+            "tested": 40,
+            "errors": 0,
+            "edges": {
+              "alice->R1": {
+                "attempted": 100,
+                "received": 100,
+                "lost": 0,
+                "bell_pairs": 100
+              },
+              "R1->R2": {
+                "attempted": 100,
+                "received": 100,
+                "lost": 0,
+                "bell_pairs": 100
+              },
+              "R2->bob": {
+                "attempted": 100,
+                "received": 100,
+                "lost": 0,
+                "bell_pairs": 100
+              }
+            }
+          },
+          "charlie": {
+            "planned": 100,
+            "attempted": 100,
+            "received": 100,
+            "lost": 0,
+            "test_planned": 40,
+            "tested": 40,
+            "errors": 0,
+            "edges": {
+              "alice->R1": {
+                "attempted": 100,
+                "received": 100,
+                "lost": 0,
+                "bell_pairs": 100
+              },
+              "R1->R2": {
+                "attempted": 100,
+                "received": 100,
+                "lost": 0,
+                "bell_pairs": 100
+              },
+              "R2->charlie": {
+                "attempted": 100,
+                "received": 100,
+                "lost": 0,
+                "bell_pairs": 100
+              }
+            }
+          }
+        },
+        "edges": {
+          "alice->R1": {
+            "attempted": 200,
+            "received": 200,
+            "lost": 0,
+            "bell_pairs": 200
+          },
+          "R1->R2": {
+            "attempted": 200,
+            "received": 200,
+            "lost": 0,
+            "bell_pairs": 200
+          },
+          "R2->charlie": {
+            "attempted": 100,
+            "received": 100,
+            "lost": 0,
+            "bell_pairs": 100
+          },
+          "R2->bob": {
+            "attempted": 100,
+            "received": 100,
+            "lost": 0,
+            "bell_pairs": 100
+          }
+        },
+        "abort_reason": null,
+        "stopping_scope": null,
+        "attempted": 200,
+        "planned": 200,
+        "reveal_allowed": true,
+        "route_tests": {
+          "bob": {
+            "test_count": 40,
+            "error_count": 0,
+            "qber_estimate": 0.0,
+            "qber_ci_low": 0.0,
+            "qber_ci_high": 0.0876,
+            "honest_qber_assumption": 0.02319317788444451,
+            "false_alarm_alpha": 0.0025,
+            "alarm_threshold_errors": 4,
+            "detection_power_at_25pct": 0.984,
+            "alarm": false,
+            "planned_test_count": 40,
+            "p_value": 1.0,
+            "chernoff_kl_bound": 0.010358,
+            "strong_alpha": 0.00025,
+            "strong_threshold_errors": 6,
+            "early_abort": false,
+            "tokens_sent": 100,
+            "tokens_planned": 100,
+            "tokens_received": 100,
+            "tokens_lost": 0,
+            "exact_false_alarm_level": 0.0022458
+          },
+          "charlie": {
+            "test_count": 40,
+            "error_count": 0,
+            "qber_estimate": 0.0,
+            "qber_ci_low": 0.0,
+            "qber_ci_high": 0.0876,
+            "honest_qber_assumption": 0.02319317788444451,
+            "false_alarm_alpha": 0.0025,
+            "alarm_threshold_errors": 4,
+            "detection_power_at_25pct": 0.984,
+            "alarm": false,
+            "planned_test_count": 40,
+            "p_value": 1.0,
+            "chernoff_kl_bound": 0.010358,
+            "strong_alpha": 0.00025,
+            "strong_threshold_errors": 6,
+            "early_abort": false,
+            "tokens_sent": 100,
+            "tokens_planned": 100,
+            "tokens_received": 100,
+            "tokens_lost": 0,
+            "exact_false_alarm_level": 0.0022458
+          }
+        },
+        "resource_convention": "one Bell pair consumed per edge attempt",
+        "backend": "statevector",
+        "session_outcome": "all_accepted"
+      },
+      "probe": null,
+      "seconds": 0.18744359999982407
+    },
+    {
+      "trial": 1,
+      "seed": 2027,
+      "phase": "after_probe",
+      "allocated": true,
+      "outcome": "all_accepted",
+      "classification": "BENIGN_AUTHENTIC",
+      "routes": {
+        "bob": [
+          "alice",
+          "R3",
+          "bob"
+        ],
+        "charlie": [
+          "alice",
+          "R3",
+          "charlie"
+        ]
+      },
+      "predictions": {
+        "bob": {
+          "expected_qber": 0.005319111111111052,
+          "survival": 0.9603999999999999,
+          "cost": 4.0,
+          "hops": 2
+        },
+        "charlie": {
+          "expected_qber": 0.005319111111111052,
+          "survival": 0.9603999999999999,
+          "cost": 4.0,
+          "hops": 2
+        }
+      },
+      "execution": {
+        "status": "completed",
+        "timestamp": 1793329445.0637755,
+        "recipients": {
+          "bob": {
+            "planned": 124,
+            "attempted": 124,
+            "received": 114,
+            "lost": 10,
+            "test_planned": 42,
+            "tested": 39,
+            "errors": 0,
+            "edges": {
+              "alice->R3": {
+                "attempted": 124,
+                "received": 117,
+                "lost": 7,
+                "bell_pairs": 124
+              },
+              "R3->bob": {
+                "attempted": 117,
+                "received": 114,
+                "lost": 3,
+                "bell_pairs": 117
+              }
+            }
+          },
+          "charlie": {
+            "planned": 88,
+            "attempted": 88,
+            "received": 86,
+            "lost": 2,
+            "test_planned": 42,
+            "tested": 41,
+            "errors": 0,
+            "edges": {
+              "alice->R3": {
+                "attempted": 88,
+                "received": 86,
+                "lost": 2,
+                "bell_pairs": 88
+              },
+              "R3->charlie": {
+                "attempted": 86,
+                "received": 86,
+                "lost": 0,
+                "bell_pairs": 86
+              }
+            }
+          }
+        },
+        "edges": {
+          "alice->R3": {
+            "attempted": 212,
+            "received": 203,
+            "lost": 9,
+            "bell_pairs": 212
+          },
+          "R3->charlie": {
+            "attempted": 86,
+            "received": 86,
+            "lost": 0,
+            "bell_pairs": 86
+          },
+          "R3->bob": {
+            "attempted": 117,
+            "received": 114,
+            "lost": 3,
+            "bell_pairs": 117
+          }
+        },
+        "abort_reason": null,
+        "stopping_scope": null,
+        "attempted": 212,
+        "planned": 212,
+        "reveal_allowed": true,
+        "route_tests": {
+          "bob": {
+            "test_count": 39,
+            "error_count": 0,
+            "qber_estimate": 0.0,
+            "qber_ci_low": 0.0,
+            "qber_ci_high": 0.0897,
+            "honest_qber_assumption": 0.02510634666666661,
+            "false_alarm_alpha": 0.0025,
+            "alarm_threshold_errors": 5,
+            "detection_power_at_25pct": 0.9693,
+            "alarm": false,
+            "planned_test_count": 42,
+            "p_value": 1.0,
+            "chernoff_kl_bound": 0.0030327,
+            "strong_alpha": 0.00025,
+            "strong_threshold_errors": 6,
+            "early_abort": true,
+            "tokens_sent": 124,
+            "tokens_planned": 124,
+            "tokens_received": 114,
+            "tokens_lost": 10,
+            "exact_false_alarm_level": 0.00060433
+          },
+          "charlie": {
+            "test_count": 41,
+            "error_count": 0,
+            "qber_estimate": 0.0,
+            "qber_ci_low": 0.0,
+            "qber_ci_high": 0.0857,
+            "honest_qber_assumption": 0.02510634666666661,
+            "false_alarm_alpha": 0.0025,
+            "alarm_threshold_errors": 5,
+            "detection_power_at_25pct": 0.9693,
+            "alarm": false,
+            "planned_test_count": 42,
+            "p_value": 1.0,
+            "chernoff_kl_bound": 0.0030327,
+            "strong_alpha": 0.00025,
+            "strong_threshold_errors": 6,
+            "early_abort": true,
+            "tokens_sent": 88,
+            "tokens_planned": 88,
+            "tokens_received": 86,
+            "tokens_lost": 2,
+            "exact_false_alarm_level": 0.00060433
+          }
+        },
+        "resource_convention": "one Bell pair consumed per edge attempt",
+        "backend": "statevector",
+        "session_outcome": "all_accepted"
+      },
+      "probe": {
+        "schema": "hedwig-edge-probe/1",
+        "probe_id": "PROBE-69b2dad25f1a485cba0de76b7fe0b244",
+        "edge": "R1->R2",
+        "scope": "edge:58426cc84f58caee7af6fc4f9d07c29c056a6da2d035ea39112d45736c4e18e2",
+        "topology_digest": "9a1ce818e5502502b797b6877b975c366683654ff320909eacb6f240e030c7a3",
+        "timestamp": 1793329444.9421952,
+        "calibration": "bell-half-depolarizing-damping/1",
+        "round": 1,
+        "alpha_spending": {
+          "round_alpha_per_edge": 0.006079271018540266,
+          "lifetime_alpha": 0.01
+        },
+        "test": {
+          "test_count": 512,
+          "error_count": 124,
+          "qber_estimate": 0.2422,
+          "qber_ci_low": 0.2071,
+          "qber_ci_high": 0.2811,
+          "honest_qber_assumption": 0.001333333333333353,
+          "false_alarm_alpha": 0.006079271018540266,
+          "alarm_threshold_errors": 3,
+          "detection_power_at_25pct": 1.0,
+          "alarm": true,
+          "planned_test_count": 512,
+          "p_value": 0.0,
+          "chernoff_kl_bound": 0.023153,
+          "strong_alpha": 0.0006079271018540267,
+          "strong_threshold_errors": 5,
+          "early_abort": false,
+          "tokens_sent": 512,
+          "tokens_planned": 512,
+          "tokens_received": 512,
+          "tokens_lost": 0,
+          "exact_false_alarm_level": 0.0052339
+        },
+        "execution": {
+          "R1->R2": {
+            "attempted": 512,
+            "received": 512,
+            "lost": 0,
+            "bell_pairs": 512
+          }
+        },
+        "decision": {
+          "verdict": "reject",
+          "response_action": "quarantine",
+          "severity": "strong",
+          "evidence_p": 0.0,
+          "reason": "Independent edge probe: excess matched-basis errors"
+        },
+        "transition": {
+          "ts": 1793329444.9413393,
+          "link": "edge:58426cc84f58caee7af6fc4f9d07c29c056a6da2d035ea39112d45736c4e18e2",
+          "old_state": "open",
+          "new_state": "quarantined",
+          "actor": "independent_edge_probe",
+          "reason": "Independent edge probe: excess matched-basis errors",
+          "evidence_id": "PROBE-69b2dad25f1a485cba0de76b7fe0b244",
+          "policy_version": "hedwig-qcb/2",
+          "incident_id": "INC-319453C0"
+        },
+        "recovery": {
+          "tested": 0,
+          "rounds": 0
+        },
+        "evidence_source": "independent_edge_probe"
+      },
+      "seconds": 0.12201650000042719
+    },
+    {
+      "trial": 2,
+      "seed": 2028,
+      "phase": "primary",
+      "allocated": true,
+      "outcome": "all_accepted",
+      "classification": "BENIGN_AUTHENTIC",
+      "routes": {
+        "bob": [
+          "alice",
+          "R1",
+          "R2",
+          "bob"
+        ],
+        "charlie": [
+          "alice",
+          "R1",
+          "R2",
+          "charlie"
+        ]
+      },
+      "predictions": {
+        "bob": {
+          "expected_qber": 0.0033262269629630303,
+          "survival": 1.0,
+          "cost": 3.0,
+          "hops": 3
+        },
+        "charlie": {
+          "expected_qber": 0.0033262269629630303,
+          "survival": 1.0,
+          "cost": 3.0,
+          "hops": 3
+        }
+      },
+      "execution": {
+        "status": "completed",
+        "timestamp": 1793329445.2384212,
+        "recipients": {
+          "bob": {
+            "planned": 102,
+            "attempted": 102,
+            "received": 102,
+            "lost": 0,
+            "test_planned": 40,
+            "tested": 40,
+            "errors": 0,
+            "edges": {
+              "alice->R1": {
+                "attempted": 102,
+                "received": 102,
+                "lost": 0,
+                "bell_pairs": 102
+              },
+              "R1->R2": {
+                "attempted": 102,
+                "received": 102,
+                "lost": 0,
+                "bell_pairs": 102
+              },
+              "R2->bob": {
+                "attempted": 102,
+                "received": 102,
+                "lost": 0,
+                "bell_pairs": 102
+              }
+            }
+          },
+          "charlie": {
+            "planned": 98,
+            "attempted": 98,
+            "received": 98,
+            "lost": 0,
+            "test_planned": 40,
+            "tested": 40,
+            "errors": 0,
+            "edges": {
+              "alice->R1": {
+                "attempted": 98,
+                "received": 98,
+                "lost": 0,
+                "bell_pairs": 98
+              },
+              "R1->R2": {
+                "attempted": 98,
+                "received": 98,
+                "lost": 0,
+                "bell_pairs": 98
+              },
+              "R2->charlie": {
+                "attempted": 98,
+                "received": 98,
+                "lost": 0,
+                "bell_pairs": 98
+              }
+            }
+          }
+        },
+        "edges": {
+          "alice->R1": {
+            "attempted": 200,
+            "received": 200,
+            "lost": 0,
+            "bell_pairs": 200
+          },
+          "R1->R2": {
+            "attempted": 200,
+            "received": 200,
+            "lost": 0,
+            "bell_pairs": 200
+          },
+          "R2->bob": {
+            "attempted": 102,
+            "received": 102,
+            "lost": 0,
+            "bell_pairs": 102
+          },
+          "R2->charlie": {
+            "attempted": 98,
+            "received": 98,
+            "lost": 0,
+            "bell_pairs": 98
+          }
+        },
+        "abort_reason": null,
+        "stopping_scope": null,
+        "attempted": 200,
+        "planned": 200,
+        "reveal_allowed": true,
+        "route_tests": {
+          "bob": {
+            "test_count": 40,
+            "error_count": 0,
+            "qber_estimate": 0.0,
+            "qber_ci_low": 0.0,
+            "qber_ci_high": 0.0876,
+            "honest_qber_assumption": 0.02319317788444451,
+            "false_alarm_alpha": 0.0025,
+            "alarm_threshold_errors": 4,
+            "detection_power_at_25pct": 0.984,
+            "alarm": false,
+            "planned_test_count": 40,
+            "p_value": 1.0,
+            "chernoff_kl_bound": 0.010358,
+            "strong_alpha": 0.00025,
+            "strong_threshold_errors": 6,
+            "early_abort": false,
+            "tokens_sent": 102,
+            "tokens_planned": 102,
+            "tokens_received": 102,
+            "tokens_lost": 0,
+            "exact_false_alarm_level": 0.0022458
+          },
+          "charlie": {
+            "test_count": 40,
+            "error_count": 0,
+            "qber_estimate": 0.0,
+            "qber_ci_low": 0.0,
+            "qber_ci_high": 0.0876,
+            "honest_qber_assumption": 0.02319317788444451,
+            "false_alarm_alpha": 0.0025,
+            "alarm_threshold_errors": 4,
+            "detection_power_at_25pct": 0.984,
+            "alarm": false,
+            "planned_test_count": 40,
+            "p_value": 1.0,
+            "chernoff_kl_bound": 0.010358,
+            "strong_alpha": 0.00025,
+            "strong_threshold_errors": 6,
+            "early_abort": false,
+            "tokens_sent": 98,
+            "tokens_planned": 98,
+            "tokens_received": 98,
+            "tokens_lost": 0,
+            "exact_false_alarm_level": 0.0022458
+          }
+        },
+        "resource_convention": "one Bell pair consumed per edge attempt",
+        "backend": "statevector",
+        "session_outcome": "all_accepted"
+      },
+      "probe": null,
+      "seconds": 0.1719944000005853
+    },
+    {
+      "trial": 2,
+      "seed": 2028,
+      "phase": "after_probe",
+      "allocated": true,
+      "outcome": "all_accepted",
+      "classification": "CHANNEL_NOISE",
+      "routes": {
+        "bob": [
+          "alice",
+          "R3",
+          "bob"
+        ],
+        "charlie": [
+          "alice",
+          "R3",
+          "charlie"
+        ]
+      },
+      "predictions": {
+        "bob": {
+          "expected_qber": 0.005319111111111052,
+          "survival": 0.9603999999999999,
+          "cost": 4.0,
+          "hops": 2
+        },
+        "charlie": {
+          "expected_qber": 0.005319111111111052,
+          "survival": 0.9603999999999999,
+          "cost": 4.0,
+          "hops": 2
+        }
+      },
+      "execution": {
+        "status": "completed",
+        "timestamp": 1793329445.5750587,
+        "recipients": {
+          "bob": {
+            "planned": 105,
+            "attempted": 105,
+            "received": 102,
+            "lost": 3,
+            "test_planned": 42,
+            "tested": 41,
+            "errors": 0,
+            "edges": {
+              "alice->R3": {
+                "attempted": 105,
+                "received": 104,
+                "lost": 1,
+                "bell_pairs": 105
+              },
+              "R3->bob": {
+                "attempted": 104,
+                "received": 102,
+                "lost": 2,
+                "bell_pairs": 104
+              }
+            }
+          },
+          "charlie": {
+            "planned": 107,
+            "attempted": 107,
+            "received": 103,
+            "lost": 4,
+            "test_planned": 42,
+            "tested": 41,
+            "errors": 1,
+            "edges": {
+              "alice->R3": {
+                "attempted": 107,
+                "received": 106,
+                "lost": 1,
+                "bell_pairs": 107
+              },
+              "R3->charlie": {
+                "attempted": 106,
+                "received": 103,
+                "lost": 3,
+                "bell_pairs": 106
+              }
+            }
+          }
+        },
+        "edges": {
+          "alice->R3": {
+            "attempted": 212,
+            "received": 210,
+            "lost": 2,
+            "bell_pairs": 212
+          },
+          "R3->bob": {
+            "attempted": 104,
+            "received": 102,
+            "lost": 2,
+            "bell_pairs": 104
+          },
+          "R3->charlie": {
+            "attempted": 106,
+            "received": 103,
+            "lost": 3,
+            "bell_pairs": 106
+          }
+        },
+        "abort_reason": null,
+        "stopping_scope": null,
+        "attempted": 212,
+        "planned": 212,
+        "reveal_allowed": true,
+        "route_tests": {
+          "bob": {
+            "test_count": 41,
+            "error_count": 0,
+            "qber_estimate": 0.0,
+            "qber_ci_low": 0.0,
+            "qber_ci_high": 0.0857,
+            "honest_qber_assumption": 0.02510634666666661,
+            "false_alarm_alpha": 0.0025,
+            "alarm_threshold_errors": 5,
+            "detection_power_at_25pct": 0.9693,
+            "alarm": false,
+            "planned_test_count": 42,
+            "p_value": 1.0,
+            "chernoff_kl_bound": 0.0030327,
+            "strong_alpha": 0.00025,
+            "strong_threshold_errors": 6,
+            "early_abort": true,
+            "tokens_sent": 105,
+            "tokens_planned": 105,
+            "tokens_received": 102,
+            "tokens_lost": 3,
+            "exact_false_alarm_level": 0.00060433
+          },
+          "charlie": {
+            "test_count": 41,
+            "error_count": 1,
+            "qber_estimate": 0.0244,
+            "qber_ci_low": 0.0043,
+            "qber_ci_high": 0.126,
+            "honest_qber_assumption": 0.02510634666666661,
+            "false_alarm_alpha": 0.0025,
+            "alarm_threshold_errors": 5,
+            "detection_power_at_25pct": 0.9693,
+            "alarm": false,
+            "planned_test_count": 42,
+            "p_value": 0.65628,
+            "chernoff_kl_bound": 0.0030327,
+            "strong_alpha": 0.00025,
+            "strong_threshold_errors": 6,
+            "early_abort": true,
+            "tokens_sent": 107,
+            "tokens_planned": 107,
+            "tokens_received": 103,
+            "tokens_lost": 4,
+            "exact_false_alarm_level": 0.00060433
+          }
+        },
+        "resource_convention": "one Bell pair consumed per edge attempt",
+        "backend": "statevector",
+        "session_outcome": "all_accepted"
+      },
+      "probe": {
+        "schema": "hedwig-edge-probe/1",
+        "probe_id": "PROBE-1839af44bc3b43ad858b3e9af4c35065",
+        "edge": "R1->R2",
+        "scope": "edge:58426cc84f58caee7af6fc4f9d07c29c056a6da2d035ea39112d45736c4e18e2",
+        "topology_digest": "9a1ce818e5502502b797b6877b975c366683654ff320909eacb6f240e030c7a3",
+        "timestamp": 1793329445.4567478,
+        "calibration": "bell-half-depolarizing-damping/1",
+        "round": 1,
+        "alpha_spending": {
+          "round_alpha_per_edge": 0.006079271018540266,
+          "lifetime_alpha": 0.01
+        },
+        "test": {
+          "test_count": 512,
+          "error_count": 131,
+          "qber_estimate": 0.2559,
+          "qber_ci_low": 0.22,
+          "qber_ci_high": 0.2954,
+          "honest_qber_assumption": 0.001333333333333353,
+          "false_alarm_alpha": 0.006079271018540266,
+          "alarm_threshold_errors": 3,
+          "detection_power_at_25pct": 1.0,
+          "alarm": true,
+          "planned_test_count": 512,
+          "p_value": 0.0,
+          "chernoff_kl_bound": 0.023153,
+          "strong_alpha": 0.0006079271018540267,
+          "strong_threshold_errors": 5,
+          "early_abort": false,
+          "tokens_sent": 512,
+          "tokens_planned": 512,
+          "tokens_received": 512,
+          "tokens_lost": 0,
+          "exact_false_alarm_level": 0.0052339
+        },
+        "execution": {
+          "R1->R2": {
+            "attempted": 512,
+            "received": 512,
+            "lost": 0,
+            "bell_pairs": 512
+          }
+        },
+        "decision": {
+          "verdict": "reject",
+          "response_action": "quarantine",
+          "severity": "strong",
+          "evidence_p": 0.0,
+          "reason": "Independent edge probe: excess matched-basis errors"
+        },
+        "transition": {
+          "ts": 1793329445.455959,
+          "link": "edge:58426cc84f58caee7af6fc4f9d07c29c056a6da2d035ea39112d45736c4e18e2",
+          "old_state": "open",
+          "new_state": "quarantined",
+          "actor": "independent_edge_probe",
+          "reason": "Independent edge probe: excess matched-basis errors",
+          "evidence_id": "PROBE-1839af44bc3b43ad858b3e9af4c35065",
+          "policy_version": "hedwig-qcb/2",
+          "incident_id": "INC-4762B291"
+        },
+        "recovery": {
+          "tested": 0,
+          "rounds": 0
+        },
+        "evidence_source": "independent_edge_probe"
+      },
+      "seconds": 0.11912720000054833
+    }
+  ],
+  "note": "Simulation under honest relays/authenticated classical communication. Allocation and verification acceptance are separate. Probe resources are separate from session resources. Intervals describe these trials only."
+}

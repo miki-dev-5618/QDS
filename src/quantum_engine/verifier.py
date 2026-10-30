@@ -71,6 +71,7 @@ class DistributionRecord:
     # Session configuration received from the signer at distribution (authenticated, pre-reveal).
     # None: a record built outside the engine; transfers are then not route-checked (legacy unit use).
     config: Optional[SessionConfig] = None
+    security_params: Optional[SecurityParameters] = None
 
     @property
     def n_reserve(self) -> int:
@@ -289,6 +290,7 @@ class VerifierNode:
 
         with self._lock:
             record = self.records.get(ctx.session_id)
+            params = record.security_params if record and record.security_params else self.params
             transfer_valid, depth, max_depth, transfer_reasons = self._check_transfer(
                 record, package, forwarded, parent)
             reasons.extend(transfer_reasons)
@@ -346,7 +348,7 @@ class VerifierNode:
                 reasons.append("Revealed signature length differs from distributed token count.")
             n_reserve = record.n_reserve if record else 0
             # An invalid transfer never obtains a more permissive rule: it is evaluated at depth 0.
-            rule = self.params.elimination_rule(n_checked, forwarded and transfer_valid, n_reserve,
+            rule = params.elimination_rule(n_checked, forwarded and transfer_valid, n_reserve,
                                                 depth=depth, max_depth=max_depth)
             limit = rule.a1
             stage, outcome = 1, "fail"
@@ -445,7 +447,7 @@ class VerifierNode:
             reasons=reasons,
             eliminated_states=eliminated,
             held_tokens=record.held_desc if record else [],
-            bounds=self.params.bounds(n_checked, mismatches, forwarded and transfer_valid, rule=rule,
+            bounds=params.bounds(n_checked, mismatches, forwarded and transfer_valid, rule=rule,
                                       reserve_mismatches=r_mis if stage == 2 else None),
             insufficient_tokens=insufficient_tokens,
             tokens_received=tokens_received,

@@ -83,6 +83,7 @@ def build_evidence(tx: Dict[str, Any]) -> Dict[str, Any]:
         "channel_test": tx.get("channel"),
         "symmetrisation": tx.get("symmetrisation"),
         "session_config": tx.get("session_config"),
+        "routing": tx.get("routing"),
     }
 
 
@@ -217,6 +218,10 @@ def build_record(tx: Dict[str, Any], params: Dict[str, Any], policy: Optional[Di
         "enforcement": {k: v for k, v in (tx.get("enforcement") or {}).items() if k != "channel_state"},
         "verification_summary": summary,
         "channel_test": tx.get("channel"),
+        "routing": ({"topology_digest": tx["routing"]["plan"]["topology_digest"],
+                     "plan_sha256": digest_json(tx["routing"]["plan"]),
+                     "execution_sha256": digest_json(tx["routing"]["execution"]),
+                     "status": tx["routing"]["execution"]["status"]} if tx.get("routing") else None),
         "tier2": report.get("tier2"),
         "bounds": {"per_verifier": bounds, "assumptions": ASSUMPTIONS,
                    "status": "illustrative bound under stated assumptions (not a security proof)"},
@@ -355,7 +360,7 @@ class AuditAuthority:
 
     def sign(self, record: Dict[str, Any], evidence: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Sign a record (adds the signature suite to it first, so the suite itself is signed)."""
-        record = dict(record)
+        record = copy.deepcopy(record)
         record["signature_suite"] = [{"algorithm": s.algorithm, "key_id": s.key_id, "post_quantum": s.post_quantum}
                                      for s in self.signers]
         payload = canonical_json(record)
@@ -368,7 +373,7 @@ class AuditAuthority:
             "public_keys": {s.key_id: {"algorithm": s.algorithm, "public_key": s.public_key} for s in self.signers},
         }
         if evidence is not None:
-            cert["evidence"] = evidence
+            cert["evidence"] = copy.deepcopy(evidence)
         return cert
 
     def issue(self, record: Dict[str, Any], artifact_id: str, evidence: Optional[Dict[str, Any]] = None

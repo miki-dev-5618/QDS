@@ -563,3 +563,9 @@ python -m pytest tests -v
 - **Elimination Table:** Verifier record of orthogonal states ruled out by quantum measurements.
 - **QCB (Quantum Circuit Breaker):** Automated multi-state security mechanism enforcing adaptive testing, link quarantine, and controlled probation.
 - **ML-DSA-65:** NIST FIPS 204 standard Module-Lattice-Based Post-Quantum Digital Signature Algorithm (Dilithium).
+
+## Multi-hop routing
+
+The admin console now supports a JSON topology, hop-by-hop teleportation, independent edge probes, and fresh-session rerouting around WATCH or QUARANTINED links. Activate **Multi-hop demo (R1/R2 + R3)** under **Links & router → Quantum routes** to try the middle-link attack and alternate path. The legacy star remains the default.
+
+See [the implementation and demonstration guide](MULTI_HOP_ROUTING_IMPLEMENTATION.md) for policies, APIs, assumptions, historical graph/table/matrix views, and evaluation commands.

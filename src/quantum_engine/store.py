@@ -79,6 +79,13 @@ CREATE TABLE IF NOT EXISTS verification_events (
     summary         TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_events_session ON verification_events(session_id);
+CREATE TABLE IF NOT EXISTS route_sessions (
+    session_id TEXT PRIMARY KEY,
+    created_at REAL NOT NULL,
+    plan TEXT NOT NULL,
+    execution TEXT,
+    sealed INTEGER NOT NULL DEFAULT 0
+);
 """
 
 
@@ -96,6 +103,31 @@ class Store:
     def close(self):
         with self._lock:
             self._db.close()
+
+    def save_route_plan(self, plan):
+        with self._lock:
+            self._db.execute("INSERT OR IGNORE INTO route_sessions(session_id,created_at,plan) VALUES(?,?,?)",
+                (plan["session_id"], plan["created_at"], json.dumps(plan)))
+
+    def save_route_execution(self, session_id, execution, sealed=False):
+        with self._lock:
+            self._db.execute("UPDATE route_sessions SET execution=?,sealed=? WHERE session_id=? AND sealed=0",
+                (json.dumps(execution), int(sealed), session_id))
+
+    def route_session(self, session_id):
+        with self._lock:
+            row = self._db.execute("SELECT plan,execution FROM route_sessions WHERE session_id=?", (session_id,)).fetchone()
+        return None if not row else {"plan": json.loads(row[0]), "execution": json.loads(row[1]) if row[1] else None}
+
+    def route_history(self, limit=50):
+        with self._lock:
+            rows = self._db.execute("SELECT plan,execution FROM route_sessions ORDER BY created_at DESC,rowid DESC LIMIT ?", (limit,)).fetchall()
+        return [{"plan": json.loads(p), "execution": json.loads(e) if e else None} for p, e in rows]
+
+    def route_refusals(self, limit=50):
+        with self._lock:
+            rows = self._db.execute("SELECT value FROM kv WHERE key LIKE 'route_refusal:%' ORDER BY rowid DESC LIMIT ?", (limit,)).fetchall()
+        return [json.loads(row[0]) for row in rows]
 
     # -------------------------------------------------------------- key/value
     def get_json(self, key: str, default: Any = None) -> Any:
