@@ -12,6 +12,10 @@ Decision order (first matching rule wins):
   3. Nonce already consumed / timestamp out of window -> REPLAY_ATTACK
   4. Forwarded package fails binding or fails elimination decisively
                                                       -> DISHONEST_VERIFIER_FORGERY
+  4b. Forwarded package with an invalid transfer (unknown forwarder, edge not
+      on the route, claimed depth or parent inconsistent with the recipient's
+      own record), binding intact                     -> INVALID_TRANSFER
+      (classical: the package itself is genuine; the route claim is not)
   5. Binding fails and elimination does not pass      -> EXTERNAL_FORGERY
   6. Binding fails, elimination passes                -> MESSAGE_INTEGRITY_VIOLATION
   7. Binding passes, elimination fails decisively: Tier 2 attributes the contradictions
@@ -59,6 +63,7 @@ class ThreatClassification(str, Enum):
     UNAUTHORIZED_VERIFICATION = "UNAUTHORIZED_VERIFICATION"
     INSUFFICIENT_TOKENS = "INSUFFICIENT_TOKENS"
     INCONCLUSIVE_EVIDENCE = "INCONCLUSIVE_EVIDENCE"
+    INVALID_TRANSFER = "INVALID_TRANSFER"
 
 
 BENIGN = {ThreatClassification.BENIGN_AUTHENTIC, ThreatClassification.CHANNEL_NOISE}
@@ -79,6 +84,8 @@ _VERDICTS = {
         "INSUFFICIENT_TOKENS: SURVIVING TOKENS BELOW ACCEPTANCE THRESHOLD DUE TO PHOTON LOSS",
     ThreatClassification.INCONCLUSIVE_EVIDENCE:
         "NOT ACCEPTED: ELIMINATION EVIDENCE INCONCLUSIVE AT THIS SAMPLE SIZE (NO ATTACK ATTRIBUTED)",
+    ThreatClassification.INVALID_TRANSFER:
+        "REJECTED: FORWARDING ROUTE, SENDER, DEPTH OR PARENT INVALID FOR THIS SESSION",
 }
 
 
@@ -246,6 +253,16 @@ class QDSDetectionEngine:
                           f"copies contradict {o.verifier}'s own eliminations (limit {o.acceptance_limit}); "
                           f"commitment {'matches' if o.commitment_matches else 'does not match'} the signer's.",
                           "transfer_check", min(min_elim_p(bad_forward), 1.0 if o.commitment_matches else 0.0))
+
+        bad_transfer = [o for o in forwarded if not getattr(o, "transfer_valid", True)]
+        if bad_transfer:
+            o = bad_transfer[0]
+            why = "; ".join(getattr(o, "transfer_reasons", []) or ["transfer check failed"])
+            return report(ThreatClassification.INVALID_TRANSFER,
+                          f"Package forwarded by {o.forwarded_by} to {o.verifier} was refused before any more "
+                          f"permissive rule applied: {why} The signed content itself was not attributed to the "
+                          f"forwarder; a route failure alone does not identify who caused it.",
+                          "transfer_route")
 
         bind_fail = [o for o in obs if not o.binding_pass]
         elim_fail = [o for o in obs if not o.elimination_pass]

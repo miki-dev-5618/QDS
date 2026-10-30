@@ -917,3 +917,55 @@
 }
 .hash-copy:hover { border-color: var(--field-line); }
 .hash-copy:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ---------- Recipient group (N-verifier extension) ---------- */
+.recipient-group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: var(--space-3) var(--space-3) 0;
+  margin: 0 0 var(--space-3);
+  min-width: 0;
+}
+.recipient-group legend { padding: 0 6px; }
+.status-warn { color: var(--warning-ink); font-weight: 600; white-space: nowrap; }
+.matrix-table .history-btn {
+  font: inherit;
+  font-size: 12px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 8px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.matrix-table .history-btn:hover { background: var(--surface-soft); }
+.event-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; font-family: var(--font-mono); font-size: 12px; }
+.event-list li { padding: 6px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.event-list li:last-child { border-bottom: none; }
+.routing-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 12px 0; }
+.routing-toolbar label { display: grid; gap: 5px; font-size: 12px; }
+.routing-toolbar .form-select, .routing-toolbar .form-input { max-width: 300px; }
+.routing-details { border-top: 1px solid var(--border, #334155); padding: 12px 0; }
+.routing-details summary { cursor: pointer; font-size: 13px; }
+.routing-experiment { margin-top: 18px; padding: 16px; border: 1px solid #b98b35; border-radius: 8px; }
+.routing-experiment legend { font-size: 13px; padding: 0 8px; }
+#routingIdentity, #routeDetail, #routingMessage { overflow-wrap: anywhere; }
+#topologySvg .routing-edge { cursor: pointer; }
+#topologySvg text { font-family: inherit; fill: var(--ink, #cbd5e1); }
+#topologySvg .routing-node-label { font-size: 12px; font-weight: 600; }
+#topologySvg .routing-edge-label { font-size: 10px; paint-order: stroke; stroke: var(--surface, #0f172a); stroke-width: 4px; }
+#topologySvg .routing-role { font-size: 10px; }
+.routing-toolbar .nav-btn { cursor: pointer; }
+.topology-wrap #topologySvg { max-width: 100%; }
+.topology-wrap { overflow-x: auto; }
+.routing-overview { border-top: 3px solid var(--primary); grid-column: 1 / -1; }
+.route-comparison { border: 1px solid var(--line); border-radius: 8px; margin: 12px 0; padding: 14px; }
+.route-comparison h3 { font-size: 14px; margin: 0 0 10px; }
+.route-comparison .route-line { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 10px; margin: 8px 0; font-size: 13px; }
+.route-comparison .route-line strong { color: var(--primary); overflow-wrap: anywhere; }
+.route-comparison .route-reason { color: var(--ink-muted); font-size: 12px; line-height: 1.6; margin-top: 10px; }
+.route-stop { border-left: 4px solid var(--danger-ink); background: var(--danger-bg); padding: 14px; border-radius: 6px; font-size: 13px; line-height: 1.6; }
+.route-test-step { padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.6; }
+.route-test-step strong { display: block; }
+.route-test-pass { color: var(--success-ink); font-weight: 700; }
+.route-test-fail { color: var(--danger-ink); font-weight: 700; }

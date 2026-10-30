@@ -1,6 +1,7 @@
 """Issue 4: server-side sessions and authorisation, end to end through the API."""
 import importlib
 import os
+import numpy as np
 
 import pytest
 from fastapi.testclient import TestClient
@@ -139,8 +140,10 @@ def test_reset_requires_admin_but_no_reason(server):
 def test_quarantine_blocks_until_reset(server):
     admin = client(server, ADMIN)
     reset(admin)
-    r = send(admin, "eve_forgery", 64)
-    tx = r.json()["transmission"]
+    # A real channel alarm can restrict distribution; classical signature
+    # substitution alone must never create this signer-wide stop.
+    tx = server.qds_engine.execute_protocol("quantum channel test", 64, rng=np.random.default_rng(1),
+        channel=server.ChannelModel(depolarizing=0), scenario=server.ThreatScenarioConfig(threat_type=server.ThreatType.EVE_INTERCEPT)).to_dict()
     assert tx["enforcement"]["action"] == "link_quarantined"
     incident_id = tx["enforcement"]["incident_id"]
     inc = admin.get(f"/api/audit/{incident_id}").json()
@@ -151,7 +154,7 @@ def test_quarantine_blocks_until_reset(server):
     assert blocked.json()["detail"]["incident_id"] == incident_id and blocked.json()["refusal_us"] >= 0
     topo = admin.get("/api/topology").json()["router"]["hops"]
     assert topo["alice->QR-1"]["state"] == "down" and topo["alice->QR-1"]["dropped"] >= 1
-    body = reset(admin, "investigated test forgery").json()
+    body = reset(admin, "investigated channel disturbance").json()
     assert body["channel_state"]["alice->verifiers"]["state"] == "reset_pending"
     assert body["reset_record"]["chain_seq"] > inc["record"]["chain"]["seq"]
     ok = send(admin)
@@ -172,10 +175,68 @@ def test_audit_chain_verifies(server):
 def test_state_and_records_survive_restart(server):
     admin = client(server, ADMIN)
     reset(admin)
-    tx_id = send(admin, "eve_forgery", 64).json()["transmission"]["transmission_id"]
+    tx_id = server.qds_engine.execute_protocol("quantum channel persistence test", 64, rng=np.random.default_rng(1),
+        channel=server.ChannelModel(depolarizing=0), scenario=server.ThreatScenarioConfig(threat_type=server.ThreatType.EVE_INTERCEPT)).transmission_id
     restarted = importlib.reload(server)  # same HEDWIG_DB and key file
     admin = client(restarted, ADMIN)
     assert send(admin).status_code == 423  # quarantine persisted
     cert = admin.get(f"/api/audit/{tx_id}").json()
     assert admin.post("/api/audit/verify", json=cert).json()["valid"] is True
     assert reset(admin).status_code == 200
+
+
+# ------------------------------------------------------------- N-verifier extension
+def test_unsupported_recipient_configuration_is_a_400(server):
+    admin = client(server, ADMIN)
+    reset(admin)
+    bad = [
+        {"n_verifiers": 11},
+        {"n_verifiers": 3, "delivery": "chain", "max_depth": 3},
+        {"n_verifiers": 3, "threat_type": "forward_withheld", "dishonest_verifier": "bob"},   # chain-only scenario
+        {"n_verifiers": 3, "delivery": "chain", "threat_type": "dishonest_forwarder", "dishonest_verifier": "dave"},
+        {"roster": ["bob", "mallory"]},
+    ]
+    for extra in bad:
+        r = admin.post("/api/sign-and-send", json={"message_text": "x", "n_bits": 32, **extra})
+        assert r.status_code == 400 and "Configuration error" in r.json()["detail"], extra
+
+
+def test_extra_recipients_are_admin_only_and_private_evidence_stays_private(server):
+    admin = client(server, ADMIN)
+    reset(admin)
+    r = admin.post("/api/sign-and-send", json={"message_text": "regional order", "n_bits": 32,
+                                               "n_verifiers": 5, "delivery": "chain"})
+    assert r.status_code == 200
+    tx = r.json()["transmission"]
+    assert [p["verifier"] for p in tx["participants"]] == ["bob", "charlie", "dave", "erin", "frank"]
+    assert tx["session_outcome"] in ("all_accepted", "rejected", "inconclusive")
+    sid = tx["context"]["session_id"]
+    hist = admin.get(f"/api/sessions/{sid}/events").json()
+    assert hist["session"]["config"]["roster"][-1] == "frank" and len(hist["events"]) >= 1
+    assert client(server, BOB).get(f"/api/sessions/{sid}/events").status_code == 403
+
+    bob = client(server, BOB)
+    seen = next(t for t in bob.get("/api/history").json()["transmissions"]
+                if t["transmission_id"] == tx["transmission_id"])
+    assert {p["verifier"] for p in seen["participants"]} <= {"bob", "charlie"}
+    assert all(v["verifier"] in ("bob", "charlie") for v in seen["additional_verifications"])
+    assert "symmetrisation" not in seen and "ground_truth" not in seen
+    if seen.get("charlie"):
+        assert "eliminated_states" not in seen["charlie"] and "held_tokens" not in seen["charlie"]
+    if seen.get("bob"):
+        assert "eliminated_states" in seen["bob"]                          # its own evidence stays visible
+
+
+def test_dishonest_forwarder_via_api(server):
+    admin = client(server, ADMIN)
+    reset(admin)
+    r = admin.post("/api/sign-and-send", json={"message_text": "order", "n_bits": 32, "n_verifiers": 4,
+                                               "delivery": "chain", "threat_type": "dishonest_forwarder",
+                                               "dishonest_verifier": "charlie"})
+    tx = r.json()["transmission"]
+    status = {p["verifier"]: p["status"] for p in tx["participants"]}
+    if status["bob"] == status["charlie"] == "accepted":                    # honest hops passed (noise permitting)
+        assert status["dave"] == "rejected" and status["erin"] == "not_reached"
+        assert tx["threat_report"]["classification"] == "DISHONEST_VERIFIER_FORGERY"
+    assert tx["ground_truth"]["dishonest_verifier"] == "charlie"
+    reset(admin)

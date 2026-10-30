@@ -308,7 +308,8 @@ def estimate_channel_qber(
     k = critical_error_count(planned, honest_qber, alpha)
     k_strong = critical_error_count(planned, honest_qber, strong_alpha)
     lo, hi = wilson_interval(error_count, test_count)
-    early = test_count < planned
+    # Heralded loss reduces the measured sample without stopping the stream.
+    early = tokens_sent < tokens_planned if tokens_planned > 0 else test_count < planned
     recv = tokens_sent if tokens_received is None else tokens_received
     lost = max(0, tokens_sent - recv) if tokens_lost is None else tokens_lost
     return ChannelTestResult(

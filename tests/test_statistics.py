@@ -5,7 +5,7 @@ reproducible bounds rather than deterministic outcomes.
 import numpy as np
 import pytest
 
-from src.quantum_engine import ChannelModel, TeleportationQDS, ThreatScenarioConfig, ThreatType
+from src.quantum_engine import ChannelModel, SecurityParameters, TeleportationQDS, ThreatScenarioConfig, ThreatType
 
 TRIALS = 40
 
@@ -49,7 +49,7 @@ def test_small_signatures_can_miss_intercept():
     rng = np.random.default_rng(99)
     alarms = 0
     for _ in range(60):
-        eng = TeleportationQDS(backend="statevector")
+        eng = TeleportationQDS(backend="statevector", params=SecurityParameters(allocation_policy="legacy"))
         r = eng.execute_protocol("m", 16, rng=rng,
                                  scenario=ThreatScenarioConfig(threat_type=ThreatType.EVE_INTERCEPT))
         alarms += bool(r.transcript.channel_test.alarm)

@@ -7,8 +7,10 @@ import numpy as np
 import pytest
 
 from src.quantum_engine import (
-    ChannelModel, QDSDetectionEngine, TeleportationQDS, ThreatClassification, ThreatScenarioConfig, ThreatType,
+    ChannelModel, QDSDetectionEngine, SessionConfig, TeleportationQDS, ThreatClassification, ThreatScenarioConfig,
+    ThreatType,
 )
+from src.quantum_engine.threats import FORWARDING_THREATS
 
 ENGINE_DIR = pathlib.Path(__file__).resolve().parents[1] / "src" / "quantum_engine"
 
@@ -34,6 +36,9 @@ def _run(threat, seed=7):
     rng = np.random.default_rng(seed)
     if threat == ThreatType.REPLAY:
         eng.execute_protocol("m", 32, rng=rng)
+    if threat in FORWARDING_THREATS:   # N-verifier scenarios need a chain roster and a dishonest member
+        return eng.execute_protocol("m", 32, rng=rng, config=SessionConfig.build(n_verifiers=3, delivery="chain"),
+                                    scenario=ThreatScenarioConfig(threat_type=threat, dishonest_verifier="bob"))
     return eng.execute_protocol("m", 32, scenario=ThreatScenarioConfig(threat_type=threat), rng=rng)
 
 

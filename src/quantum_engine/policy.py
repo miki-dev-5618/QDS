@@ -6,19 +6,20 @@ Response policy: turn a blind detector report into two separate outputs.
   response_action  - what happens to *future* traffic on the link
                      (none / watch / quarantine).
 
-Rules (policy version ``hedwig-qcb/2``):
+Rules (policy version ``hedwig-qcb/3``):
   * Benign classifications                     -> none.
   * Inconclusive elimination evidence (count in the borderline band, no
     reserve able to resolve it)               -> none. The signature is not
     accepted, but a statistically weak, unattributed observation never
     escalates the link on its own.
   * Classical rejections (replay, impersonation, message integrity,
-    unauthorised verification)                 -> none. Anyone can produce
+    unauthorised verification, invalid transfer route, external classical
+    signature forgery) -> none. Anyone can produce
     them at will by sending garbage, so they must not lock out the honest
     signer (that would be a free denial-of-service); the package is simply
     rejected and logged.
   * Quantum-evidence rejections (Tier 1 alarm, Tier 2 channel attribution,
-    repudiation, undetermined disturbance, external forgery, dishonest
+    repudiation, undetermined disturbance, dishonest
     verifier): the evidence strength ``evidence_p`` (p-value under the honest
     hypothesis) decides:
         evidence_p <= strong_alpha           -> quarantine (strong)
@@ -63,6 +64,8 @@ CLASSICAL_ONLY = {
     ThreatClassification.IMPERSONATION_ATTACK,
     ThreatClassification.MESSAGE_INTEGRITY_VIOLATION,
     ThreatClassification.UNAUTHORIZED_VERIFICATION,
+    ThreatClassification.INVALID_TRANSFER,
+    ThreatClassification.EXTERNAL_FORGERY,
 }
 
 
@@ -126,6 +129,11 @@ def decide(report: ThreatReport, policy: ResponsePolicy) -> ResponseDecision:
     if cls in BENIGN:
         return ResponseDecision("accept", "none", "none", 1.0, "All checks passed.")
     if cls in CLASSICAL_ONLY:
+        if cls == ThreatClassification.EXTERNAL_FORGERY:
+            return ResponseDecision("reject", "none", "classical", report.evidence_p,
+                "EXTERNAL_FORGERY: the revealed classical signature differs from Alice's commitment. "
+                "Reject this package. This does not prove a faulty quantum edge or a compromised signer; "
+                "future quantum distribution remains available.")
         return ResponseDecision("reject", "none", "classical", report.evidence_p,
                                 f"{cls.value}: classical check failed; package rejected, link stays as is "
                                 f"(an outsider can trigger this at will).")

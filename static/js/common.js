@@ -57,22 +57,25 @@ function renderChannelBanner(channelState) {
   if (!rows.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
   el.style.display = 'block';
   el.innerHTML = rows.map(([link, s]) => {
+    const label = typeof routingScopeLabel === 'function' ? routingScopeLabel(link) : link;
     if (s.state === 'quarantined') {
-      return `<div class="banner-quarantined">${icon('ban')}<span>LINK <strong>${escapeHtml(link)}</strong> QUARANTINED — ${escapeHtml(s.reason)} ` +
+      return `<div class="banner-quarantined">${icon('ban')}<span>SCOPE <strong>${escapeHtml(label)}</strong> QUARANTINED — ${escapeHtml(s.reason)} ` +
         `(${escapeHtml(s.transmission_id)}; incident ${escapeHtml(s.incident_id || '—')}; ` +
-        `${s.purged_records} unaccepted record(s) purged). New transmissions are refused until an admin ` +
-        `resets it with a reason.</span></div>`;
+        `${s.purged_records} unaccepted record(s) purged). Operations requiring this scope are refused. ` +
+        `${['alice->verifiers', '*emergency-stop*'].includes(link) ? 'This is a shared signer/global stop: changing relays cannot bypass it.' :
+          link === 'bob->charlie' ? 'This stops classical verifier forwarding, not quantum distribution.' :
+          'Fresh sessions can use an eligible alternate quantum route without resetting this failed scope.'}</span></div>`;
     }
     if (s.state === 'watch') {
       const until = s.watch_until ? new Date(s.watch_until * 1000).toLocaleTimeString() : '—';
-      return `<div class="banner-watch">${icon('alert')}<span>LINK <strong>${escapeHtml(link)}</strong> ON WATCH — ` +
+      return `<div class="banner-watch">${icon('alert')}<span>SCOPE <strong>${escapeHtml(label)}</strong> ON WATCH — ` +
         `${escapeHtml(s.reason)} (strike ${s.strikes}; combined evidence p = ${fmtP(s.combined_p)}; window until ` +
-        `${until}). Traffic flows with a doubled test-token budget; the link is quarantined if the accumulated ` +
-        `evidence reaches p ≤ 0.01 or three alerts accumulate.</span></div>`;
+        `${until}). Quantum routes avoid WATCH by default; an explicitly enabled fallback uses an increased evidence budget.</span></div>`;
     }
-    return `<div class="banner-probation">${icon('rotate')}<span>LINK <strong>${escapeHtml(link)}</strong> ON PROBATION after reset by ` +
-      `${escapeHtml(s.reset_by || 'admin')} ("${escapeHtml(s.reset_reason || '')}"). One fully accepted ` +
-      `transmission reopens it; any quantum-evidence alert re-quarantines it.</span></div>`;
+    return `<div class="banner-probation">${icon('rotate')}<span>SCOPE <strong>${escapeHtml(label)}</strong> ON PROBATION after reset by ` +
+      `${escapeHtml(s.reset_by || 'admin')} ("${escapeHtml(s.reset_reason || '')}"). ` +
+      `${link.startsWith('edge:') ? 'Independent recovery probes reopen this edge after at least 1024 surviving tests in two rounds.' : 'A fully accepted transmission reopens this scope.'} ` +
+      `A qualifying alert re-quarantines it.</span></div>`;
   }).join('');
 }
 
