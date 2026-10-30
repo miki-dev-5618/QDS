@@ -42,11 +42,11 @@ not a composable security proof against general (coherent) attacks.
 """
 import math
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field,replace
 from typing import Any, Dict, List, Optional, Tuple
 
 from .channel import binomial_upper_tail
-from .thresholds import EliminationRule, exact_rule, legacy_rule, min_sufficient_n, plan_reserve, plan_test_tokens
+from .thresholds import EliminationRule, depth_rule, exact_rule, legacy_rule, min_sufficient_n, plan_reserve, plan_test_tokens
 
 ASSUMPTIONS: List[str] = [
     "Per-copy measurement outcomes are independent.",
@@ -54,7 +54,9 @@ ASSUMPTIONS: List[str] = [
     "A forger without the signer's states mismatches each copy with probability >= p_min "
     "(1/4 for an outside guesser, >= 1/6 for a dishonest verifier holding one copy); "
     "coherent/collective attacks are not covered.",
-    "Keep-or-forward assigns every copy to Bob or Charlie independently and uniformly.",
+    "Keep-or-forward assigns every copy to Bob or Charlie independently and uniformly; with N > 2 recipients "
+    "every copy goes to a uniformly random roster member (uniform final holder). This is an assignment rule, "
+    "not a multiparty security proof; collusion between recipients is not covered.",
     "Exact values are binomial probabilities within this i.i.d. model; Hoeffding values are looser "
     "reference bounds. Neither is a composable security proof.",
     "Repudiation (Bob accepts, Charlie rejects) involves correlated counts under symmetrisation and is "
@@ -149,16 +151,35 @@ class SecurityParameters:
     def s_v(self) -> float:
         return self.mu_honest + 2.0 * self.gap / 3.0
 
-    def limit_rate(self, forwarded: bool) -> float:
-        return self.s_v if forwarded else self.s_a
+    def limit_rate(self, forwarded: bool, depth: Optional[int] = None, max_depth: int = 1) -> float:
+        """
+        Legacy acceptance rate. H = 1: s_a (direct) / s_v (forwarded). H > 1 uses the EXPERIMENTAL
+        schedule s_l = mu_h + (l + 1) (p_min - mu_h) / (H + 2), which reproduces s_a, s_v at H = 1 but is
+        not an established multiparty result (adjacent gaps shrink as H grows).
+        """
+        if max_depth <= 1:
+            return self.s_v if forwarded else self.s_a
+        l = (1 if forwarded else 0) if depth is None else max(0, min(depth, max_depth))
+        return self.mu_honest + (l + 1) * self.gap / (max_depth + 2)
 
-    def elimination_rule(self, n: int, forwarded: bool = False, n_reserve: int = 0) -> EliminationRule:
-        """The prespecified acceptance rule for n main copies (and n_reserve reserve copies, if any)."""
+    def elimination_rule(self, n: int, forwarded: bool = False, n_reserve: int = 0,
+                         depth: Optional[int] = None, max_depth: int = 1) -> EliminationRule:
+        """
+        The prespecified acceptance rule for n main copies (and n_reserve reserve copies, if any).
+        ``depth`` (0..max_depth) selects the forwarding level; without it, forwarded means depth 1 of H = 1.
+        """
+        if depth is None:
+            depth = 1 if forwarded else 0
+        forwarded = depth > 0
         if self.threshold_policy == "legacy":
-            return legacy_rule(n, self.limit_rate(forwarded), self.mu_honest, self.forger_min_mismatch,
-                               self.fr_target, self.fa_target, forwarded)
-        return exact_rule(n, n_reserve, self.mu_honest, self.forger_min_mismatch, self.fr_target,
-                          self.fa_target, forwarded)
+            r = legacy_rule(n, self.limit_rate(forwarded, depth, max_depth), self.mu_honest,
+                            self.forger_min_mismatch, self.fr_target, self.fa_target, forwarded)
+            return replace(r, depth=depth, max_depth=max(1, max_depth))
+        if max_depth <= 1:
+            return replace(exact_rule(n, n_reserve, self.mu_honest, self.forger_min_mismatch, self.fr_target,
+                                      self.fa_target, forwarded), depth=depth)
+        return depth_rule(n, n_reserve, self.mu_honest, self.forger_min_mismatch, self.fr_target,
+                          self.fa_target, depth, max_depth)
 
     def acceptance_limit(self, n: int, forwarded: bool = False) -> int:
         """Maximum number of mismatches accepted at stage 1 out of n checked copies."""
@@ -217,7 +238,8 @@ class SecurityParameters:
     def bounds(self, n: int, mismatches: int, forwarded: bool = False,
                rule: Optional[EliminationRule] = None, reserve_mismatches: Optional[int] = None) -> Dict[str, Any]:
         rule = rule or self.elimination_rule(n, forwarded)
-        s = self.limit_rate(forwarded)
+        forwarded = rule.depth > 0 if rule.max_depth > 1 else forwarded
+        s = self.limit_rate(forwarded, rule.depth, rule.max_depth)
         limit = rule.a1
         p_fr = _hoeffding(s - self.mu_honest, n)
         p_forge = _hoeffding(self.forger_min_mismatch - s, n)
@@ -248,7 +270,13 @@ class SecurityParameters:
             }
         return {
             "mode": "forwarded" if forwarded else "direct",
+            "depth": rule.depth,
+            "max_depth": rule.max_depth,
             "policy": rule.policy,
+            "schedule_status": ("experimental legacy depth schedule s_l (not an established multiparty result)"
+                                if rule.policy == "legacy" and rule.max_depth > 1 else
+                                "depth-interpolated exact limits within [k_fr, k_fa]"
+                                if rule.max_depth > 1 else "two-level direct/forwarded rule"),
             "inputs": {
                 "n_checked_copies": n,
                 "observed_mismatches": mismatches,

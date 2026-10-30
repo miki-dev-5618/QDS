@@ -1,5 +1,8 @@
 let currentThreat = 'authentic';
 const seenTx = new Set();
+const VERIFIER_POOL = ['bob', 'charlie', 'dave', 'erin', 'frank', 'grace', 'heidi', 'ivan', 'judy', 'kim'];
+const CHAIN_ONLY = new Set(['forward_withheld', 'route_manipulation']);
+let latestSessionId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   connectSocket('admin', handleMessage, online => {
@@ -7,8 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (online) logTerminal('SYS', 'Authenticated WebSocket connected.');
   });
   initThreatCards();
+  initRecipientControls();
   initComposer();
-  document.getElementById('btnResetLinks').addEventListener('click', resetLinks);
   document.getElementById('btnCheckChain').addEventListener('click', checkChain);
   loadHistory();
   refreshMetrics();
@@ -23,6 +26,7 @@ function handleMessage(msg) {
     renderLinks(msg.data.channel_state);
   } else if (msg.event === 'new_transmission') {
     handleNewTransmission(msg.data.transmission);
+    renderQubitFlow(msg.data.transmission, true);
     if (msg.data.stats) updateStatsDisplay(msg.data.stats);
     refreshMetrics();
     refreshTopology();
@@ -65,16 +69,141 @@ function setArmedThreatUI(threatType) {
   });
   const tamperedGroup = document.getElementById('tamperedGroup');
   if (tamperedGroup) tamperedGroup.style.display = threatType === 'message_tampering' ? 'block' : 'none';
+  document.getElementById('attackEdgeGroup').style.display = threatType === 'eve_intercept' ? 'block' : 'none';
   const cloningControls = document.getElementById('cloningControls');
   if (cloningControls) cloningControls.style.display = threatType === 'eve_cloning' ? 'flex' : 'none';
   const partialInterceptControls = document.getElementById('partialInterceptControls');
   if (partialInterceptControls) partialInterceptControls.style.display = threatType === 'eve_partial_intercept' ? 'flex' : 'none';
   const collectiveControls = document.getElementById('collectiveControls');
   if (collectiveControls) collectiveControls.style.display = threatType === 'eve_collective' ? 'flex' : 'none';
+  const nhop = document.getElementById('nhopScenarios');
+  if (nhop && nhop.querySelector(`.threat-card[data-threat="${threatType}"]`)) nhop.open = true;
+  updateForwarderControls();
   const badge = document.getElementById('activeThreatBadge');
   if (badge) {
     badge.textContent = threatType.toUpperCase();
     badge.classList.toggle('danger', threatType !== 'authentic');
+  }
+}
+
+// ------------------------------------------------ recipient group (N-verifier extension)
+function rosterFor(n) { return VERIFIER_POOL.slice(0, n); }
+const cap = v => v.charAt(0).toUpperCase() + v.slice(1);
+
+function initRecipientControls() {
+  ['nVerifiers', 'deliveryMode', 'maxDepth'].forEach(id =>
+    document.getElementById(id).addEventListener('change', () => { syncRecipientControls(id); refreshRoutingPreview(); }));
+  syncRecipientControls();
+}
+
+// The next-route preview plans for the roster currently chosen in the composer.
+function routingPreviewConfig() {
+  const { n_verifiers, delivery, max_depth } = recipientPayload();
+  return { n_verifiers, delivery, max_depth };
+}
+
+function syncRecipientControls(changed) {
+  const n = parseInt(document.getElementById('nVerifiers').value);
+  const mode = document.getElementById('deliveryMode').value;
+  const depthSel = document.getElementById('maxDepth');
+  if (mode === 'chain') {
+    const keep = changed === 'maxDepth' ? parseInt(depthSel.value) : n - 1;
+    depthSel.innerHTML = Array.from({ length: n - 1 }, (_, i) =>
+      `<option value="${i + 1}"${i + 1 === Math.min(keep, n - 1) ? ' selected' : ''}>${i + 1}${i + 1 === n - 1 ? ' (full chain)' : ''}</option>`).join('');
+    depthSel.disabled = false;
+  } else {
+    depthSel.innerHTML = '<option value="1">1 (one re-forward)</option>';
+    depthSel.disabled = true;
+  }
+  const roster = rosterFor(n);
+  const h = parseInt(depthSel.value);
+  // A dishonest forwarder needs someone to forward to: in a chain, only positions before depth H qualify.
+  const eligible = mode === 'chain' ? roster.slice(0, h) : roster;
+  const dSel = document.getElementById('dishonestVerifier');
+  const prev = dSel.value;
+  dSel.innerHTML = eligible.map(v => `<option value="${v}"${v === prev ? ' selected' : ''}>${cap(v)}</option>`).join('');
+  updateForwarderControls();
+}
+
+function updateForwarderControls() {
+  const box = document.getElementById('forwarderControls');
+  if (!box) return;
+  const card = document.querySelector(`.threat-card[data-threat="${currentThreat}"]`);
+  const needs = card && card.dataset.needsForwarder === '1';
+  box.style.display = needs ? 'flex' : 'none';
+  document.getElementById('forwardAlteration').closest('.form-group').style.display =
+    currentThreat === 'dishonest_forwarder' ? '' : 'none';
+  const chainOnly = CHAIN_ONLY.has(currentThreat) && document.getElementById('deliveryMode').value !== 'chain';
+  document.getElementById('rosterNote').classList.toggle('warn-text', chainOnly);
+}
+
+function recipientPayload() {
+  const mode = document.getElementById('deliveryMode').value;
+  const out = {
+    n_verifiers: parseInt(document.getElementById('nVerifiers').value),
+    delivery: mode,
+    max_depth: parseInt(document.getElementById('maxDepth').value),
+  };
+  const card = document.querySelector(`.threat-card[data-threat="${currentThreat}"]`);
+  if (card && card.dataset.needsForwarder === '1') {
+    out.dishonest_verifier = document.getElementById('dishonestVerifier').value;
+    out.forward_alteration = document.getElementById('forwardAlteration').value;
+  }
+  return out;
+}
+
+const STATUS_CLASS = {
+  accepted: 'status-ok', rejected: 'status-bad', distribution_aborted: 'status-bad',
+  inconclusive: 'status-warn', not_reached: 'status-none', outside_depth: 'status-none',
+};
+
+function renderParticipants(tx) {
+  const rows = tx.participants || [];
+  const cfg = tx.session_config;
+  if (!cfg) return;
+  latestSessionId = tx.context && tx.context.session_id;
+  const badge = document.getElementById('sessionOutcomeBadge');
+  badge.textContent = (tx.session_outcome || '—').replace(/_/g, ' ').toUpperCase();
+  badge.classList.toggle('danger', tx.session_outcome !== 'all_accepted');
+  const route = cfg.delivery === 'chain' ? cfg.route.map(cap).join(' → ') : 'Alice → each recipient';
+  document.getElementById('sessionSummary').textContent =
+    `${tx.transmission_id} · session ${latestSessionId || '—'} · N = ${cfg.n_verifiers} · ${cfg.delivery} delivery · ` +
+    `H = ${cfg.max_depth} · route: ${route}. Every recipient checks against its own evidence; the session counts ` +
+    `as accepted only if every required recipient accepted (no majority rule).` +
+    ((tx.notes || []).length ? ` Notes: ${tx.notes.join(' ')}` : '');
+  const cell = v => (v === null || v === undefined) ? '<span class="cell-muted">—</span>' : escapeHtml(v);
+  document.querySelector('#participantTable tbody').innerHTML = rows.map(r => {
+    const counts = r.checked === null ? cell(null) : `${r.mismatches}/${r.checked} ≤ ${r.acceptance_limit}`;
+    const rsv = r.reserve ? `${r.reserve.requested ? 'requested' : 'not requested'}${r.reserve.opened ? ', opened' : ''} · stage ${r.decision_stage}` : '—';
+    const hist = r.event_count
+      ? `<button type="button" class="history-btn" data-verifier="${escapeHtml(r.verifier)}">${r.event_count} event${r.event_count > 1 ? 's' : ''}</button>`
+      : '<span class="cell-muted">none</span>';
+    return `<tr><td>${escapeHtml(cap(r.verifier))}</td><td>${cell(r.route_role)}</td>` +
+      `<td><span class="${STATUS_CLASS[r.status] || 'status-none'}">${escapeHtml(r.status.replace(/_/g, ' '))}</span></td>` +
+      `<td>${cell(r.received_from)}</td><td>${cell(r.depth)}</td><td>${counts}</td><td>${escapeHtml(rsv)}</td>` +
+      `<td>${cell(r.evidence_status && r.evidence_status.replace('_', ' '))}</td><td>${cell(r.reason)}</td><td>${hist}</td></tr>`;
+  }).join('');
+  document.querySelectorAll('#participantTable .history-btn').forEach(b =>
+    b.addEventListener('click', () => showEventHistory(b.dataset.verifier)));
+  document.getElementById('eventHistory').hidden = true;
+}
+
+async function showEventHistory(verifier) {
+  const box = document.getElementById('eventHistory');
+  if (!latestSessionId) return;
+  try {
+    const { data } = await api(`/api/sessions/${encodeURIComponent(latestSessionId)}/events`, {}, 'admin');
+    const events = (data.events || []).filter(e => e.verifier === verifier);
+    box.innerHTML = `<h3 class="section-title">${escapeHtml(cap(verifier))} · event history (durable)</h3>` +
+      `<ul class="event-list">` + events.map(e =>
+        `<li>${escapeHtml(e.event_id)} · ${escapeHtml(e.mode)} from ${escapeHtml(e.sender)} · depth ${e.depth}/${e.max_depth}` +
+        ` · <span class="${STATUS_CLASS[e.status] || ''}">${escapeHtml(e.status)}</span> · ${e.mismatches}/${e.n_checked} ≤ ${e.acceptance_limit}` +
+        ` · parent ${escapeHtml(e.parent_event_id || '—')} · ${escapeHtml(e.decision_rule || '')}` +
+        ` · FR ${escapeHtml(e.risk.false_reject || '—')}, FA ${escapeHtml(e.risk.forgery_accept || '—')} (per event)` +
+        (e.reasons.length ? `<br>${escapeHtml(e.reasons.join(' '))}` : '') + `</li>`).join('') + `</ul>`;
+    box.hidden = false;
+  } catch (err) {
+    logTerminal('ERR', `Event history failed: ${err.message}`);
   }
 }
 
@@ -200,11 +329,17 @@ function initComposer() {
         n_bits: parseInt(bitSelect.value),
         threat_type: currentThreat,
         tampered_text: tampered ? tampered.value : null,
-        noise_profile: noiseProfileSelect ? noiseProfileSelect.value : 'depolarizing',
-      };
-      if (noiseParamGroup && noiseParamGroup.style.display !== 'none') {
-        payload.noise_param = parseFloat(noiseParamRange.value);
-      }
+        noise_profile: noiseProfileSelect ? noiseProfileSelect.value : (isReadout ? 'readout' : 'depolarizing'),
+        ...recipientPayload(),
+        };
+
+        if (noiseParamGroup && noiseParamGroup.style.display !== 'none') {
+          payload.noise_param = parseFloat(noiseParamRange.value);
+        }
+
+        if (currentThreat === 'eve_intercept') {
+          payload.attack_edge = document.getElementById('attackEdge').value || null;
+        }
       if (currentThreat === 'eve_cloning') {
         const clonerElem = document.getElementById('clonerTypeSelect');
         const rateElem = document.getElementById('cloningRateRange');
@@ -231,8 +366,8 @@ function initComposer() {
         body: JSON.stringify(payload)
       }, 'admin');
       if (status === 423) {
-        logTerminal('BLOCK', `Refused in ${data.refusal_us} µs: link ${data.link} is quarantined ` +
-          `(${data.detail.reason}; incident ${data.detail.incident_id}). All messages are blocked until the circuit is reset.`);
+        logTerminal('BLOCK', `Refused in ${data.refusal_us} µs: ${data.message} (${data.detail.reason || data.status}).`);
+        if (typeof renderRouteRefusal === 'function') renderRouteRefusal(data);
         refreshTopology();
       } else {
         data.transmissions.forEach(tx =>
@@ -315,6 +450,22 @@ function verifierSummary(name, v) {
          `${v.mismatches}/${v.total_checked}≤${v.acceptance_limit}</span>`;
 }
 
+function participantSummary(tx) {
+  // Every roster member's latest result (N-verifier sessions); older records fall back to Bob/Charlie.
+  const rows = tx.participants || [];
+  if (!rows.length) return verifierSummary('Bob', tx.bob) + verifierSummary('Charlie', tx.charlie);
+  return rows.map(r => {
+    const name = cap(r.verifier);
+    if (r.checked === null || r.checked === undefined) {
+      return `<span class="cell-muted">${escapeHtml(name)}: ${escapeHtml(r.status.replace(/_/g, ' '))}</span>`;
+    }
+    const cls = r.status === 'accepted' ? 'v-accept' : (r.status === 'inconclusive' ? 'warn-text' : 'v-reject');
+    const via = r.received_from && r.received_from !== (tx.context || {}).sender ? ` via ${escapeHtml(cap(r.received_from))}` : '';
+    return `<span class="${cls}">${escapeHtml(name)}${via}: ${escapeHtml(r.status.toUpperCase())} ` +
+           `${r.mismatches}/${r.checked}≤${r.acceptance_limit}</span>`;
+  }).join('');
+}
+
 function handleNewTransmission(tx) {
   if (seenTx.has(tx.transmission_id)) return;
   seenTx.add(tx.transmission_id);
@@ -342,6 +493,11 @@ function handleNewTransmission(tx) {
   const incident = tx.enforcement.incident_id
     ? `<a href="/api/audit/${encodeURIComponent(tx.enforcement.incident_id)}" target="_blank" class="incident-link">${icon('download', 'icon-sm')}incident ${escapeHtml(tx.enforcement.incident_id)}</a>` : '';
 
+  const cfg = tx.session_config;
+  const extra = cfg && (cfg.n_verifiers > 2 || cfg.delivery !== 'direct')
+    ? `<span>N=${cfg.n_verifiers} · ${escapeHtml(cfg.delivery)} · H=${cfg.max_depth} · ` +
+      `session: <strong>${escapeHtml((tx.session_outcome || '').replace(/_/g, ' '))}</strong></span>`
+    : '';
   const row = document.createElement('div');
   row.className = 'dispatch-item';
   row.innerHTML = `
@@ -351,8 +507,8 @@ function handleNewTransmission(tx) {
     </div>
     <div class="dispatch-msg">"${escapeHtml(tx.message_text)}"</div>
     <div class="dispatch-meta">
-      ${verifierSummary('Bob', tx.bob)}
-      ${verifierSummary('Charlie', tx.charlie)}
+      ${participantSummary(tx)}
+      ${extra}
       <span>${channel}</span>
     </div>
     <div class="dispatch-links">
@@ -366,46 +522,18 @@ function handleNewTransmission(tx) {
   container.prepend(row);
   logTerminal('RECV', `${tx.transmission_id}: ${report.verdict}`);
   renderLinks(tx.enforcement.channel_state);
-}
-
-function renderLinks(channelState) {
-  if (!channelState) return;
-  renderChannelBanner(channelState);
-  const el = document.getElementById('linkStates');
-  if (!el) return;
-  el.innerHTML = Object.entries(channelState).map(([link, s]) =>
-    `<span class="link-chip ${s.state}">${escapeHtml(link)}: ${s.state.replace('_', ' ').toUpperCase()}` +
-    `${s.strikes ? ` · strikes ${s.strikes}` : ''}${s.refused ? ` · refused ${s.refused}` : ''}</span>`).join('');
-}
-
-async function resetLinks() {
-  try {
-    const { data } = await api('/api/channel/reset', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
-    }, 'admin');
-    renderLinks(data.channel_state);
-    refreshTopology();
-    const n = (data.transitions || []).length;
-    logTerminal('SYS', n
-      ? `${n} link(s) reset by admin: quarantined → probation, watch → open. Signed reset record #${data.reset_record.chain_seq}.`
-      : 'No link needed a reset.');
-  } catch (err) {
-    logTerminal('ERR', `Reset failed: ${err.message}`);
-  }
+  renderParticipants(tx);
 }
 
 const HOP_COLOURS = { up: 'var(--success-ink)', degraded: 'var(--warning-ink)', probation: 'var(--info-ink)', down: 'var(--danger-ink)' };
 
-async function refreshTopology() {
-  try {
-    const { data } = await api('/api/topology', {}, 'admin');
-    renderTopology(data.router);
-  } catch (e) { /* informational */ }
-}
-
 function renderTopology(router) {
   const svg = document.getElementById('topologySvg');
   if (!svg || !router) return;
+  const active = router.active || { roster: ['bob', 'charlie'], forward_hops: [] };
+  const roster = active.roster;
+  if (roster.length !== 2 || roster[0] !== 'bob' || roster[1] !== 'charlie') return renderTopologyN(svg, router, active);
+  svg.setAttribute('viewBox', '0 0 460 190');
   const pos = { alice: [50, 95], 'QR-1': [220, 95], bob: [400, 38], charlie: [400, 152] };
   const hops = router.hops;
   const line = (name, a, b, bend) => {
@@ -442,6 +570,43 @@ function renderTopology(router) {
     node('alice', 'A') + node('QR-1', 'QR') + node('bob', 'B') + node('charlie', 'C');
 }
 
+function renderTopologyN(svg, router, active) {
+  // Distribution star (quantum) on the left; package transfers (classical, dashed) on the right.
+  const roster = active.roster;
+  const H = 30 + roster.length * 34;
+  svg.setAttribute('viewBox', `0 0 460 ${H}`);
+  const pos = { alice: [40, H / 2], 'QR-1': [170, H / 2] };
+  roster.forEach((v, i) => { pos[v] = [330, 30 + i * 34]; });
+  const colour = h => HOP_COLOURS[h.state] || 'var(--ink-muted)';
+  let out = '';
+  const draw = (name, a, b, bend) => {
+    const h = router.hops[name];
+    if (!h || !pos[a] || !pos[b]) return;
+    const [x1, y1] = pos[a], [x2, y2] = pos[b];
+    const d = bend ? `M${x1},${y1} C${x1 + bend},${y1} ${x2 + bend},${y2} ${x2},${y2}` : `M${x1},${y1} L${x2},${y2}`;
+    out += `<path d="${d}" fill="none" stroke="${colour(h)}" stroke-width="${h.state === 'down' ? 3 : 1.6}"` +
+      `${h.kind === 'classical' ? ' stroke-dasharray="5 4"' : ''}><title>${escapeHtml(name)} · ${escapeHtml(h.state)} · ` +
+      `${h.tokens_carried} carried${h.dropped ? ` · ${h.dropped} dropped` : ''}</title></path>`;
+  };
+  draw('alice->QR-1', 'alice', 'QR-1');
+  roster.forEach(v => draw(`QR-1->${v}`, 'QR-1', v));
+  (active.forward_hops || []).forEach((name, i) => {
+    const [a, b] = name.split('->');
+    draw(name, a, b, 60 + 14 * (i % 4));
+  });
+  const node = (name, label, r) => {
+    const [x, y] = pos[name];
+    return `<circle cx="${x}" cy="${y}" r="${r}" fill="var(--surface, #ffffff)" stroke="var(--primary)" stroke-width="2"/>` +
+      `<text x="${x}" y="${y + 4}" text-anchor="middle">${label}</text>`;
+  };
+  out += node('alice', 'A', 16) + node('QR-1', 'QR', 16);
+  roster.forEach(v => {
+    out += node(v, v.charAt(0).toUpperCase(), 12) +
+      `<text class="hop-label" x="${pos[v][0] - 18}" y="${pos[v][1] + 4}" text-anchor="end">${escapeHtml(cap(v))}</text>`;
+  });
+  svg.innerHTML = out;
+}
+
 async function loadIncidents() {
   try {
     const { data } = await api('/api/incidents', {}, 'admin');
@@ -450,7 +615,7 @@ async function loadIncidents() {
     const items = (data.incidents || []).slice(-6).reverse();
     el.innerHTML = items.length ? items.map(c => {
       const r = c.record;
-      return `<div class="incident-item">${icon('ban', 'icon-sm')}<div><strong>${escapeHtml(r.incident_id)}</strong> · ${escapeHtml(r.link)} · ` +
+      return `<div class="incident-item">${icon('ban', 'icon-sm')}<div><strong>${escapeHtml(r.incident_id)}</strong> · ${escapeHtml(r.scope_label || routingScopeLabel(r.link))} · ` +
         `${escapeHtml(r.trigger.classification)} (p=${fmtP(r.trigger.evidence_p)}) · ` +
         `${new Date(r.issued_at * 1000).toLocaleTimeString()} · chain #${r.chain.seq} ` +
         `<a href="/api/audit/${encodeURIComponent(r.incident_id)}" target="_blank">${icon('download', 'icon-sm')}record</a></div></div>`;
@@ -502,6 +667,7 @@ async function loadHistory() {
     if (data.stats) updateStatsDisplay(data.stats);
     renderLinks(data.channel_state);
     (data.transmissions || []).slice(-5).forEach(tx => handleNewTransmission(tx));
+    renderQubitFlow((data.transmissions || []).at(-1), false);
   } catch (e) {
     console.error('History load error:', e);
   }

@@ -205,6 +205,22 @@ def make_cloning_channel(
 
 
 
+def make_cloning_channel(
+    cloner_type: str = "universal",
+    cloning_rate: float = 1.0,
+    depolarizing: float = 0.0,
+) -> ChannelModel:
+    """Create a ChannelModel where Eve clones tokens via 1->2 symmetric quantum cloner."""
+    return ChannelModel(
+        noise_profile="cloning",
+        cloner_type=cloner_type,
+        cloning_rate=float(cloning_rate),
+        depolarizing=depolarizing,
+        intercept_rate=0.0,
+    )
+
+
+
 def binomial_upper_tail(n: int, p: float, k: int) -> float:
     """P(X >= k) for X ~ Binomial(n, p)."""
     if k <= 0:
@@ -308,7 +324,8 @@ def estimate_channel_qber(
     k = critical_error_count(planned, honest_qber, alpha)
     k_strong = critical_error_count(planned, honest_qber, strong_alpha)
     lo, hi = wilson_interval(error_count, test_count)
-    early = test_count < planned
+    # Heralded loss reduces the measured sample without stopping the stream.
+    early = tokens_sent < tokens_planned if tokens_planned > 0 else test_count < planned
     recv = tokens_sent if tokens_received is None else tokens_received
     lost = max(0, tokens_sent - recv) if tokens_lost is None else tokens_lost
     return ChannelTestResult(

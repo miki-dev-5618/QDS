@@ -1,25 +1,38 @@
 """
-A verifier node (Bob or Charlie).
+A verifier node (Bob, Charlie, or any enrolled roster member).
 
 A verifier decides using only:
   * the classical package it received (message, context, revealed signature,
     blinding value, and which peer forwarded it, if any);
   * its own trusted local records from the distribution stage (eliminated
     states, the signer's commitment, the authenticated sender identity, the
-    channel test outcome);
+    channel test outcome, the session roster, delivery mode and depth H);
+  * the parent verification event a forwarder names, as resolved by the
+    simulation's authenticated event ledger (who verified it, at what depth);
   * its own replay state and clock.
 It is never told which attack scenario, if any, was injected.
+
+Transfers (N-verifier extension). The depth whose rule applies is derived
+from the verifier's own record and the authenticated sender, never taken from
+the package: a claimed depth, sender or parent that disagrees makes the
+transfer invalid, and an invalid transfer is evaluated under the strictest
+(depth 0) rule and rejected. Each verifier evaluates at most one forwarded
+delivery per session (any sender, any route); later ones are refused as
+duplicates without opening the reserve. The reserve is opened at most
+``max_reserve_openings`` times per session across all channels.
 """
 import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
+import uuid
 from typing import Callable, Dict, Any, List, Optional
 
 from .binding import SignedPackage, commitment, digest_matches, reserve_commitment
 from .channel import ChannelTestResult
 from .elimination import OrthogonalEliminationEngine
 from .replay import ReplayGuard
+from .roster import SessionConfig
 from .security import SecurityParameters
 
 
@@ -55,6 +68,10 @@ class DistributionRecord:
     # Precommitted reserve (C2): measured at distribution like any copy, opened only for a borderline count.
     reserve_eliminated: List[List[str]] = field(default_factory=list)
     reserve_commitment: Optional[str] = None
+    # Session configuration received from the signer at distribution (authenticated, pre-reveal).
+    # None: a record built outside the engine; transfers are then not route-checked (legacy unit use).
+    config: Optional[SessionConfig] = None
+    security_params: Optional[SecurityParameters] = None
 
     @property
     def n_reserve(self) -> int:
@@ -104,15 +121,47 @@ class VerificationResult:
     reserve_mismatches: int = 0
     reserve_binding_ok: Optional[bool] = None
     elimination_p: float = 1.0             # honest-hypothesis p-value, valid under the staged stopping rule
+    # Transfer lifecycle (N-verifier extension)
+    event_id: str = ""
+    depth: int = 0                         # validated depth whose rule was applied
+    max_depth: int = 1
+    claimed_depth: Optional[int] = None
+    parent_event_id: Optional[str] = None
+    transfer_valid: bool = True
+    transfer_reasons: List[str] = field(default_factory=list)
+    duplicate: bool = False
 
     @property
     def inconclusive(self) -> bool:
         return self.elimination_outcome == "inconclusive"
 
+    @property
+    def status(self) -> str:
+        """accepted | rejected | inconclusive | distribution_aborted (not_reached is a session-level status)."""
+        if self.accepted:
+            return "accepted"
+        if self.session_aborted or self.insufficient_tokens:
+            return "distribution_aborted"
+        if (self.inconclusive and self.binding_pass and self.fresh and self.transfer_valid
+                and self.record_found and self.sender_matches):
+            return "inconclusive"
+        return "rejected"
+
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "event_id": self.event_id,
             "verifier": self.verifier,
             "mode": self.mode,
+            "status": self.status,
+            "depth": self.depth,
+            "max_depth": self.max_depth,
+            "transfer": {
+                "valid": self.transfer_valid,
+                "claimed_depth": self.claimed_depth,
+                "parent_event_id": self.parent_event_id,
+                "duplicate": self.duplicate,
+                "reasons": self.transfer_reasons,
+            },
             "forwarded_by": self.forwarded_by,
             "session_id": self.session_id,
             "claimed_sender": self.claimed_sender,
@@ -148,6 +197,7 @@ class VerificationResult:
                 "session_not_aborted": not self.session_aborted,
                 "fresh": self.fresh,
                 "freshness_reason": self.freshness_reason,
+                "transfer_valid": self.transfer_valid,
                 "elimination_pass": self.elimination_pass,
                 "message_digest_matches": self.digest_matches,
                 "commitment_matches": self.commitment_matches,
@@ -169,7 +219,8 @@ class VerifierNode:
                                         store=store, owner=name)
         self.max_records = max_records
         self._accepted_sessions: set = set()
-        self._reserve_openings: Dict[tuple, int] = {}
+        self._reserve_openings: Dict[str, int] = {}     # per session, across direct and forwarded channels
+        self._forwarded_sessions: set = set()            # sessions with a final forwarded verification
         self._lock = threading.RLock()
 
     # -- distribution stage ------------------------------------------------
@@ -188,8 +239,50 @@ class VerifierNode:
                 del self.records[sid]
             return len(pending)
 
+    # -- transfer validation ---------------------------------------------------
+    def _check_transfer(self, record: Optional[DistributionRecord], package: SignedPackage, forwarded: bool,
+                        parent: Optional[Dict[str, Any]]) -> tuple:
+        """(valid, depth, max_depth, reasons) from this verifier's own record and the resolved parent event."""
+        cfg = record.config if record is not None else None
+        if cfg is None:      # no route information: original two-level semantics
+            return True, (1 if forwarded else 0), 1, []
+        reasons: List[str] = []
+        if not forwarded:
+            if self.name not in cfg.first_recipients():
+                reasons.append(f"Chain session: {self.name} may only receive this package by transfer, "
+                               f"not directly from the signer.")
+            return not reasons, 0, cfg.max_depth, reasons
+        sender = package.forwarded_by
+        depth = cfg.expected_depth(sender, self.name) if sender else None
+        if sender not in cfg.roster:
+            reasons.append(f"Forwarder '{sender}' is not a member of this session's roster.")
+        elif depth is None:
+            reasons.append(f"Transfer {sender} -> {self.name} is not a permitted edge of this session's route "
+                           f"(delivery {cfg.delivery}, H = {cfg.max_depth}).")
+        if package.depth is not None and depth is not None and package.depth != depth:
+            reasons.append(f"Claimed depth {package.depth} differs from the validated depth {depth} of this edge.")
+        if parent is None:
+            reasons.append("No verification event of the forwarder is on record for the named parent; "
+                           "the transfer has no valid parent.")
+        else:
+            if parent.get("session_id") != package.context.session_id:
+                reasons.append("Named parent event belongs to a different session (substituted parent).")
+            if parent.get("verifier") != sender:
+                reasons.append(f"Named parent event was recorded by '{parent.get('verifier')}', not by the "
+                               f"forwarder '{sender}' (substituted parent).")
+            if depth is not None and parent.get("depth") != depth - 1:
+                reasons.append(f"Parent event depth {parent.get('depth')} is inconsistent with transfer "
+                               f"depth {depth}.")
+        valid = not reasons
+        return valid, (depth if valid else 0), cfg.max_depth, reasons
+
     # -- verification stage ------------------------------------------------
-    def verify(self, package: SignedPackage, mode: str = "direct") -> VerificationResult:
+    def verify(self, package: SignedPackage, mode: str = "direct",
+               parent: Optional[Dict[str, Any]] = None) -> VerificationResult:
+        """
+        ``parent``: for a forwarded package, the ledger's summary of the event named by
+        ``package.parent_event_id`` (None if no such event exists).
+        """
         forwarded = mode == "forwarded"
         channel_key = f"forwarded:{package.forwarded_by}" if forwarded else "direct"
         ctx = package.context
@@ -197,6 +290,12 @@ class VerifierNode:
 
         with self._lock:
             record = self.records.get(ctx.session_id)
+            params = record.security_params if record and record.security_params else self.params
+            transfer_valid, depth, max_depth, transfer_reasons = self._check_transfer(
+                record, package, forwarded, parent)
+            reasons.extend(transfer_reasons)
+            duplicate = (forwarded and record is not None and record.config is not None
+                         and ctx.session_id in self._forwarded_sessions)
             record_found = record is not None
             sender_matches = record_found and record.sender == ctx.sender
             addressed = self.name in ctx.verifiers
@@ -217,8 +316,13 @@ class VerifierNode:
                 reasons.append("Session aborted at distribution: INSUFFICIENT_TOKENS (photon loss exceeded tolerance).")
 
             fresh, freshness_reason = self.replay_guard.freshness(ctx.nonce, ctx.timestamp, channel_key)
+            if fresh and duplicate:
+                fresh, freshness_reason = False, "duplicate_delivery"
             if not fresh:
                 reasons.append({
+                    "duplicate_delivery": "This verifier already evaluated a forwarded delivery of this session; "
+                                          "repeated deliveries (any sender or route) are refused and never open "
+                                          "the reserve.",
                     "duplicate_nonce": "Nonce already consumed by an accepted package (replay).",
                     "expired": "Timestamp outside the freshness window.",
                     "timestamp_in_future": "Timestamp is in the future beyond allowed clock skew.",
@@ -243,7 +347,9 @@ class VerifierNode:
             if record and not length_ok:
                 reasons.append("Revealed signature length differs from distributed token count.")
             n_reserve = record.n_reserve if record else 0
-            rule = self.params.elimination_rule(n_checked, forwarded, n_reserve)
+            # An invalid transfer never obtains a more permissive rule: it is evaluated at depth 0.
+            rule = params.elimination_rule(n_checked, forwarded and transfer_valid, n_reserve,
+                                                depth=depth, max_depth=max_depth)
             limit = rule.a1
             stage, outcome = 1, "fail"
             reserve_requested, reserve_binding_ok = False, None
@@ -255,15 +361,15 @@ class VerifierNode:
                     outcome = "inconclusive"
                     # The reserve is only worth (and only spent on) a package that is exactly what the signer
                     # committed to; anything else is rejected on binding regardless of the count.
-                    if rule.two_stage and not (digest_ok and commit_ok):
+                    if rule.two_stage and not (digest_ok and commit_ok and transfer_valid and not duplicate):
                         pass
                     elif rule.two_stage and package.reserve is None:
                         reserve_requested = True
                     elif rule.two_stage:
-                        key = (ctx.session_id, channel_key)
+                        key = ctx.session_id
                         opened = self._reserve_openings.get(key, 0)
                         if opened >= self.params.max_reserve_openings:
-                            reasons.append("Reserve already opened for this session on this channel; "
+                            reasons.append("Reserve already opened for this session (on any channel); "
                                            "no further evidence is accepted (bounded retry).")
                         else:
                             self._reserve_openings[key] = opened + 1
@@ -302,13 +408,15 @@ class VerifierNode:
             binding_pass = digest_ok and commit_ok and reserve_binding_ok is not False
 
             accepted = (record_found and sender_matches and addressed and not aborted and not insufficient_tokens and fresh
-                        and elimination_pass and binding_pass)
+                        and elimination_pass and binding_pass and transfer_valid)
             if accepted and not self.replay_guard.consume(ctx.nonce, channel_key):
                 # Lost a race with a concurrent identical package: the nonce is already spent.
                 accepted, fresh, freshness_reason = False, False, "duplicate_nonce"
                 reasons.append("Nonce already consumed by an accepted package (replay).")
             if accepted:
                 self._accepted_sessions.add(ctx.session_id)
+            if forwarded and record_found and not reserve_requested:
+                self._forwarded_sessions.add(ctx.session_id)
 
         tokens_received = record.tokens_received if record else 0
         tokens_planned = record.tokens_planned if record else 0
@@ -339,7 +447,7 @@ class VerifierNode:
             reasons=reasons,
             eliminated_states=eliminated,
             held_tokens=record.held_desc if record else [],
-            bounds=self.params.bounds(n_checked, mismatches, forwarded, rule=rule,
+            bounds=params.bounds(n_checked, mismatches, forwarded and transfer_valid, rule=rule,
                                       reserve_mismatches=r_mis if stage == 2 else None),
             insufficient_tokens=insufficient_tokens,
             tokens_received=tokens_received,
@@ -353,4 +461,12 @@ class VerifierNode:
             reserve_mismatches=r_mis,
             reserve_binding_ok=reserve_binding_ok,
             elimination_p=elim_p,
+            event_id=f"EV-{uuid.uuid4().hex[:10].upper()}",
+            depth=depth,
+            max_depth=max_depth,
+            claimed_depth=package.depth,
+            parent_event_id=package.parent_event_id,
+            transfer_valid=transfer_valid,
+            transfer_reasons=transfer_reasons,
+            duplicate=duplicate,
         )

@@ -1,11 +1,22 @@
 """
-Quantum Circuit Breaker (QCB): per-link state machine and latency measurement.
+Quantum Circuit Breaker (QCB): per-scope state machine and latency measurement.
 
-Unit of isolation: a *logical link* - the signer's distribution/reveal path
-to its verifiers (``alice->verifiers``) or the verifier-to-verifier transfer
-path (``bob->charlie``). A weak alert (WATCH) affects only its own link, but
-once any link is QUARANTINED the breaker refuses every message on every link,
-genuine or not, until an administrator resets it.
+Units of isolation (scopes), each with its own independent state:
+  * ``alice->verifiers`` - signer scope: signer/session-level findings that are
+    not quantum-channel faults (external forgery, repudiation). Quarantine
+    blocks the signer's distribution and reveal.
+  * ``bob->charlie``     - pooled verifier-to-verifier classical forwarding.
+  * ``edge:<digest>``   - one topology-specific quantum-distribution edge
+    topology. Moved ONLY by independent edge-monitoring probes
+    (``monitoring.py``) or by an admin action labelled as manual failure
+    injection; never by pooled end-to-end evidence.
+  * ``path:<digest>`` - one topology-specific ordered end-to-end route. Pooled end-to-end channel
+    evidence of a session moves the scopes of the routes that session used;
+    it does not single out any edge on them.
+
+A quarantined scope refuses only the operations that need it: there is no
+implicit global stop. An explicit, separately logged emergency stop (admin)
+refuses everything until it is cleared.
 
 States and transitions (every transition is atomic under one lock, logged
 with actor, time, evidence id, old/new state and policy version, and
@@ -16,17 +27,25 @@ persisted when a Store is attached):
     OPEN/WATCH --strong--> QUARANTINED
     WATCH --window expires with no new alert--> OPEN
     QUARANTINED --admin reset--> RESET_PENDING
-    RESET_PENDING --one fully accepted transmission--> OPEN
+    RESET_PENDING --accepted session (signer/path) or monitored edge recovery--> OPEN
     RESET_PENDING --any quantum-evidence alert--> QUARANTINED
 
 QUARANTINED refuses new transmissions. WATCH and RESET_PENDING carry traffic
-with an increased test-token budget (adaptive test allocation). Entering
-QUARANTINED allocates an incident id; the engine signs the incident record
-at that moment, not at first download.
+with an increased test-token budget (adaptive test allocation); a route
+through a WATCH scope is used only under an explicit fallback policy
+(``routing.py``). Entering QUARANTINED allocates an incident id; the engine
+signs the incident record at that moment, not at first download.
+
+Migration: link tables saved before scoped isolation existed are loaded
+unchanged (an active quarantine is never cleared) and labelled with their
+original pooled scope; no per-edge observation is invented for them.
 """
 import threading
 import time
 import uuid
+import hashlib
+import json
+from contextlib import contextmanager
 from dataclasses import dataclass, asdict, field
 from typing import Any, Callable, Dict, List, Optional
 
@@ -34,16 +53,46 @@ from .policy import ResponseDecision, ResponsePolicy, fisher_combined_p
 
 LINK_SIGNER = "alice->verifiers"
 LINK_FORWARD = "bob->charlie"
+EMERGENCY = "*emergency-stop*"
+SCOPES_SCHEMA = "hedwig-scopes/1"
+LEGACY_NOTE = ("legacy pooled logical-link isolation (pre-routing); preserved by migration, "
+               "not attributed to any edge")
+
+
+def edge_scope(edge_id: str, topology_digest: str = "") -> str:
+    return "edge:" + hashlib.sha256(json.dumps([topology_digest, edge_id], separators=(",", ":")).encode()).hexdigest()
+
+
+def path_scope(edge_ids, topology_digest: str = "") -> str:
+    return "path:" + hashlib.sha256(json.dumps([topology_digest, list(edge_ids)], separators=(",", ":")).encode()).hexdigest()
+
+
+def scope_kind(scope: str) -> str:
+    if scope.startswith("edge:"):
+        return "edge"
+    if scope.startswith("path:"):
+        return "path"
+    return {LINK_SIGNER: "signer", LINK_FORWARD: "forward"}.get(scope, "other")
 
 OPEN, WATCH, QUARANTINED, RESET_PENDING = "open", "watch", "quarantined", "reset_pending"
 CARRIES_TRAFFIC = {OPEN, WATCH, RESET_PENDING}
 
 
 class ChannelQuarantined(Exception):
-    def __init__(self, link: str, info: Dict[str, Any]):
-        super().__init__(f"Link {link} is quarantined")
+    """A required scope refuses traffic (HTTP 423)."""
+    status = "quarantined"
+
+    def __init__(self, link: str, info: Dict[str, Any], message: Optional[str] = None):
+        super().__init__(message or f"Scope {link} is quarantined")
         self.link = link
         self.info = info
+
+    def payload(self) -> Dict[str, Any]:
+        return {"status": self.status, "link": self.link, "detail": self.info, "message": str(self)}
+
+
+class EmergencyStop(ChannelQuarantined):
+    status = "emergency_stop"
 
 
 @dataclass
@@ -61,8 +110,8 @@ class LinkState:
     refused: int = 0
     watch_evidence: List[float] = field(default_factory=list)   # p-values of weak alerts in the window
     combined_p: Optional[float] = None                          # Fisher combination of watch_evidence
-    scope_note: Optional[str] = None
-    reset_epoch: Optional[float] = None
+    scope_note: Optional[str] = None                            # e.g. legacy pooled scope, manual injection
+    reset_epoch: Optional[str] = None                            # unique recovery window, independent of clock precision
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -83,12 +132,34 @@ class ChannelGuard:
         self.clock = clock
         self.links: Dict[str, LinkState] = {LINK_SIGNER: LinkState(), LINK_FORWARD: LinkState()}
         self.transitions: List[Dict[str, Any]] = []
+        self.policy_corrections: List[Dict[str, Any]] = []
         self._lock = threading.RLock()
+        self.revision = 0
+        self._assessed = {(t["link"], t["evidence_id"]) for t in store.transitions(1000000)} if store else set()
         if store is not None:
+            self.revision = len(store.transitions(1000000))
             saved = store.get_json("links")
             if saved:
                 for name, d in saved.items():
-                    self.links[name] = LinkState.from_dict(d)
+                    self.links[name] = LinkState(**d)
+            if not store.get_json("scopes_schema"):
+                for st in self.links.values():
+                    if st.state != OPEN:
+                        st.scope_note = LEGACY_NOTE
+                store.put_json("links", {k: v.to_dict() for k, v in self.links.items()})
+                store.put_json("scopes_schema", SCOPES_SCHEMA)
+            # Correct only an unambiguous single detector finding from the old
+            # policy. Mixed evidence, manual stops and real signer findings stay.
+            st = self.links[LINK_SIGNER]
+            original = next((t for t in store.transitions(1000000) if t["link"] == LINK_SIGNER), None)
+            if (self.policy.version == "hedwig-qcb/3" and st.state in (WATCH, QUARANTINED)
+                    and (st.reason or "").startswith("EXTERNAL_FORGERY:") and st.strikes == 1
+                    and original and original["actor"] == "detector"
+                    and original["evidence_id"] == st.transmission_id):
+                why = "Policy correction: external classical forgery rejects its package; it does not establish a signer or quantum-edge fault."
+                self.policy_corrections.append(self._transition(LINK_SIGNER,
+                    LinkState(since=self.clock(), reason=why, scope_note="audited correction of former classical-forgery isolation"),
+                    "policy_migration", why, st.transmission_id))
         if router is not None:
             for name, st in self.links.items():
                 router.sync(name, st.state)
@@ -98,6 +169,7 @@ class ChannelGuard:
                     evidence_id: Optional[str]) -> Dict[str, Any]:
         old = self.links.get(link, LinkState())
         self.links[link] = new
+        self.revision += 1
         entry = {"ts": self.clock(), "link": link, "old_state": old.state, "new_state": new.state,
                  "actor": actor, "reason": reason, "evidence_id": evidence_id,
                  "policy_version": self.policy.version, "incident_id": new.incident_id
@@ -122,22 +194,54 @@ class ChannelGuard:
             return self.links[link].state
 
     def check_open(self, link: str):
-        """Refuse all traffic, genuine or not, while any link is quarantined (until an admin reset)."""
+        """Check the required scope and the explicit emergency stop only."""
         with self._lock:
             self._expire_watch(link)
             st = self.links[link]
-            broken = link if st.state not in CARRIES_TRAFFIC else next(
-                (name for name, s in self.links.items() if s.state not in CARRIES_TRAFFIC), None)
+            broken = EMERGENCY if self.links.get(EMERGENCY, LinkState()).state == QUARANTINED else (
+                link if st.state not in CARRIES_TRAFFIC else None)
             if broken is not None:
                 st.refused += 1
                 if self.router is not None:
                     self.router.refuse(link)
-                raise ChannelQuarantined(broken, self.links[broken].to_dict())
+                raise (EmergencyStop if broken == EMERGENCY else ChannelQuarantined)(broken, self.links[broken].to_dict())
+
+    @contextmanager
+    def snapshot(self):
+        """Process-local synchronization; one transmission block may already be in flight."""
+        with self._lock:
+            yield self.to_dict(), self.revision
+
+    def check_scopes(self, scopes, allow_watch=False, allow_probation=True):
+        with self._lock:
+            for scope in scopes:
+                self.check_open(scope)
+                if self.state(scope) == WATCH and not allow_watch:
+                    raise ChannelQuarantined(scope, self.links[scope].to_dict(), "Required route is on WATCH")
+                if self.state(scope) == RESET_PENDING and not allow_probation:
+                    raise ChannelQuarantined(scope, self.links[scope].to_dict(), "Required route is on probation")
+
+    def manual(self, scope, state, actor, reason):
+        if state not in (WATCH, QUARANTINED):
+            raise ValueError("Manual faults must be watch or quarantined")
+        with self._lock:
+            return self._transition(scope, LinkState(state=state, reason=reason, since=self.clock(),
+                scope_note="manual fault injection; not detector evidence", incident_id=(
+                    f"INC-{uuid.uuid4().hex[:8].upper()}" if state == QUARANTINED else None)), actor, reason, None)
+
+    def emergency(self, enabled, actor, reason):
+        with self._lock:
+            return self._transition(EMERGENCY, LinkState(state=QUARANTINED if enabled else OPEN,
+                since=self.clock(), reason=reason), actor, reason, None)
 
     def apply(self, link: str, decision: ResponseDecision, transmission_id: str, purged: int = 0,
               accepted: bool = False, actor: str = "detector") -> Optional[Dict[str, Any]]:
         """Apply one decision to a link. Returns the transition entry, or None if the state did not change."""
         with self._lock:
+            key = (link, transmission_id)
+            if key in self._assessed:
+                return None
+            self._assessed.add(key)
             self._expire_watch(link)
             cur = self.links[link]
             now = self.clock()
@@ -180,15 +284,17 @@ class ChannelGuard:
         """Admin reset: QUARANTINED -> RESET_PENDING (probation); WATCH -> OPEN."""
         out = []
         with self._lock:
-            for name in ([link] if link else list(self.links)):
+            for name in ([link] if link and link != EMERGENCY else [n for n in self.links if n != EMERGENCY]):
                 cur = self.links.setdefault(name, LinkState())
                 now = self.clock()
                 if cur.state == QUARANTINED:
                     out.append(self._transition(name, LinkState(RESET_PENDING, "probation after reset", None, now,
-                                                                 reset_by=actor, reset_reason=reason),
+                                                                 reset_by=actor, reset_reason=reason, reset_epoch=uuid.uuid4().hex),
                                                 actor, reason, cur.incident_id))
                 elif cur.state == WATCH:
-                    out.append(self._transition(name, LinkState(since=now, reset_by=actor, reset_reason=reason),
+                    out.append(self._transition(name, LinkState(state=RESET_PENDING if name.startswith("edge:") else OPEN,
+                                                               since=now, reset_by=actor, reset_reason=reason,
+                                                               reset_epoch=uuid.uuid4().hex),
                                                 actor, reason, cur.transmission_id))
         return out
 

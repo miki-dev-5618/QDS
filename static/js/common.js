@@ -50,6 +50,19 @@ function setConnectionBadge(online, onlineText) {
   text.textContent = online ? onlineText : 'RECONNECTING';
 }
 
+// Classical scopes share node names with quantum links, so name what each one actually carries.
+const CLASSICAL_SCOPES = {
+  'bob->charlie': {name: 'Bob → Charlie forwarding (classical)', effect: "Packages forwarded by Bob are refused. Qubit routes, including Charlie's, are unaffected."},
+  'alice->verifiers': {name: "Alice's signing (every send)", effect: 'Every send is refused until reset; all routes start at Alice, so no reroute bypasses it.'},
+};
+
+function scopeEffect(link) {
+  if (CLASSICAL_SCOPES[link]) return CLASSICAL_SCOPES[link].effect;
+  if (link.startsWith('edge:')) return 'Fresh sends route around this qubit link, or are refused if no other path exists.';
+  if (link.startsWith('path:')) return 'Fresh sends use a different qubit route.';
+  return 'Operations requiring this scope are refused.';
+}
+
 function renderChannelBanner(channelState) {
   const el = document.getElementById('channelBanner');
   if (!el || !channelState) return;
@@ -57,22 +70,22 @@ function renderChannelBanner(channelState) {
   if (!rows.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
   el.style.display = 'block';
   el.innerHTML = rows.map(([link, s]) => {
+    const label = typeof routingScopeLabel === 'function' ? routingScopeLabel(link) : (CLASSICAL_SCOPES[link]?.name || link);
     if (s.state === 'quarantined') {
-      return `<div class="banner-quarantined">${icon('ban')}<span>LINK <strong>${escapeHtml(link)}</strong> QUARANTINED — ${escapeHtml(s.reason)} ` +
+      return `<div class="banner-quarantined">${icon('ban')}<span>SCOPE <strong>${escapeHtml(label)}</strong> QUARANTINED — ${escapeHtml(s.reason)} ` +
         `(${escapeHtml(s.transmission_id)}; incident ${escapeHtml(s.incident_id || '—')}; ` +
-        `${s.purged_records} unaccepted record(s) purged). New transmissions are refused until an admin ` +
-        `resets it with a reason.</span></div>`;
+        `${s.purged_records} unaccepted record(s) purged). ${escapeHtml(scopeEffect(link))}</span></div>`;
     }
     if (s.state === 'watch') {
       const until = s.watch_until ? new Date(s.watch_until * 1000).toLocaleTimeString() : '—';
-      return `<div class="banner-watch">${icon('alert')}<span>LINK <strong>${escapeHtml(link)}</strong> ON WATCH — ` +
+      return `<div class="banner-watch">${icon('alert')}<span>SCOPE <strong>${escapeHtml(label)}</strong> ON WATCH — ` +
         `${escapeHtml(s.reason)} (strike ${s.strikes}; combined evidence p = ${fmtP(s.combined_p)}; window until ` +
-        `${until}). Traffic flows with a doubled test-token budget; the link is quarantined if the accumulated ` +
-        `evidence reaches p ≤ 0.01 or three alerts accumulate.</span></div>`;
+        `${until}). ${CLASSICAL_SCOPES[link] ? escapeHtml(CLASSICAL_SCOPES[link].effect) : 'Quantum routes avoid WATCH by default; an explicitly enabled fallback uses an increased evidence budget.'}</span></div>`;
     }
-    return `<div class="banner-probation">${icon('rotate')}<span>LINK <strong>${escapeHtml(link)}</strong> ON PROBATION after reset by ` +
-      `${escapeHtml(s.reset_by || 'admin')} ("${escapeHtml(s.reset_reason || '')}"). One fully accepted ` +
-      `transmission reopens it; any quantum-evidence alert re-quarantines it.</span></div>`;
+    return `<div class="banner-probation">${icon('rotate')}<span>SCOPE <strong>${escapeHtml(label)}</strong> ON PROBATION after reset by ` +
+      `${escapeHtml(s.reset_by || 'admin')} ("${escapeHtml(s.reset_reason || '')}"). ` +
+      `${link.startsWith('edge:') ? 'Independent recovery probes reopen this edge after at least 1024 surviving tests in two rounds.' : 'A fully accepted transmission reopens this scope.'} ` +
+      `A qualifying alert re-quarantines it.</span></div>`;
   }).join('');
 }
 

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HEDWIG • Multi-hop Routing</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=2.3">
+  <link rel="stylesheet" href="/static/css/components.css?v=3.3">
+</head>
+<body class="role-admin">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark" aria-hidden="true">Ψ</div>
+        <div>
+          <div class="brand-name">HEDWIG</div>
+          <div class="brand-tag">Teleportation QDS</div>
+        </div>
+      </div>
+
+      <nav class="side-nav" aria-label="Nodes">
+        <div class="side-label">Alice / Admin</div>
+        <a href="/admin" class="side-link"><span class="role-avatar admin" aria-hidden="true">A</span> Command console</a>
+        <span class="side-link is-current" aria-current="page"><span class="role-avatar admin" aria-hidden="true">⇄</span> Multi-hop routing</span>
+        <div class="side-label">Other nodes</div>
+        <a href="/bob" target="_blank" class="side-link"><span class="role-avatar bob" aria-hidden="true">β</span> Open Bob <svg class="icon icon-sm ext" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-external"/></svg></a>
+        <a href="/charlie" target="_blank" class="side-link"><span class="role-avatar charlie" aria-hidden="true">γ</span> Open Charlie <svg class="icon icon-sm ext" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-external"/></svg></a>
+      </nav>
+
+      <div class="sidebar-foot">
+        <a href="#" class="side-link" data-logout="admin"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-logout"/></svg> Logout</a>
+      </div>
+    </aside>
+
+    <div class="app-main">
+      <header class="topbar">
+        <div class="page-heading">
+          <h1 class="page-title">
+            <span>Multi-hop routing</span>
+            <span class="brand-badge">N-hop quantum routes</span>
+          </h1>
+          <p class="page-sub">Link-aware route selection • Edge quarantine • Fresh-session failover</p>
+        </div>
+        <div class="topbar-meta">
+          <div class="status-pill">
+            <div class="role-dot" id="connDot"></div>
+            <span id="connText">CONNECTING...</span>
+          </div>
+          <a href="/admin" class="nav-btn">← Back to console</a>
+        </div>
+      </header>
+
+      <main class="main-container">
+        <div id="channelBanner" class="channel-banner" style="display:none"></div>
+
+        <!-- Qubit flow: each verifier's actual route for the latest send -->
+        <section class="panel qubit-flow" aria-label="Qubit flow">
+          <div class="flow-head">
+            <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-network"/></svg> Qubit flow</h2>
+            <span id="flowSession" class="flow-session">Waiting for the first send…</span>
+            <span class="flow-next"><span class="flow-next-label">Next send</span> <span id="nextRouteBadge" class="brand-badge neutral">Checking</span> <span id="nextRouteSummary" class="flow-next-path" aria-live="polite"></span></span>
+          </div>
+          <div id="flowAlert" class="flow-alert" hidden></div>
+          <div id="qubitFlow" class="flow-lanes" aria-live="polite"></div>
+          <div class="flow-foot">
+            <span class="flow-legend"><i class="ok"></i>Delivered <i class="lossy"></i>Some loss <i class="stopped"></i>Stopped here <i class="unreached"></i>Not reached</span>
+            <div id="linkStates" class="link-states" data-compact></div>
+            
+          </div>
+        </section>
+
+        <div class="work-grid routing-grid">
+          <div class="stack">
+            <section class="panel routing-overview" aria-label="Next send route">
+              <div class="section-head">
+                <h2 class="section-title">Failover &amp; rerouting</h2>
+              </div>
+              <div class="selftest">
+                <div>
+                  <strong>Failover self-test</strong>
+                  <p class="section-note">Runs the full reroute scenario on a private copy of the multi-hop network: send via R1 → R2, attack and quarantine it, then confirm the next send goes via R3. Your live network is not touched.</p>
+                </div>
+                <button type="button" class="btn-primary" id="runFailoverTest">Run self-test</button>
+              </div>
+              <div id="failoverTestResult" aria-live="polite"></div>
+              <details class="routing-details"><summary>How rerouting works</summary>
+                <p class="section-note">Each send chooses a route before preparing its qubits. Blocked quantum links are skipped; the failed link can stay quarantined while another route carries the next send.</p>
+                <p class="section-note"><strong>Quantum edge fault:</strong> exclude that edge and choose another route. <strong>Classical Eve forgery:</strong> reject the forged revealed signature; this supplies no evidence that a quantum link failed. <strong>Signer or emergency stop:</strong> every route shares the signer, so choosing another relay cannot bypass that stop.</p>
+                <p class="section-note">Live test: select the multi-hop demo network, send an authentic baseline from the console, select R1 → R2, inject an intercept and probe it, then send again. The next route should change to R3 without a reset.</p>
+              </details>
+            </section>
+
+            <section class="panel" aria-label="Network">
+              <div class="section-head">
+                <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-network"/></svg> Network</h2>
+                <button type="button" class="nav-btn" id="refreshRouting"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-rotate"/></svg> Refresh</button>
+              </div>
+              <div class="routing-toolbar">
+                <label>Topology <select id="routingPreset" class="form-select"><option value="star">Legacy star (one path each)</option><option value="demo-multihop">Multi-hop demo (R1/R2 + R3 backup)</option></select></label>
+                <button type="button" class="nav-btn" id="activateTopology">Activate</button>
+                <label class="nav-btn">Load JSON<input id="topologyFile" type="file" accept=".json,application/json" hidden></label>
+              </div>
+              <div class="network-links">
+                <span class="network-links-label">Clear every quarantine and watch flag</span>
+                <button type="button" class="nav-btn" id="btnResetLinks">Reset all links</button>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel" aria-label="Links and edge controls">
+            <div class="section-head">
+              <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-link"/></svg> Links &amp; edge controls</h2>
+            </div>
+            <div class="edge-picker">
+              <label>Selected link <select id="routingEdge" class="form-select"></select></label>
+              <span id="routingEdgeState" class="link-chip">—</span>
+            </div>
+            <p id="routingProbe" class="section-note" aria-live="polite"></p>
+
+            <div class="edge-group">
+              <h3 class="edge-group-title">Simulate an attack</h3>
+              <p class="section-note">Plant an eavesdropper on the link, then probe it so the detector gathers real evidence.</p>
+              <div class="edge-steps">
+                <button type="button" class="nav-btn edge-step" id="toggleIntercept"><span class="step-no">1</span> Inject intercept</button>
+                <button type="button" class="nav-btn edge-step" id="probeRoutingEdge"><span class="step-no">2</span> Probe link</button>
+              </div>
+            </div>
+
+            <div class="edge-group">
+              <h3 class="edge-group-title">Manual override</h3>
+              <p class="section-note">Skip the evidence: block the link directly, or send a restricted link to probation.</p>
+              <div class="edge-steps">
+                <button type="button" class="nav-btn" id="quarantineRoutingEdge">Quarantine link</button>
+                <button type="button" class="nav-btn" id="resetRoutingEdge">Reset to probation</button>
+              </div>
+            </div>
+
+            <label class="edge-reason">Audit reason <input id="routingReason" class="form-input" placeholder="Why are you doing this?" value="Controlled routing demonstration"></label>
+
+            <div class="danger-zone">
+              <div>
+                <strong>Emergency stop</strong>
+                <p class="section-note">Halts every send. All routes share the signer, so no reroute bypasses it.</p>
+              </div>
+              <button type="button" class="btn-danger" id="toggleEmergency">Stop all sends</button>
+            </div>
+            <p id="routingMessage" class="section-note" role="status"></p>
+            <div id="routeRefusal" class="matrix-table-wrapper"></div>
+          </section>
+
+          <section class="panel span-all" id="liveRoutingSection" aria-label="Route graph">
+            <div class="section-head">
+              <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-network"/></svg> Route graph</h2>
+            </div>
+              <div class="graph-layout">
+                <div class="topology-wrap">
+                  <svg id="topologySvg" viewBox="0 0 460 190" role="img" aria-label="Router topology"></svg>
+                  <div id="topologyLegend" class="topo-legend">
+                    <span><i class="up"></i>Open</span>
+                    <span><i class="degraded"></i>Watch</span>
+                    <span><i class="probation"></i>Probation</span>
+                    <span><i class="down"></i>Quarantined</span>
+                    <span><i class="route"></i>Selected route</span>
+                  </div>
+                </div>
+                <div class="graph-side">
+                  <div class="routing-toolbar">
+                    <label>View <select id="routeSession" class="form-select"><option value="live">Live topology</option></select></label>
+                    <label>Recipient <select id="routeRecipient" class="form-select"></select></label>
+                  </div>
+                  <div id="routeDetail" class="section-note" aria-live="polite"></div>
+                  <div id="routeAllocation" class="matrix-table-wrapper"></div>
+                </div>
+              </div>
+              <details class="routing-details"><summary>Routing internals · candidates, matrices, execution, history</summary>
+                <details class="routing-details"><summary>Candidate decisions · why this route?</summary><div id="routeCandidates" class="matrix-table-wrapper"></div></details>
+                <details class="routing-details"><summary>Directed state matrix · available connectivity</summary><div id="routeAdjacency" class="matrix-table-wrapper"></div></details>
+                <details class="routing-details"><summary>Route incidence matrix · allocated edges</summary><div id="routeIncidence" class="matrix-table-wrapper"></div></details>
+                <details class="routing-details"><summary>Execution · actual edge resources</summary><div id="routeExecution" class="matrix-table-wrapper"></div></details>
+                <details class="routing-details"><summary>Route history · fresh-session rerouting</summary><div id="routeHistory" class="matrix-table-wrapper"></div></details>
+                <details class="routing-details"><summary>Topology and session identifiers</summary><p id="routingIdentity" class="section-note"></p></details>
+                <p class="section-note">Software simulation. Relays follow the protocol and forward Bell correction bits over an assumed authenticated classical channel. Quantum hop count is separate from classical signature forwarding depth. Each recipient receives separately prepared copies.</p>
+              </details>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/static/js/common.js?v=2.5"></script>
+  <script src="/static/js/routing.js?v=10"></script>
+  <script src="/static/js/routing-page.js?v=2"></script>
+</body>
+</html>

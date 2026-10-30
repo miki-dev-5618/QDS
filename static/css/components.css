@@ -113,6 +113,22 @@
 }
 
 .threat-name .icon { color: var(--danger-ink); margin-top: 2px; }
+
+/* Light marker for scenarios that only exist with the N-verifier / multi-hop forwarding extension */
+.scope-tag {
+  flex: none;
+  align-self: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  opacity: 0.85;
+}
 .threat-card.authentic .threat-name .icon { color: var(--primary); }
 
 .threat-check {
@@ -917,3 +933,203 @@
 }
 .hash-copy:hover { border-color: var(--field-line); }
 .hash-copy:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ---------- Recipient group (N-verifier extension) ---------- */
+.recipient-group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: var(--space-3) var(--space-3) 0;
+  margin: 0 0 var(--space-3);
+  min-width: 0;
+}
+.recipient-group legend { padding: 0 6px; }
+.status-warn { color: var(--warning-ink); font-weight: 600; white-space: nowrap; }
+.matrix-table .history-btn {
+  font: inherit;
+  font-size: 12px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 8px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.matrix-table .history-btn:hover { background: var(--surface-soft); }
+.event-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; font-family: var(--font-mono); font-size: 12px; }
+.event-list li { padding: 6px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.event-list li:last-child { border-bottom: none; }
+.routing-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 12px 0; }
+.routing-toolbar label { display: grid; gap: 5px; font-size: 12px; }
+.routing-toolbar .form-select, .routing-toolbar .form-input { max-width: 300px; }
+.routing-details { border-top: 1px solid var(--border, #334155); padding: 12px 0; }
+.routing-details summary { cursor: pointer; font-size: 13px; }
+.routing-experiment { margin-top: 18px; padding: 16px; border: 1px solid #b98b35; border-radius: 8px; }
+.routing-experiment legend { font-size: 13px; padding: 0 8px; }
+#routingIdentity, #routeDetail, #routingMessage { overflow-wrap: anywhere; }
+#topologySvg .routing-edge { cursor: pointer; }
+#topologySvg text { font-family: inherit; fill: var(--ink, #cbd5e1); }
+#topologySvg .routing-node-label { font-size: 12px; font-weight: 600; }
+#topologySvg .routing-edge-label { font-size: 10px; paint-order: stroke; stroke: var(--surface, #0f172a); stroke-width: 4px; }
+#topologySvg .routing-role { font-size: 10px; }
+.routing-toolbar .nav-btn { cursor: pointer; }
+.topology-wrap #topologySvg { max-width: 100%; }
+.topology-wrap { overflow-x: auto; }
+.routing-overview { border-top: 3px solid var(--primary); }
+.route-comparison { border: 1px solid var(--line); border-radius: 8px; margin: 12px 0; padding: 14px; }
+.route-comparison h3 { font-size: 14px; margin: 0 0 10px; }
+.route-comparison .route-line { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 10px; margin: 8px 0; font-size: 13px; }
+.route-comparison .route-line strong { color: var(--primary); overflow-wrap: anywhere; }
+.route-comparison .route-reason { color: var(--ink-muted); font-size: 12px; line-height: 1.6; margin-top: 10px; }
+.route-stop { border-left: 4px solid var(--danger-ink); background: var(--danger-bg); padding: 14px; border-radius: 6px; font-size: 13px; line-height: 1.6; }
+.route-test-step { padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.6; }
+.route-test-step strong { display: block; }
+.route-test-pass { color: var(--success-ink); font-weight: 700; }
+.route-test-fail { color: var(--danger-ink); font-weight: 700; }
+
+/* Compact routing status strip on the console; full view on /admin/routing */
+.routing-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px var(--space-5); }
+.routing-strip-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.routing-strip-summary { flex: 1 1 260px; min-width: 0; font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+.routing-strip .link-states { flex: 0 1 auto; }
+.routing-strip .nav-btn { margin-left: auto; text-decoration: none; }
+.work-grid > .span-all { grid-column: 1 / -1; }
+
+/* Edge controls on /admin/routing */
+.edge-picker { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 14px; }
+.edge-picker label, .edge-reason { display: grid; gap: 5px; font-size: 12px; color: var(--ink-muted); }
+.edge-picker .form-select { min-width: 200px; }
+.edge-picker .link-chip { margin-bottom: 8px; }
+.edge-group { border: 1px solid var(--line); border-radius: var(--radius-panel); padding: 14px; margin-top: 12px; }
+.edge-group-title { font-size: 13px; font-weight: 700; margin: 0; }
+.edge-group .section-note { margin: 4px 0 10px; }
+.edge-steps { display: flex; flex-wrap: wrap; gap: 8px; }
+.edge-steps .nav-btn { cursor: pointer; }
+.edge-steps .nav-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.step-no { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 6px; border-radius: 50%;
+  background: var(--primary-soft); color: var(--primary); font-size: 11px; font-weight: 700; }
+.edge-step.is-active { border-color: var(--danger-line); color: var(--danger-ink); background: var(--danger-bg); }
+.edge-reason { margin-top: 12px; }
+.danger-zone { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 16px; padding: 14px; border: 1px dashed var(--danger-line); border-radius: var(--radius-panel); }
+.danger-zone strong { font-size: 13px; color: var(--danger-ink); }
+.danger-zone .section-note { margin: 4px 0 0; }
+.danger-zone.is-active { border-style: solid; background: var(--danger-bg); }
+.danger-zone button { cursor: pointer; }
+
+/* /admin/routing layout: columns size to their content instead of stretching */
+.work-grid.routing-grid { align-items: start; }
+.work-grid.routing-grid > .panel { display: block; }
+.selftest { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface-soft); }
+.selftest > div { flex: 1 1 240px; min-width: 0; }
+.selftest strong { font-size: 13px; }
+.selftest .section-note { margin: 4px 0 0; }
+.network-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.network-links-label { font-size: 12px; color: var(--ink-muted); }
+.network-links .link-states { flex: 1 1 auto; }
+.network-links .nav-btn { cursor: pointer; }
+
+/* Route graph: graph and route details side by side, graph height capped */
+.graph-layout { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--space-4); align-items: start; margin-top: 8px; }
+.graph-layout .topology-wrap { overflow: hidden; }
+.graph-layout #topologySvg { width: 100%; max-width: 100%; height: auto; }
+.graph-side .routing-toolbar { margin-top: 0; }
+.graph-side .routing-toolbar label { flex: 1 1 140px; }
+.graph-side .routing-toolbar .form-select { max-width: none; width: 100%; }
+.topo-legend .route { background: #38bdf8; height: 6px; opacity: 0.5; }
+@media (max-width: 1100px) { .graph-layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* Route graph nodes and labels, drawn at 1:1 so they stay legible */
+#topologySvg .routing-column { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; fill: var(--ink-muted); }
+#topologySvg .routing-node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+#topologySvg .routing-node.signer rect { fill: var(--primary); stroke: var(--primary); }
+#topologySvg .routing-node.signer text { fill: #ffffff; }
+#topologySvg .routing-node.relay rect { fill: var(--surface-soft); stroke: var(--ink-muted); }
+#topologySvg .routing-node.on-route rect { stroke: #38bdf8; stroke-width: 2.5; }
+#topologySvg .routing-node[data-recipient] { cursor: pointer; }
+#topologySvg .routing-node-label { font-size: 12px; font-weight: 600; }
+#topologySvg .routing-edge-label { font-size: 10px; font-weight: 700; paint-order: stroke; stroke: var(--canvas); stroke-width: 4px; stroke-linejoin: round; }
+#topologySvg .routing-edge:hover path:last-of-type, #topologySvg .routing-edge:focus path:last-of-type { stroke-width: 3; opacity: 1; }
+.route-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 0 0 12px; font-size: 13px; }
+.route-facts dt { color: var(--ink-muted); }
+.route-facts dd { margin: 0; overflow-wrap: anywhere; }
+.graph-side .matrix-table td, .graph-side .matrix-table th { white-space: nowrap; }
+.graph-side .matrix-table-wrapper { overflow-x: auto; }
+
+/* Qubit flow panel */
+.qubit-flow { padding: var(--space-4) var(--space-5); }
+.flow-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 12px; }
+.flow-head .section-title { margin: 0; }
+.flow-session { font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); }
+.flow-next { margin-left: auto; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; min-width: 0; }
+.flow-next-label { color: var(--ink-muted); }
+.flow-next-path { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.flow-lanes { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 6px 24px; }
+.flow-lane { display: grid; grid-template-columns: minmax(0, 1fr) 64px 112px; align-items: center; gap: 10px;
+  padding: 6px 10px; border-radius: var(--radius-control); background: var(--surface-soft); }
+.flow-track { display: flex; align-items: center; min-width: 0; }
+.flow-node { flex: none; font-family: var(--font-mono); font-size: 11px; font-weight: 600; padding: 2px 8px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface); white-space: nowrap; }
+.flow-node.signer { background: var(--primary); border-color: var(--primary); color: #ffffff; }
+.flow-node.verifier { border-color: var(--primary); color: var(--primary); }
+.flow-seg { position: relative; flex: 1 1 24px; min-width: 18px; height: 3px; margin: 0 2px; border-radius: 2px; background: var(--line); }
+.flow-seg::before { content: ""; position: absolute; inset: 0; border-radius: 2px; background: var(--seg); transform-origin: left; }
+.flow-seg.ok { --seg: var(--success-ink); }
+.flow-seg.lossy { --seg: var(--warning-ink); }
+.flow-seg.stopped { --seg: var(--danger-ink); }
+.flow-seg.unreached { --seg: transparent; background: repeating-linear-gradient(90deg, var(--line) 0 4px, transparent 4px 8px); }
+.flow-count { font-family: var(--font-mono); font-size: 12px; text-align: right; }
+.flow-status { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; text-align: right; color: var(--ink-muted); }
+.flow-status.accepted { color: var(--success-ink); }
+.flow-status.rejected, .flow-status.aborted { color: var(--danger-ink); }
+.flow-status.inconclusive { color: var(--warning-ink); }
+.flow-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 12px; }
+.flow-foot .link-states { flex: 1 1 auto; }
+.flow-foot .nav-btn { text-decoration: none; }
+.flow-legend { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 11px; color: var(--ink-muted); }
+.flow-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-left: 6px; }
+.flow-legend i.ok { background: var(--success-ink); }
+.flow-legend i.lossy { background: var(--warning-ink); }
+.flow-legend i.stopped { background: var(--danger-ink); }
+.flow-legend i.unreached { background: repeating-linear-gradient(90deg, var(--ink-muted) 0 3px, transparent 3px 6px); }
+/* Replay: each hop fills in turn while a qubit dot travels along it */
+.flow-lanes.is-live .flow-seg::before { animation: flow-fill 0.45s ease-out both; animation-delay: calc(var(--hop) * 0.45s + var(--lane) * 0.05s); }
+.flow-lanes.is-live .flow-seg:not(.unreached)::after { content: ""; position: absolute; top: -3px; width: 9px; height: 9px; border-radius: 50%;
+  background: #38bdf8; box-shadow: 0 0 6px #38bdf8; animation: flow-dot 0.45s linear both; animation-delay: calc(var(--hop) * 0.45s + var(--lane) * 0.05s); }
+.flow-lanes.is-live .flow-seg.stopped::after { background: var(--danger-ink); box-shadow: 0 0 6px var(--danger-ink); animation-name: flow-dot-stop; }
+.flow-lanes.is-live .flow-count, .flow-lanes.is-live .flow-status { animation: flow-appear 0.3s ease-out both; animation-delay: calc(1.2s + var(--lane) * 0.05s); }
+@keyframes flow-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes flow-dot { 0% { left: 0; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { left: calc(100% - 9px); opacity: 0; } }
+@keyframes flow-dot-stop { 0% { left: 0; opacity: 0; } 10% { opacity: 1; } 100% { left: 45%; opacity: 1; } }
+@keyframes flow-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .flow-lanes.is-live * , .flow-lanes.is-live *::before, .flow-lanes.is-live *::after { animation: none !important; } }
+@media (max-width: 700px) { .flow-lanes { grid-template-columns: minmax(0, 1fr); } .flow-lane { grid-template-columns: minmax(0, 1fr) auto; } .flow-status { grid-column: 1 / -1; text-align: left; } }
+
+/* Located attack: alert line + marked link in the qubit flow */
+.flow-alert { margin: 0 0 10px; padding: 8px 12px; border-radius: var(--radius-control); font-size: 13px;
+  background: var(--warning-bg); color: var(--warning-ink); border-left: 4px solid var(--warning-ink); }
+.flow-alert.located { background: var(--danger-bg); color: var(--danger-ink); border-left-color: var(--danger-ink); font-weight: 600; }
+.flow-seg.located { height: 5px; --seg: var(--danger-ink); }
+.flow-seg.located::before { background: repeating-linear-gradient(90deg, var(--danger-ink) 0 6px, transparent 6px 9px); }
+.flow-seg.located + .flow-node, .flow-node:has(+ .flow-seg.located) { border-color: var(--danger-line); }
+
+/* N-hop test scenarios: forwarding attacks grouped in a collapsible section */
+.nhop-scenarios {
+  margin: var(--space-2) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+.nhop-scenarios > summary {
+  cursor: pointer;
+  padding: 8px var(--space-3);
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  list-style-position: inside;
+}
+.nhop-scenarios > summary:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.nhop-scenarios[open] > summary { border-bottom: 1px solid var(--line); }
+.nhop-scenarios > .section-note, .nhop-scenarios > .threat-grid { margin: var(--space-2) var(--space-3); }

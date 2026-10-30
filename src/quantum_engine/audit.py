@@ -1,10 +1,20 @@
 """
-Q-Cert: signed, versioned, hash-chained audit records (``hedwig-audit/2``).
+Q-Cert: signed, versioned, hash-chained audit records (``hedwig-audit/3``).
 
-Three artifact kinds share one append-only chain:
+Four artifact kinds share one append-only chain:
   * ``transaction`` - issued automatically when each transmission is assessed;
+    binds the session roster, delivery mode, depth H and the reveal events;
+  * ``transfer``    - one per forwarding event of a chain session, naming its
+    parent event and the artifact id + payload hash of the record holding it
+    (immutable linked records: an issued record is never rewritten);
   * ``incident``    - issued at the moment a link is quarantined;
   * ``link_reset``  - issued when an administrator resets a link (actor + reason).
+
+Schema migration: new records are ``hedwig-audit/3``. Version 3 adds the
+session configuration, per-event digests keyed by unique event id (so
+repeated events of one verifier never collide), a participant matrix and the
+transfer kind. ``hedwig-audit/2`` certificates remain verifiable unchanged:
+each version's evidence digests are recomputed with that version's rules.
 
 Certificate layout:
 
@@ -38,7 +48,8 @@ from .security import ASSUMPTIONS
 from .key_provider import KeyProvider, make_key_provider
 from .signers import ED25519, key_id_for, verify_signature
 
-AUDIT_VERSION = "hedwig-audit/2"
+AUDIT_VERSION = "hedwig-audit/3"
+SUPPORTED_VERSIONS = ("hedwig-audit/2", "hedwig-audit/3")
 SIMULATOR_VERSION = "HEDWIG V2.2"
 GENESIS = "0" * 64
 
@@ -48,6 +59,9 @@ DISCLAIMERS = [
     "composable security proof. Message binding relies on computational hash assumptions.",
     "Ed25519 is classical. Post-quantum protection applies only if an ML-DSA-65 signature is present and verifies.",
     "Not zero-knowledge: the attached evidence discloses verifier records.",
+    "A valid signature authenticates this audit record only. It does not give a reader the private distribution "
+    "evidence needed to perform QDS verification independently, and adding recipients does not by itself add "
+    "security; collusion between recipients is not covered.",
 ]
 
 
@@ -66,14 +80,21 @@ def build_evidence(tx: Dict[str, Any]) -> Dict[str, Any]:
         "additional_verifications": [_redact_verification(v, alg) for v in tx.get("additional_verifications", [])],
         "channel_test": tx.get("channel"),
         "symmetrisation": tx.get("symmetrisation"),
+        "session_config": tx.get("session_config"),
+        "routing": tx.get("routing"),
     }
+
+
+def _all_verifications(evidence: Dict[str, Any]) -> List[Dict[str, Any]]:
+    return list(evidence.get("verifications", {}).values()) + list(evidence.get("additional_verifications", []))
 
 
 def evidence_hash(evidence: Any) -> str:
     return sha256_hex(canonical_json(evidence))
 
 
-def evidence_digests(evidence: Dict[str, Any]) -> Dict[str, Any]:
+def evidence_digests(evidence: Dict[str, Any], version: str = AUDIT_VERSION) -> Dict[str, Any]:
+    """Digests binding the unsigned evidence; each schema version keeps its own rules."""
     per_verifier = {}
     for name, v in evidence.get("verifications", {}).items():
         per_verifier[f"{name}/{v.get('mode', 'direct')}"] = digest_json(v.get("eliminated_states", []), "sha3-256")
@@ -81,12 +102,19 @@ def evidence_digests(evidence: Dict[str, Any]) -> Dict[str, Any]:
         per_verifier[f"{v.get('verifier')}/{v.get('mode')}"] = digest_json(v.get("eliminated_states", []),
                                                                          "sha3-256")
     sym = evidence.get("symmetrisation")
-    return {
+    out = {
         "full_evidence_sha256": evidence_hash(evidence),
         "elimination_sha3_256": per_verifier,
         "symmetrisation_actions_sha3_256": digest_json(sym, "sha3-256") if sym else None,
         "channel_test_sha256": digest_json(evidence.get("channel_test")) if evidence.get("channel_test") else None,
     }
+    if version != "hedwig-audit/2":
+        # Keyed by unique event id: repeated events of one verifier never overwrite each other.
+        out["events_sha3_256"] = {v["event_id"]: digest_json(v.get("eliminated_states", []), "sha3-256")
+                                  for v in _all_verifications(evidence) if v.get("event_id")}
+        out["session_config_sha256"] = (digest_json(evidence["session_config"])
+                                        if evidence.get("session_config") else None)
+    return out
 
 
 # ------------------------------------------------------------------ records
@@ -104,7 +132,10 @@ def _fidelity(channel: Optional[Dict[str, Any]], tier2: Optional[Dict[str, Any]]
             "from": f"{channel['error_count']}/{channel['test_count']} test-token errors"}
 
 
-def _assurance(accepted: bool, bounds: Dict[str, Any], target: str) -> Dict[str, Any]:
+def _assurance(accepted: bool, bounds: Dict[str, Any], target: str, outcome: Optional[str] = None
+               ) -> Dict[str, Any]:
+    if outcome in ("incomplete", "inconclusive", "distribution_aborted"):
+        return {"level": outcome.upper().replace("_", " "), "basis": f"session outcome: {outcome}"}
     if not accepted:
         return {"level": "REJECTED", "basis": "at least one verifier rejected the transmission"}
     meets = [b["meets_target"] for b in bounds.values()]
@@ -125,20 +156,28 @@ def build_record(tx: Dict[str, Any], params: Dict[str, Any], policy: Optional[Di
     report = tx["threat_report"]
     verifs = {f"{k}/{v['mode']}": v for k, v in evidence["verifications"].items()}
     for v in evidence["additional_verifications"]:
-        verifs[f"{v['verifier']}/{v['mode']}"] = v
+        key = f"{v['verifier']}/{v['mode']}"
+        verifs[key if key not in verifs else f"{key}/{v.get('event_id', len(verifs))}"] = v
 
     summary, bounds = {}, {}
     for name, v in verifs.items():
         summary[name] = {"accepted": v["is_valid"], "mismatches": v["mismatches"], "checked": v["total_checked"],
                          "limit": v["acceptance_limit"], "checks": v["checks"],
-                         "received_message_digest": v.get("received_message_digest")}
+                         "received_message_digest": v.get("received_message_digest"),
+                         "event_id": v.get("event_id"), "status": v.get("status"), "depth": v.get("depth"),
+                         "forwarded_by": v.get("forwarded_by"),
+                         "parent_event_id": (v.get("transfer") or {}).get("parent_event_id")}
         b = v.get("bounds") or {}
         if b:
             bounds[name] = {"values": b["values"], "inputs": b["inputs"], "decision_rule": b["decision_rule"],
                             "formulas": b["formulas"], "n_required_for_target": b["n_required_for_target"],
                             "meets_target": b["meets_target"]}
-    direct = [v for v in evidence["verifications"].values() if v.get("mode") == "direct"]
-    accepted = bool(direct) and all(v["is_valid"] for v in direct) and not report["is_threat_detected"]
+    outcome = tx.get("session_outcome")
+    if tx.get("kind") == "chain":
+        accepted = outcome == "all_accepted" and not report["is_threat_detected"]
+    else:
+        direct = [v for v in _all_verifications(evidence) if v.get("mode") == "direct"]
+        accepted = bool(direct) and all(v["is_valid"] for v in direct) and not report["is_threat_detected"]
     ts = ctx.get("timestamp")
 
     return {
@@ -157,26 +196,72 @@ def build_record(tx: Dict[str, Any], params: Dict[str, Any], policy: Optional[Di
             "effective_error_rate": tx.get("effective_error_rate"),
         },
         "verifiers": ctx.get("verifiers"),
+        "session": {"config": tx.get("session_config"), "outcome": outcome,
+                    "participants": [{k: r.get(k) for k in ("verifier", "route_role", "status", "received_from",
+                                                            "depth", "event_ids")}
+                                     for r in tx.get("participants") or []],
+                    "events_in_this_record": [e["event_id"] for e in tx.get("events") or []
+                                              if e.get("mode") == "direct" or tx.get("kind") != "chain"],
+                    "later_events": "chain forwarding events are separate 'transfer' records linked to this one"
+                                    if tx.get("kind") == "chain" else None},
         "nonce": ctx.get("nonce"),
         "created_at": ts,
         "expires_at": ts + freshness_window_s if ts is not None else None,
         "message": {"digest_alg": ctx.get("digest_alg"), "digest": ctx.get("message_digest"),
                     "plaintext_included": False},
-        "outcome": {"accepted": accepted, "classification": report["classification"],
+        "outcome": {"accepted": accepted, "session_outcome": outcome, "classification": report["classification"],
                     "verdict": report["verdict"], "decided_by": report.get("decided_by"),
                     "evidence_p": report.get("evidence_p")},
         "response": tx.get("response"),
         "enforcement": {k: v for k, v in (tx.get("enforcement") or {}).items() if k != "channel_state"},
         "verification_summary": summary,
         "channel_test": tx.get("channel"),
+        "routing": ({"topology_digest": tx["routing"]["plan"]["topology_digest"],
+                     "plan_sha256": digest_json(tx["routing"]["plan"]),
+                     "execution_sha256": digest_json(tx["routing"]["execution"]),
+                     "status": tx["routing"]["execution"]["status"]} if tx.get("routing") else None),
         "tier2": report.get("tier2"),
         "bounds": {"per_verifier": bounds, "assumptions": ASSUMPTIONS,
                    "status": "illustrative bound under stated assumptions (not a security proof)"},
         "fidelity": _fidelity(tx.get("channel"), report.get("tier2")),
-        "assurance": _assurance(accepted, bounds, f"{params.get('target_failure', 1e-6):.0e}"),
+        "assurance": _assurance(accepted, bounds, f"{params.get('target_failure', 1e-6):.0e}", outcome),
         "parameters": params,
         "policy": policy,
         "evidence_digests": evidence_digests(evidence),
+        "disclaimers": DISCLAIMERS,
+    }
+
+
+def build_transfer_record(transmission_id: str, event: Dict[str, Any], context: Dict[str, Any],
+                          session_config: Dict[str, Any], parent_record: Dict[str, Any],
+                          params: Dict[str, Any]) -> Dict[str, Any]:
+    """Signed record of one forwarding event, linked to the record holding its parent event."""
+    alg = context.get("digest_alg", "sha256")
+    ev = _redact_verification(event, alg)
+    b = ev.get("bounds") or {}
+    return {
+        "version": AUDIT_VERSION,
+        "kind": "transfer",
+        "canonicalization": CANONICAL_VERSION,
+        "issued_at": time.time(),
+        "transmission_id": transmission_id,
+        "session_id": context.get("session_id"),
+        "event_id": ev.get("event_id"),
+        "parent_event_id": (ev.get("transfer") or {}).get("parent_event_id"),
+        "parent_record": parent_record,
+        "transfer": {"sender": ev.get("forwarded_by"), "recipient": ev.get("verifier"), "depth": ev.get("depth"),
+                     "max_depth": ev.get("max_depth"), "validation": ev.get("transfer")},
+        # The signer's original context is carried unchanged: forwarding never rewrites it.
+        "signed_context": {k: context.get(k) for k in ("session_id", "sender", "verifiers", "delivery",
+                                                       "max_depth", "message_digest", "digest_alg", "version")},
+        "session_config": session_config,
+        "decision": {"status": ev.get("status"), "accepted": ev.get("is_valid"), "mismatches": ev.get("mismatches"),
+                     "checked": ev.get("total_checked"), "limit": ev.get("acceptance_limit"),
+                     "decision_rule": b.get("decision_rule"), "values": b.get("values"),
+                     "evidence_status": ev.get("evidence_status"), "reserve": ev.get("reserve"),
+                     "reasons": ev.get("reasons"), "received_message_digest": ev.get("received_message_digest")},
+        "elimination_sha3_256": digest_json(ev.get("eliminated_states", []), "sha3-256"),
+        "threshold_policy": params.get("threshold_policy"),
         "disclaimers": DISCLAIMERS,
     }
 
@@ -262,7 +347,7 @@ class AuditAuthority:
             "public_keys": {k["key_id"]: {"algorithm": k["algorithm"], "public_key": k["public_key"]} for k in keys},
         }
         if evidence is not None:
-            cert["evidence"] = evidence
+            cert["evidence"] = copy.deepcopy(evidence)
         return cert
 
     def issue(self, record: Dict[str, Any], artifact_id: str, evidence: Optional[Dict[str, Any]] = None
@@ -305,7 +390,9 @@ def verify_certificate_report(cert: Dict[str, Any], trusted: TrustedKeys = None,
     try:
         record = cert["record"]
         payload = canonical_json(record)
-        checks["schema"] = cert.get("format") == AUDIT_VERSION and record.get("version") == AUDIT_VERSION
+        version = record.get("version")
+        checks["schema"] = version in SUPPORTED_VERSIONS and cert.get("format") == version
+        checks["schema_version"] = version
         checks["payload_hash"] = sha256_hex(payload) == cert.get("payload_sha256")
         suite = {(s["algorithm"], s["key_id"]) for s in record.get("signature_suite", [])}
         listed = {(s["algorithm"], s["key_id"]) for s in cert.get("signatures", [])}
@@ -327,7 +414,8 @@ def verify_certificate_report(cert: Dict[str, Any], trusted: TrustedKeys = None,
                                             for r, s in zip(sig_results, cert.get("signatures", [])))
 
         if "evidence" in cert and record.get("kind") == "transaction":
-            checks["evidence_digests_match"] = evidence_digests(cert["evidence"]) == record.get("evidence_digests")
+            checks["evidence_digests_match"] = (evidence_digests(cert["evidence"], version)
+                                                == record.get("evidence_digests"))
         checks["origin"] = origin
         required = ["schema", "payload_hash", "signature_suite_matches", "all_signatures_valid"]
         if "evidence_digests_match" in checks:
