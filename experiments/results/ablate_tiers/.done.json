@@ -1,0 +1,20 @@
+{
+  "config": {
+    "argv": [
+      "--seed",
+      "2026",
+      "--out",
+      "E:\\2026-2\\sih 2026\\experiments\\results\\ablate_tiers",
+      "--trials",
+      "5",
+      "--bits",
+      "16"
+    ],
+    "seed": 2026,
+    "trials": null,
+    "quick": true,
+    "script_sha256": "ab934233ea95183b20c5a8f4d73034b34c6bff4a506d301486f24df3817bcecc"
+  },
+  "seconds": 3.64,
+  "finished": "2026-10-30 18:04:12"
+}

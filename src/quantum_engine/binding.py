@@ -7,7 +7,8 @@ Security model (classical, computational - stated explicitly):
         C = SHA-256( "HEDWIG-QDS-v2|commitment|" || canonical(context) || "|" || sig || "|" || r )
     where ``sig`` is the one-time Pauli-state signature and ``r`` a 256-bit
     random blinding value. The verifier stores C as a trusted local record.
-  * ``context`` holds protocol version, session id, sender, allowed verifiers,
+  * ``context`` holds protocol version, session id, sender, allowed verifiers
+    (the ordered session roster), delivery mode, maximum forwarding depth,
     random nonce, timestamp, the digest algorithm and digest(message).
     Canonical encoding follows ``canonical.py`` (sorted keys, UTF-8, no
     Unicode normalisation, no NaN/Infinity).
@@ -59,6 +60,8 @@ class SignedContext:
     message_digest: str
     digest_alg: str = DEFAULT_DIGEST
     version: str = PROTOCOL_VERSION
+    delivery: str = "direct"           # session delivery mode (roster.py); committed, so never rewritten
+    max_depth: int = 1                 # maximum forwarding depth H
 
     def canonical_bytes(self) -> bytes:
         return canonical_json(asdict(self))
@@ -73,7 +76,7 @@ class SignedContext:
     @classmethod
     def new(cls, sender: str, verifiers: List[str], message: str,
             session_id: Optional[str] = None, timestamp: Optional[float] = None,
-            digest_alg: str = DEFAULT_DIGEST) -> "SignedContext":
+            digest_alg: str = DEFAULT_DIGEST, delivery: str = "direct", max_depth: int = 1) -> "SignedContext":
         import time
         return cls(
             session_id=session_id or f"S-{secrets.token_hex(8)}",
@@ -83,6 +86,8 @@ class SignedContext:
             timestamp=time.time() if timestamp is None else timestamp,
             message_digest=message_digest(message, digest_alg),
             digest_alg=digest_alg,
+            delivery=delivery,
+            max_depth=max_depth,
         )
 
 
@@ -137,6 +142,10 @@ class SignedPackage:
     blinding: str
     forwarded_by: Optional[str] = None
     reserve: Optional[ReserveOpening] = None
+    # Transfer metadata (unsigned, outside the commitment): what the forwarder *claims*. Verifiers
+    # derive the applicable depth from their own distribution record and only check these for consistency.
+    depth: Optional[int] = None
+    parent_event_id: Optional[str] = None
 
     def copy(self, **changes) -> "SignedPackage":
         d = dict(
@@ -146,6 +155,8 @@ class SignedPackage:
             blinding=self.blinding,
             forwarded_by=self.forwarded_by,
             reserve=self.reserve,
+            depth=self.depth,
+            parent_event_id=self.parent_event_id,
         )
         d.update(changes)
         return SignedPackage(**d)
@@ -157,4 +168,6 @@ class SignedPackage:
             "revealed_signature": [list(s) for s in self.revealed_signature],
             "forwarded_by": self.forwarded_by,
             "reserve_opened": self.reserve is not None,
+            "depth": self.depth,
+            "parent_event_id": self.parent_event_id,
         }

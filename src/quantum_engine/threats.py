@@ -6,7 +6,18 @@ adversary could alter: a signature or message on the wire, the physical
 channel, a dishonest party's own preparation, or a previously observed
 package. Scenario names never leave this module except as experiment ground
 truth attached after detection.
+
+N-verifier scenarios (one selected dishonest verifier; collusion is not modelled):
+  dishonest_forwarder  the selected verifier receives the genuine package, then
+                       alters the message or signature and forwards it anyway
+  forward_withheld     the selected verifier accepts but never forwards (chain)
+  route_manipulation   the selected verifier forwards the genuine package but
+                       claims a deeper level than its edge has (chain)
+  forward_replay       a recipient that already verified a forwarded copy is
+                       sent it again (another sender in direct mode)
+  unknown_forwarder    an unenrolled identity forwards the genuine package
 """
+import math
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -18,7 +29,10 @@ from .binding import SignedContext, SignedPackage, message_digest, new_blinding
 from .channel import ChannelModel
 from .elimination import REV_SYMBOL_MAP
 from .enforcement import LINK_FORWARD, LINK_SIGNER
+from .roster import ConfigurationError, SessionConfig
 from .transcript import Transcript
+
+UNENROLLED_IDENTITY = "mallory"
 
 
 class ThreatType(str, Enum):
@@ -31,8 +45,16 @@ class ThreatType(str, Enum):
     REPLAY = "replay"
     IMPERSONATION = "impersonation"
     EVE_LOSS_EXPLOIT = "eve_loss_exploit"
-    EVE_CLONING = "eve_cloning"
-    EVE_PARTIAL_INTERCEPT = "eve_partial_intercept"  # opt-in partial intercept-resend
+    DISHONEST_FORWARDER = "dishonest_forwarder"
+    FORWARD_WITHHELD = "forward_withheld"
+    ROUTE_MANIPULATION = "route_manipulation"
+    FORWARD_REPLAY = "forward_replay"
+    UNKNOWN_FORWARDER = "unknown_forwarder"
+
+
+FORWARDING_THREATS = {ThreatType.DISHONEST_FORWARDER, ThreatType.FORWARD_WITHHELD, ThreatType.ROUTE_MANIPULATION,
+                      ThreatType.FORWARD_REPLAY, ThreatType.UNKNOWN_FORWARDER}
+CHAIN_ONLY_THREATS = {ThreatType.FORWARD_WITHHELD, ThreatType.ROUTE_MANIPULATION}
 
 
 @dataclass
@@ -43,9 +65,12 @@ class ThreatScenarioConfig:
     claimed_sender: str = "alice"
     repudiation_tamper_ratio: float = 0.5
     loss_exploit_block_rate: float = 0.5
+    dishonest_verifier: Optional[str] = None     # forwarding scenarios: the one dishonest roster member
+    forward_alteration: str = "message"          # dishonest_forwarder: "message" | "signature"
     cloner_type: str = "universal"       # "universal" or "phase_covariant"
     cloning_rate: float = 1.0            # fraction of tokens cloned by Eve
     partial_intercept_fraction: float = 0.05  # fraction for EVE_PARTIAL_INTERCEPT in [0.05, 1.0]
+    collective_theta: float = math.pi / 4     # probe strength for EVE_COLLECTIVE in [0, pi]
 
 
 class NoPackageToReplay(Exception):
@@ -76,6 +101,60 @@ class EveLossExploitAdversary:
         pass
 
 
+# Composition of the background Pauli with the probe's phase flip (global phases dropped).
+_TIMES_Z = {None: "Z", "X": "Y", "Y": "X", "Z": None}
+
+
+def probe_flip_probability(theta: float, basis: int) -> float:
+    """P(token flipped in its own basis) after Eve's controlled-Ry(theta) probe; basis 0 = Z, 1 = X."""
+    return 0.0 if basis == 0 else (1.0 - math.cos(theta / 2.0)) / 2.0
+
+
+def probe_guess_probability(theta: float, basis: int) -> float:
+    """P(Eve guesses the token bit) from her ancilla alone (Helstrom), once the basis is announced."""
+    return (1.0 + math.sin(theta / 2.0)) / 2.0 if basis == 0 else 0.5
+
+
+class EveCollectiveAdversary:
+    """
+    ONE concrete collective (ancilla-probe) attack - not a proof against all collective attacks.
+
+    For every token Eve prepares an ancilla |0>, applies the same controlled-Ry(theta)
+    (token = control, ancilla = target), forwards the token and keeps the ancilla. After
+    the bases are announced she measures each ancilla individually (Helstrom measurement)
+    to guess the token's bit. She probes the travelling qubit; with the public
+    teleportation corrections this is equivalent to probing the token itself.
+
+    Effect on the token: Z-basis states are untouched; X-basis states lose coherence by a
+    factor cos(theta/2), i.e. a phase flip with probability (1 - cos(theta/2)) / 2. That
+    flip is composed with the channel's own noise event. Eve's information: Helstrom
+    success (1 + sin(theta/2)) / 2 on Z-basis tokens, 1/2 on X-basis tokens.
+    """
+
+    def __init__(self, theta: float, channel: ChannelModel):
+        if not 0.0 <= theta <= math.pi:
+            raise ValueError(f"collective_theta must be in [0, pi], got {theta!r}")
+        self.theta = theta
+        self.channel = channel
+        self.guess_correct: List[bool] = []   # one entry per signature copy that reached the verifiers
+
+    def tap(self, stream, schedule_public, rng):
+        events = []
+        for (eve_basis, noise), s in zip(self.channel.sample_events(len(stream), rng), stream):
+            if rng.random() < probe_flip_probability(self.theta, s.basis):
+                noise = _TIMES_Z[noise]
+            events.append((eve_basis, noise))
+        self._guesses = [rng.random() < probe_guess_probability(self.theta, s.basis) for s in stream]
+        return events
+
+    def observe(self, sent, outcomes):
+        self.guess_correct = [g for s, g in zip(sent, self._guesses) if s.kind == "sig"]
+
+    @property
+    def guess_accuracy(self) -> float:
+        return sum(self.guess_correct) / len(self.guess_correct) if self.guess_correct else float("nan")
+
+
 class ThreatSuite:
     # ------------------------------------------------------------ primitives
     @staticmethod
@@ -97,15 +176,108 @@ class ThreatSuite:
 
     @staticmethod
     def asymmetric_preparation(tamper_ratio: float):
-        """Dishonest Alice: Charlie's copy has orthogonal states at a fraction of positions."""
-        def prepare(signature, rng):
-            bob_copy, charlie_copy = list(signature), list(signature)
+        """
+        Dishonest Alice: the copies prepared for the second half of the roster (Charlie when N = 2)
+        have orthogonal states at a fraction of positions. Symmetrisation then spreads them over holders.
+        """
+        def prepare(signature, rng, roster=("bob", "charlie")):
+            roster = list(roster)
+            copies = {v: list(signature) for v in roster}
             k = max(1, int(len(signature) * tamper_ratio))
-            for idx in rng.choice(len(signature), size=k, replace=False):
-                b, ba = signature[idx]
-                charlie_copy[idx] = (1 - b, ba)
-            return bob_copy, charlie_copy
+            for v in roster[len(roster) // 2:]:
+                for idx in rng.choice(len(signature), size=k, replace=False):
+                    b, ba = signature[idx]
+                    copies[v][idx] = (1 - b, ba)
+            return copies
         return prepare
+
+    @staticmethod
+    def alter(package: SignedPackage, alteration: str, rng: np.random.Generator, holder: str) -> SignedPackage:
+        """What a dishonest forwarder can change: the message, or the revealed signature."""
+        if alteration == "signature":
+            sig = list(package.revealed_signature)
+            k = max(1, len(sig) // 4)
+            for idx in rng.choice(len(sig), size=k, replace=False):
+                b, ba = sig[idx]
+                sig[idx] = (1 - b, ba)
+            return package.copy(revealed_signature=sig)
+        return package.copy(message=f"[ALTERED BY {holder.upper()}] " + package.message)
+
+    # ------------------------------------------------------------ validation
+    @staticmethod
+    def validate(scenario: "ThreatScenarioConfig", cfg: SessionConfig) -> None:
+        """Unsupported scenario/configuration combinations are configuration errors, raised before distribution."""
+        t = scenario.threat_type
+        if t == ThreatType.DISHONEST_BOB and not {"bob", "charlie"} <= set(cfg.roster):
+            raise ConfigurationError("The dishonest_bob scenario needs Bob and Charlie in the roster.")
+        if t in CHAIN_ONLY_THREATS and cfg.delivery != "chain":
+            raise ConfigurationError(f"Scenario {t.value} needs chain delivery.")
+        if t in FORWARDING_THREATS - {ThreatType.UNKNOWN_FORWARDER}:
+            cfg.validate_dishonest(scenario.dishonest_verifier)
+        if t == ThreatType.UNKNOWN_FORWARDER and scenario.dishonest_verifier is not None:
+            cfg.validate_dishonest(scenario.dishonest_verifier)
+        if scenario.forward_alteration not in ("message", "signature"):
+            raise ConfigurationError("forward_alteration must be 'message' or 'signature'.")
+
+    @staticmethod
+    def _target(cfg: SessionConfig, verifier: str) -> str:
+        """The next recipient after ``verifier``: its chain successor, or the next roster member (direct)."""
+        nxt = cfg.next_hop(verifier)
+        if nxt is not None:
+            return nxt
+        return cfg.roster[(cfg.roster.index(verifier) + 1) % cfg.n]
+
+    # ------------------------------------------------------ forwarding attacks
+    @classmethod
+    def forwarding_attack(cls, engine, scenario: "ThreatScenarioConfig", session, package: SignedPackage,
+                          cfg: SessionConfig, rng: np.random.Generator) -> Tuple[List, List[str]]:
+        t = scenario.threat_type
+        d = scenario.dishonest_verifier
+        notes: List[str] = []
+
+        def hook(holder, nxt, pkg, result):
+            if holder != d:
+                return engine.honest_forwarding(holder, nxt, pkg, result)
+            if t == ThreatType.DISHONEST_FORWARDER:
+                notes.append(f"{d} altered the {scenario.forward_alteration} and forwarded it to {nxt}.")
+                return "forward", cls.alter(pkg, scenario.forward_alteration, rng, d), None
+            if t == ThreatType.FORWARD_WITHHELD:
+                return "stop", pkg, (f"{d} did not forward the package; downstream recipients are not reached "
+                                     f"(withholding is not a signature forgery).")
+            if t == ThreatType.ROUTE_MANIPULATION:
+                return "forward", pkg.copy(depth=cfg.roster.index(nxt) + 1), \
+                    f"{d} forwarded to {nxt} claiming depth {cfg.roster.index(nxt) + 1} (validated depth " \
+                    f"{cfg.roster.index(nxt)})."
+            return engine.honest_forwarding(holder, nxt, pkg, result)
+
+        if cfg.delivery == "chain" and t in (ThreatType.DISHONEST_FORWARDER, ThreatType.FORWARD_WITHHELD,
+                                             ThreatType.ROUTE_MANIPULATION):
+            results, chain_notes = engine.deliver_session(package, session, cfg, on_hop=hook)
+            return results, notes + chain_notes
+
+        results, chain_notes = engine.deliver_session(package, session, cfg)
+        notes.extend(chain_notes)
+        if t == ThreatType.DISHONEST_FORWARDER:          # direct mode: alter after the reveal, then forward
+            target = cls._target(cfg, d)
+            results.append(engine.forward(cls.alter(package, scenario.forward_alteration, rng, d), d, target,
+                                          session=session))
+            notes.append(f"{d} altered the {scenario.forward_alteration} and forwarded it to {target}.")
+        elif t == ThreatType.FORWARD_REPLAY:
+            target = cls._target(cfg, d)
+            if cfg.delivery == "direct":
+                results.append(engine.forward(package, d, target, session=session))
+                other = next(v for v in cfg.roster if v not in (d, target)) if cfg.n > 2 else d
+                results.append(engine.forward(package, other, target, session=session))
+                notes.append(f"The package reached {target} from {d}, then again from {other}.")
+            else:
+                results.append(engine.forward(package, d, target, session=session))
+                notes.append(f"{d} re-sent the already forwarded package to {target}.")
+        elif t == ThreatType.UNKNOWN_FORWARDER:
+            target = cls._target(cfg, d) if d else (cfg.roster[1] if cfg.n > 1 else cfg.roster[0])
+            results.append(engine.forward(package, UNENROLLED_IDENTITY, target, parent_event_id=None,
+                                          session=session))
+            notes.append(f"Unenrolled identity '{UNENROLLED_IDENTITY}' forwarded the package to {target}.")
+        return results, notes
 
     # ---------------------------------------------------------- dishonest Bob
     @classmethod
@@ -119,8 +291,9 @@ class ThreatSuite:
         if record is None:
             raise NoPackageToReplay("Bob holds no distribution record to forge from.")
         n_bits = len(record.eliminated)
+        roster = list(record.config.roster) if record.config is not None else ["bob", "charlie"]
         forged_ctx = SignedContext(
-            session_id=session_id, sender=record.sender, verifiers=["bob", "charlie"],
+            session_id=session_id, sender=record.sender, verifiers=roster,
             nonce=SignedContext.new(record.sender, [], message).nonce,
             timestamp=engine.clock(), message_digest=message_digest(message),
         )
@@ -135,28 +308,45 @@ class ThreatSuite:
     # --------------------------------------------------------------- runner
     @classmethod
     def run(cls, engine, scenario: ThreatScenarioConfig, message: str, n_bits: int, sender: str,
-            rng: np.random.Generator, channel: Optional[ChannelModel] = None) -> Transcript:
+            rng: np.random.Generator, channel: Optional[ChannelModel] = None,
+            config: Optional[SessionConfig] = None) -> Transcript:
         t = scenario.threat_type
         channel = channel or engine.default_channel
+        cfg = config or engine.default_config
 
         if t == ThreatType.AUTHENTIC:
-            return engine.transmit(sender, message, n_bits, rng, channel)
+            return engine.transmit(sender, message, n_bits, rng, channel, config=cfg)
 
         if t == ThreatType.EVE_INTERCEPT:
             tapped = ChannelModel(depolarizing=channel.depolarizing, intercept_rate=scenario.channel_intercept_rate)
-            return engine.transmit(sender, message, n_bits, rng, tapped)
+            return engine.transmit(sender, message, n_bits, rng, tapped, config=cfg)
+
+        if t in FORWARDING_THREATS:
+            session = engine.distribute(sender, message, n_bits, rng, channel, config=cfg)
+            package = engine.reveal(session)
+            if session.aborted:
+                return cls._delivered(engine, package, n_bits, session)
+            results, notes = cls.forwarding_attack(engine, scenario, session, package, cfg, rng)
+            return Transcript(kind="chain" if cfg.delivery == "chain" else "direct", link=LINK_SIGNER,
+                              n_bits=n_bits, package=package, results=results,
+                              display={r.verifier: r for r in results}, session=session,
+                              channel_test=session.channel_test, channel_model=session.channel_model,
+                              notes=notes, config=cfg)
 
         if t == ThreatType.EVE_PARTIAL_INTERCEPT:
             return cls._eve_partial_intercept(engine, scenario, message, n_bits, sender, rng, channel)
 
+        if t == ThreatType.EVE_COLLECTIVE:
+            return cls.eve_collective(engine, scenario.collective_theta, message, n_bits, sender, rng, channel)[0]
+
         if t == ThreatType.REPUDIATION:
-            session = engine.distribute(sender, message, n_bits, rng, channel,
+            session = engine.distribute(sender, message, n_bits, rng, channel, config=cfg,
                                         prepare_copies=cls.asymmetric_preparation(scenario.repudiation_tamper_ratio))
             package = engine.reveal(session)
             return cls._delivered(engine, package, n_bits, session)
 
         if t in (ThreatType.EVE_FORGERY, ThreatType.MESSAGE_TAMPERING):
-            session = engine.distribute(sender, message, n_bits, rng, channel)
+            session = engine.distribute(sender, message, n_bits, rng, channel, config=cfg)
             package = engine.reveal(session)
             if t == ThreatType.EVE_FORGERY:
                 package = package.copy(revealed_signature=cls.generate_eve_counterfeit_signature(n_bits, rng))
@@ -173,8 +363,8 @@ class ThreatSuite:
                                   notes=["Identical copy of a previously accepted package re-sent."])
 
         if t == ThreatType.IMPERSONATION:
-            ctx = SignedContext.new(scenario.claimed_sender or "alice", ["bob", "charlie"], message,
-                                    timestamp=engine.clock())
+            ctx = SignedContext.new(scenario.claimed_sender or "alice", list(cfg.roster), message,
+                                    timestamp=engine.clock(), delivery=cfg.delivery, max_depth=cfg.max_depth)
             package = SignedPackage(context=ctx, message=message,
                                     revealed_signature=cls.generate_eve_counterfeit_signature(n_bits, rng),
                                     blinding=new_blinding())
@@ -188,7 +378,7 @@ class ThreatSuite:
                 eta_loss=max(channel.eta_loss, scenario.loss_exploit_block_rate),
                 noise_profile="lossy",
             )
-            session = engine.distribute(sender, message, n_bits, rng, lossy)
+            session = engine.distribute(sender, message, n_bits, rng, lossy, config=cfg)
             package = engine.reveal(session)
             package = package.copy(revealed_signature=cls.generate_eve_counterfeit_signature(n_bits, rng))
             return cls._delivered(engine, package, n_bits, session,
@@ -227,7 +417,7 @@ class ThreatSuite:
             return tr
 
         if t == ThreatType.DISHONEST_BOB:
-            session = engine.distribute(sender, message, n_bits, rng, channel)
+            session = engine.distribute(sender, message, n_bits, rng, channel, config=cfg)
             tr = cls.dishonest_bob_forward(
                 engine, session.context.session_id,
                 scenario.tampered_message_text or "[FORWARDED BY BOB] " + message, rng)
@@ -285,17 +475,29 @@ class ThreatSuite:
         )
         return engine.transmit(sender, message, n_bits, rng, tapped)
 
+    @classmethod
+    def eve_collective(cls, engine, theta: float, message: str, n_bits: int, sender: str,
+                       rng: np.random.Generator, channel: ChannelModel) -> Tuple[Transcript, EveCollectiveAdversary]:
+        """Honest signer, every token probed by EveCollectiveAdversary. Returns the transcript and Eve's record."""
+        eve = EveCollectiveAdversary(theta, channel)
+        session = engine.distribute(sender, message, n_bits, rng, channel, adversary=eve)
+        return cls._delivered(engine, engine.reveal(session), n_bits, session,
+                              notes=[f"Eve probed every token with controlled-Ry(theta={theta:.3f})."]), eve
+
     @staticmethod
     def _delivered(engine, package, n_bits, session, notes=None) -> Transcript:
+        cfg = session.config if session is not None else engine.config_for(package)
+        kind = "chain" if cfg.delivery == "chain" else "direct"
         if session is not None and session.aborted:
             # The channel test aborted distribution: the signer never reveals, so nothing reaches the verifiers.
-            return Transcript(kind="direct", link=LINK_SIGNER, n_bits=n_bits, package=package, results=[],
+            return Transcript(kind=kind, link=LINK_SIGNER, n_bits=n_bits, package=package, results=[],
                               display={}, session=session, channel_test=session.channel_test,
                               channel_model=session.channel_model,
-                              notes=list(notes or []) + ["Channel test alarm: signature never revealed."])
-        results = engine.deliver(package, session=session)
-        return Transcript(kind="direct", link=LINK_SIGNER, n_bits=n_bits, package=package, results=results,
+                              notes=list(notes or []) + ["Channel test alarm: signature never revealed."],
+                              config=cfg)
+        results, chain_notes = engine.deliver_session(package, session, cfg)
+        return Transcript(kind=kind, link=LINK_SIGNER, n_bits=n_bits, package=package, results=results,
                           display={r.verifier: r for r in results}, session=session,
                           channel_test=session.channel_test if session else None,
                           channel_model=session.channel_model if session else None,
-                          notes=list(notes or []))
+                          notes=list(notes or []) + chain_notes, config=cfg)

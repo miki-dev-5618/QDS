@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HEDWIG • Alice / Admin Command Console</title>
   <link rel="stylesheet" href="/static/css/style.css?v=2.3">
-  <link rel="stylesheet" href="/static/css/components.css?v=2.4">
+  <link rel="stylesheet" href="/static/css/components.css?v=2.6">
 </head>
 <body class="role-admin">
   <div class="app-shell">
@@ -24,6 +24,8 @@
         <div class="side-label">Other nodes</div>
         <a href="/bob" target="_blank" class="side-link"><span class="role-avatar bob" aria-hidden="true">β</span> Open Bob <svg class="icon icon-sm ext" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-external"/></svg></a>
         <a href="/charlie" target="_blank" class="side-link"><span class="role-avatar charlie" aria-hidden="true">γ</span> Open Charlie <svg class="icon icon-sm ext" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-external"/></svg></a>
+        <div class="side-label">Evidence</div>
+        <a href="/results" class="side-link"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-gauge"/></svg> Experiment results</a>
       </nav>
 
       <div class="sidebar-foot">
@@ -74,6 +76,26 @@
         <div class="truth-row summary-truth" id="statTruth">Injected attacks: 0 · missed: 0 · false alarms: 0</div>
 
         <div class="work-grid">
+          <section class="panel routing-overview" aria-label="Understand and test rerouting">
+            <div class="section-head">
+              <h2 class="section-title">Where will the next send go?</h2>
+              <span id="nextRouteBadge" class="brand-badge neutral">Checking routes</span>
+            </div>
+            <p class="section-note">Each send chooses a route before preparing its qubits. Blocked quantum links are skipped; the failed link can stay blocked while another route carries the next send.</p>
+            <div id="nextRouteSummary" aria-live="polite"></div>
+            <p id="routingLastEvent" class="section-note" aria-live="polite"></p>
+            <div class="routing-toolbar">
+              <button type="button" class="nav-btn" id="quickActivateDemo">Activate multi-hop demo</button>
+              <a href="#liveRoutingSection" class="nav-btn">View live route graph</a>
+              <button type="button" class="btn-primary" id="runFailoverTest">Run isolated failover test</button>
+            </div>
+            <p class="section-note">The isolated test sends a baseline, attacks and probes R1 → R2, then sends fresh qubits through R3 while R1 → R2 remains quarantined. It uses the real simulator and does not change your active network.</p>
+            <div id="failoverTestResult" aria-live="polite"></div>
+            <details class="routing-details"><summary>Which attacks should cause rerouting?</summary>
+              <p class="section-note"><strong>Quantum edge fault:</strong> exclude that edge and choose another route. <strong>Classical Eve forgery:</strong> reject the forged revealed signature; this supplies no evidence that a quantum link failed. <strong>Signer or emergency stop:</strong> every route shares the signer, so choosing another relay cannot bypass that stop.</p>
+              <p class="section-note">To test the live network: activate the multi-hop demo, send an authentic baseline, select R1 → R2 in the link controls, inject an intercept and probe that edge, then send again. Keep the failed edge quarantined. You should see the last and next routes change to R3 without a reset.</p>
+            </details>
+          </section>
           <!-- Message signer -->
           <section class="panel">
             <div class="section-head">
@@ -116,10 +138,60 @@
                 <div class="form-group">
                   <label class="form-label" for="noiseProfileSelect">Channel noise profile</label>
                   <select id="noiseProfileSelect" class="form-select">
-                    <option value="depolarizing" selected>Depolarizing Channel (Baseline)</option>
-                    <option value="readout">Readout (Measurement) Error</option>
+                    <option value="ideal">Ideal (noiseless)</option>
+                    <option value="depolarising_1pct" selected>Depolarising (1% baseline)</option>
+                    <option value="ibm_fake">IBM fake-backend noise (calibrated)</option>
+                    <option value="amp_damping">Amplitude damping</option>
+                    <option value="readout">Readout (measurement) error</option>
+                    <option value="lossy">Lossy channel (heralded photon loss)</option>
                   </select>
                 </div>
+              </div>
+
+              <fieldset class="recipient-group">
+                <legend class="form-label">Recipient group <span class="cell-muted">(optional extension · default Bob + Charlie)</span></legend>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label" for="nVerifiers">Verifiers (N)</label>
+                    <select id="nVerifiers" class="form-select">
+                      <option value="2" selected>2 · Bob, Charlie</option>
+                      <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                      <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+                      <option value="9">9</option><option value="10">10</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="deliveryMode">Delivery</label>
+                    <select id="deliveryMode" class="form-select">
+                      <option value="direct" selected>Direct to all</option>
+                      <option value="chain">Forwarding chain</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="maxDepth">Max depth (H)</label>
+                    <select id="maxDepth" class="form-select" disabled><option value="1">1</option></select>
+                  </div>
+                </div>
+                <div class="form-row" id="forwarderControls" style="display:none;">
+                  <div class="form-group">
+                    <label class="form-label" for="dishonestVerifier">Dishonest forwarder</label>
+                    <select id="dishonestVerifier" class="form-select"></select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="forwardAlteration">Alteration</label>
+                    <select id="forwardAlteration" class="form-select">
+                      <option value="message" selected>Change the message</option>
+                      <option value="signature">Change the signature</option>
+                    </select>
+                  </div>
+                </div>
+                <p class="section-note" id="rosterNote">
+                  More pre-enrolled recipients can each check the same signed message against their own evidence. Adding recipients does not add security by itself, is not public verification and is not group approval. Collusion between recipients is not modelled. Extra recipients are shown here only; the Bob and Charlie terminals are unchanged.
+                </p>
+              </fieldset>
+              <div class="form-group" id="noiseParamGroup">
+                <label class="form-label" for="noiseParamRange"><span id="noiseParamName">depolarizing</span>: <span id="noiseParamLabel">0.010</span></label>
+                <input type="range" id="noiseParamRange" class="form-range" min="0" max="0.3" step="0.005" value="0.01">
               </div>
 
               <div id="readoutControls" class="form-row" style="display:none; background: rgba(56, 189, 248, 0.05); padding: 10px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.2); margin-bottom: 15px;">
@@ -177,7 +249,7 @@
                   <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 2. Eve Classical Forgery</span>
                   <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
                 </span>
-                <span class="threat-desc">Eve replaces the revealed signature with random guesses in transit.</span>
+                <span class="threat-desc">Eve replaces the revealed classical signature. Reject the forged package; quantum routes remain available. Use the R1 → R2 link controls below to test rerouting.</span>
               </button>
 
               <button type="button" class="threat-card" data-threat="dishonest_bob" aria-pressed="false">
@@ -193,7 +265,7 @@
                   <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 4. Eve MITM Channel Intercept</span>
                   <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
                 </span>
-                <span class="threat-desc">Eve intercept-resends every Bell half; verifiers estimate QBER from test tokens.</span>
+                <span class="threat-desc">Session-wide intercept on whichever route is chosen. Repeating it can affect both routes. For a fault only on R1 → R2, use the edge controls below.</span>
               </button>
 
               <button type="button" class="threat-card" data-threat="message_tampering" aria-pressed="false">
@@ -236,6 +308,45 @@
                 <span class="threat-desc">Eve selectively blocks tokens she measured poorly, exploiting channel loss / erasure.</span>
               </button>
 
+              <button type="button" class="threat-card" data-threat="dishonest_forwarder" data-needs-forwarder="1" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 10. Dishonest Forwarder</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">The selected verifier receives the genuine package, alters it, and forwards it to the next recipient.</span>
+              </button>
+
+              <button type="button" class="threat-card" data-threat="forward_withheld" data-needs-forwarder="1" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 11. Forwarder Withholds</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">The selected verifier accepts but never forwards. Recipients after it are not reached; this is not a forgery. Chain only.</span>
+              </button>
+
+              <button type="button" class="threat-card" data-threat="route_manipulation" data-needs-forwarder="1" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 12. Depth Manipulation</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">The selected verifier forwards the genuine package but claims a deeper level to get a looser rule. Chain only.</span>
+              </button>
+
+              <button type="button" class="threat-card" data-threat="forward_replay" data-needs-forwarder="1" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 13. Forward Replay</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">A recipient that has already verified a forwarded copy is sent the package again.</span>
+              </button>
+
+              <button type="button" class="threat-card" data-threat="unknown_forwarder" data-needs-forwarder="0" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 14. Unknown Forwarder</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">An identity that is not enrolled forwards the genuine package into the group.</span>
+              </button>
               <button type="button" class="threat-card" data-threat="eve_cloning" aria-pressed="false">
                 <span class="threat-header">
                   <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 10. Eve Quantum 1→2 Cloning</span>
@@ -250,6 +361,14 @@
                   <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
                 </span>
                 <span class="threat-desc">Eve intercepts a tuned fraction f ∈ [5%, 100%] of Bell halves, balancing QBER vs eavesdropping intelligence.</span>
+              </button>
+
+              <button type="button" class="threat-card" data-threat="eve_collective" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 12. Eve Ancilla Probe (Collective)</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">Eve entangles traveling qubits with an ancilla |0⟩ via controlled-Ry(θ), performing Helstrom measurement after basis announcement.</span>
               </button>
             </div>
 
@@ -274,10 +393,45 @@
               </div>
             </div>
 
+            <div id="collectiveControls" class="form-row" style="display:none; background: rgba(16, 185, 129, 0.07); padding: 12px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.25); margin-top: 15px; margin-bottom: 15px;">
+              <div class="form-group" style="flex: 1;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                  <label class="form-label" for="collectiveThetaRange" style="margin:0;">Ancilla probe angle (θ): <span id="collectiveThetaLabel" style="font-family:monospace; font-weight:600; color:var(--primary-ink, #0284c7);">0.785 rad (45.0°) [π/4]</span></label>
+                  <div style="display:flex; gap:6px;">
+                    <button type="button" class="btn-xs" style="padding:2px 8px; font-size:11px; border:1px solid rgba(16, 185, 129, 0.4); border-radius:4px; background:rgba(16, 185, 129, 0.15); cursor:pointer;" onclick="setThetaPreset(Math.PI/6, 'π/6')">π/6 (30°)</button>
+                    <button type="button" class="btn-xs" style="padding:2px 8px; font-size:11px; border:1px solid rgba(16, 185, 129, 0.4); border-radius:4px; background:rgba(16, 185, 129, 0.15); cursor:pointer;" onclick="setThetaPreset(Math.PI/4, 'π/4')">π/4 (45°)</button>
+                    <button type="button" class="btn-xs" style="padding:2px 8px; font-size:11px; border:1px solid rgba(16, 185, 129, 0.4); border-radius:4px; background:rgba(16, 185, 129, 0.15); cursor:pointer;" onclick="setThetaPreset(Math.PI/3, 'π/3')">π/3 (60°)</button>
+                    <button type="button" class="btn-xs" style="padding:2px 8px; font-size:11px; border:1px solid rgba(16, 185, 129, 0.4); border-radius:4px; background:rgba(16, 185, 129, 0.15); cursor:pointer;" onclick="setThetaPreset(Math.PI/2, 'π/2')">π/2 (90°)</button>
+                    <button type="button" class="btn-xs" style="padding:2px 8px; font-size:11px; border:1px solid rgba(16, 185, 129, 0.4); border-radius:4px; background:rgba(16, 185, 129, 0.15); cursor:pointer;" onclick="setThetaPreset(Math.PI, 'π')">π (180°)</button>
+                  </div>
+                </div>
+                <input type="range" id="collectiveThetaRange" class="form-range" min="0.5236" max="3.14159" step="0.001" value="0.7854">
+              </div>
+            </div>
+
             <div class="form-group" id="tamperedGroup" style="display:none; animation:slide-in 0.2s ease;">
               <label class="form-label" for="tamperedText">Adversary altered payload</label>
               <input type="text" id="tamperedText" class="form-input" value="MALICIOUS OVERRIDE: Shutdown core cooling pumps immediately!">
             </div>
+          </section>
+
+          <!-- Recipient matrix (N-verifier extension) -->
+          <section class="panel">
+            <div class="section-head">
+              <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-list"/></svg> Recipient matrix · latest session</h2>
+              <span class="brand-badge" id="sessionOutcomeBadge">—</span>
+            </div>
+            <p class="section-note" id="sessionSummary">No session yet.</p>
+            <div class="matrix-table-wrapper">
+              <table class="matrix-table" id="participantTable">
+                <thead><tr>
+                  <th>Verifier</th><th>Route role</th><th>Status</th><th>From</th><th>Depth</th>
+                  <th>Mismatches / checked ≤ limit</th><th>Reserve · stage</th><th>Assurance</th><th>Reason</th><th>History</th>
+                </tr></thead>
+                <tbody><tr><td colspan="10" class="cell-muted">—</td></tr></tbody>
+              </table>
+            </div>
+            <div id="eventHistory" class="subsection" hidden></div>
           </section>
 
           <!-- Recent dispatches -->
@@ -293,10 +447,9 @@
           </section>
 
           <!-- Links, topology, latency -->
-          <section class="panel">
+          <section class="panel" id="liveRoutingSection">
             <div class="section-head">
               <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-link"/></svg> Links &amp; router</h2>
-              <button type="button" class="nav-btn" id="btnResetLinks"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-rotate"/></svg> Reset links (reason required)</button>
             </div>
 
             <div class="link-panel">
@@ -305,18 +458,64 @@
 
             <div class="subsection">
               <div class="section-head">
-                <h3 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-network"/></svg> Simulated router · circuit-breaker state per hop</h3>
+                <h3 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-network"/></svg> Quantum routes · link-aware multi-hop</h3>
               </div>
+              <div class="routing-toolbar">
+                <label>Topology preset <select id="routingPreset" class="form-select"><option value="star">Legacy star</option><option value="demo-multihop">Multi-hop demo (R1/R2 + R3)</option></select></label>
+                <button type="button" class="nav-btn" id="activateTopology">Activate preset</button>
+                <label class="nav-btn">Load topology JSON<input id="topologyFile" type="file" accept=".json,application/json" hidden></label>
+                <button type="button" class="nav-btn" id="refreshRouting">Refresh routes</button>
+              </div>
+              <p class="section-note">Software simulation. Relays follow the protocol and forward Bell correction bits over an assumed authenticated classical channel. Quantum hop count is separate from classical signature forwarding depth. Each recipient receives separately prepared copies.</p>
+              <div class="routing-toolbar">
+                <label>View <select id="routeSession" class="form-select"><option value="live">Live topology</option></select></label>
+                <label>Recipient route <select id="routeRecipient" class="form-select"></select></label>
+                <label>Highlight <select id="routeHighlight" class="form-select"><option value="next">Next send · planned</option><option value="last">Last send · recorded</option></select></label>
+              </div>
+              <p id="routingGraphCaption" class="section-note" aria-live="polite"></p>
+              <details class="routing-details"><summary>Topology and session identifiers</summary><p id="routingIdentity" class="section-note"></p></details>
               <div class="topology-wrap">
                 <svg id="topologySvg" viewBox="0 0 460 190" role="img" aria-label="Router topology"></svg>
                 <div id="topologyLegend" class="topo-legend">
-                  <span><i class="up"></i>up</span>
-                  <span><i class="degraded"></i>degraded (watch)</span>
-                  <span><i class="probation"></i>probation</span>
-                  <span><i class="down"></i>down (quarantined)</span>
-                  <span><i class="classical"></i>classical link</span>
+                  <span><i class="up"></i>OPEN (unrestricted)</span>
+                  <span><i class="degraded"></i>WATCH</span>
+                  <span><i class="probation"></i>RESET_PENDING</span>
+                  <span><i class="down"></i>QUARANTINED</span>
+                  <span>Cyan halo = highlighted route · gray dashed = previous route · red dashed = quarantined link</span>
                 </div>
               </div>
+              <p id="routeDetail" class="section-note" aria-live="polite"></p>
+              <div id="routeAllocation" class="matrix-table-wrapper"></div>
+              <details class="routing-details"><summary>Candidate decisions · why this route?</summary><div id="routeCandidates" class="matrix-table-wrapper"></div></details>
+              <details class="routing-details"><summary>Directed state matrix · available connectivity</summary><div id="routeAdjacency" class="matrix-table-wrapper"></div></details>
+              <details class="routing-details"><summary>Route incidence matrix · allocated edges</summary><div id="routeIncidence" class="matrix-table-wrapper"></div></details>
+              <details class="routing-details"><summary>Execution · actual edge resources</summary><div id="routeExecution" class="matrix-table-wrapper"></div></details>
+              <details class="routing-details"><summary>Route history · fresh-session rerouting</summary><div id="routeHistory" class="matrix-table-wrapper"></div></details>
+              <fieldset class="routing-experiment">
+                <legend>Experimental ground truth · admin controls</legend>
+                <p class="section-note">An injected intercept changes only the simulated channel. Probe the edge to obtain independent detector evidence. Manual restrictions are labeled manual faults. A failed in-flight session aborts; start a fresh transmission to use an alternate route.</p>
+                <div class="routing-toolbar">
+                  <label>Edge <select id="routingEdge" class="form-select"></select></label>
+                  <label>Reason <input id="routingReason" class="form-input" placeholder="Demonstration / recovery reason" value="Controlled routing demonstration"></label>
+                  <button type="button" class="nav-btn" data-routing-action="attack">Inject intercept</button>
+                  <button type="button" class="nav-btn" data-routing-action="clear_attack">Remove intercept</button>
+                  <button type="button" class="nav-btn" data-routing-action="manual">Quarantine manually</button>
+                  <button type="button" class="nav-btn" id="watchRoutingEdge">Set WATCH manually</button>
+                  <button type="button" class="nav-btn" id="probeRoutingEdge">Probe selected edge</button>
+                  <button type="button" class="nav-btn" id="resetRoutingEdge">Reset edge to probation</button>
+                </div>
+                <p id="routingProbe" class="section-note" aria-live="polite"></p>
+                <div class="routing-toolbar">
+                  <button type="button" class="nav-btn" id="stopRouting">Emergency stop</button>
+                  <button type="button" class="nav-btn" id="resumeRouting">Clear emergency stop</button>
+                </div>
+                <details class="routing-details"><summary>Advanced recovery · only to reuse failed links</summary>
+                  <p class="section-note">Leave the failed edge quarantined to test alternate routing. Recovery is for restoring a restricted scope later; it is not a prerequisite for using R3.</p>
+                  <button type="button" class="nav-btn" id="btnResetLinks">Recover restricted scopes</button>
+                </details>
+              </fieldset>
+              <p id="routingMessage" class="section-note" role="status"></p>
+              <div id="routeRefusal" class="matrix-table-wrapper"></div>
             </div>
 
             <div class="subsection">
@@ -346,7 +545,8 @@
     </div>
   </div>
 
-  <script src="/static/js/common.js?v=2.3"></script>
-  <script src="/static/js/admin.js?v=2.5"></script>
+  <script src="/static/js/common.js?v=2.4"></script>
+  <script src="/static/js/routing.js?v=2"></script>
+  <script src="/static/js/admin.js?v=2.8"></script>
 </body>
 </html>

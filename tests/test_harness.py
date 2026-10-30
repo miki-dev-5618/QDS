@@ -37,6 +37,11 @@ def test_different_seed_changes_cell_seeds():
     assert harness.cell_seed(1, "authentic", 16, "depolarizing") != harness.cell_seed(1, "authentic", 32, "depolarizing")
 
 
+def test_every_scenario_has_an_expected_verdict():
+    # a new ThreatType without an EXPECTED entry would crash summarise_cell after the whole cell has run
+    assert set(harness.SCENARIOS) <= set(harness.EXPECTED)
+
+
 def test_cell_results_do_not_depend_on_grid_order(tmp_path):
     a, b = str(tmp_path / "a"), str(tmp_path / "b")
     harness.main(SMALL + ["--out", a])

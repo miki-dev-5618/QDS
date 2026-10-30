@@ -1,0 +1,23 @@
+{
+  "config": {
+    "argv": [
+      "--seed",
+      "2026",
+      "--out",
+      "E:\\2026-2\\sih 2026\\experiments\\results\\sweep_collective",
+      "--trials",
+      "3",
+      "--bits",
+      "16",
+      "--thetas",
+      "0",
+      "1.5708"
+    ],
+    "seed": 2026,
+    "trials": null,
+    "quick": true,
+    "script_sha256": "4b3173aa935372a259806294289424125050394d4aa406ca325349ab05ca34a6"
+  },
+  "seconds": 2.09,
+  "finished": "2026-10-30 18:04:16"
+}

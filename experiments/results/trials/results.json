@@ -1,0 +1,282 @@
+{
+  "meta": {
+    "trials": 5,
+    "bits": [
+      16
+    ],
+    "seed": 2026,
+    "backend": "statevector",
+    "depolarizing": 0.01,
+    "expected_honest_qber": 0.0067,
+    "lockout_trials": 3,
+    "lockout_runs": 3,
+    "generated": "2026-10-30 18:03:47"
+  },
+  "rows": [
+    {
+      "scenario": "authentic",
+      "n_bits": 16,
+      "trials": 5,
+      "flagged_as_threat": "0.000 [0.000, 0.434]",
+      "correct_class": "1.000 [0.566, 1.000]",
+      "abstained_undetermined": "0.000 [0.000, 0.434]",
+      "elimination_rejects": "0.000 [0.000, 0.434]",
+      "bob_accepts": "1.000 [0.566, 1.000]",
+      "charlie_accepts": "1.000 [0.566, 1.000]",
+      "response_watch": "0.000 [0.000, 0.434]",
+      "response_quarantine": "0.000 [0.000, 0.434]",
+      "early_abort": "0.000 [0.000, 0.434]",
+      "mean_tokens_saved_when_aborted": null,
+      "classes": {
+        "BENIGN_AUTHENTIC": 4,
+        "CHANNEL_NOISE": 1
+      },
+      "mean_abs_qber_error": 0.0099,
+      "detection_us_p50": 89.3,
+      "throughput_tx_per_s": 46.0
+    },
+    {
+      "scenario": "eve_forgery",
+      "n_bits": 16,
+      "trials": 5,
+      "flagged_as_threat": "1.000 [0.566, 1.000]",
+      "correct_class": "1.000 [0.566, 1.000]",
+      "abstained_undetermined": "0.000 [0.000, 0.434]",
+      "elimination_rejects": "1.000 [0.566, 1.000]",
+      "bob_accepts": "0.000 [0.000, 0.434]",
+      "charlie_accepts": "0.000 [0.000, 0.434]",
+      "response_watch": "0.000 [0.000, 0.434]",
+      "response_quarantine": "1.000 [0.566, 1.000]",
+      "early_abort": "0.000 [0.000, 0.434]",
+      "mean_tokens_saved_when_aborted": null,
+      "classes": {
+        "EXTERNAL_FORGERY": 5
+      },
+      "mean_abs_qber_error": 0.0131,
+      "detection_us_p50": 100.7,
+      "throughput_tx_per_s": 47.7
+    },
+    {
+      "scenario": "dishonest_bob",
+      "n_bits": 16,
+      "trials": 5,
+      "flagged_as_threat": "1.000 [0.566, 1.000]",
+      "correct_class": "1.000 [0.566, 1.000]",
+      "abstained_undetermined": "0.000 [0.000, 0.434]",
+      "elimination_rejects": "1.000 [0.566, 1.000]",
+      "bob_accepts": "0.000 [0.000, 0.434]",
+      "charlie_accepts": "0.000 [0.000, 0.434]",
+      "response_watch": "0.000 [0.000, 0.434]",
+      "response_quarantine": "1.000 [0.566, 1.000]",
+      "early_abort": "0.000 [0.000, 0.434]",
+      "mean_tokens_saved_when_aborted": null,
+      "classes": {
+        "DISHONEST_VERIFIER_FORGERY": 5
+      },
+      "mean_abs_qber_error": 0.0158,
+      "detection_us_p50": 69.3,
+      "throughput_tx_per_s": 47.5
+    },
+    {
+      "scenario": "eve_intercept",
+      "n_bits": 16,
+      "trials": 5,
+      "flagged_as_threat": "1.000 [0.566, 1.000]",
+      "correct_class": "1.000 [0.566, 1.000]",
+      "abstained_undetermined": "0.000 [0.000, 0.434]",
+      "elimination_rejects": "0.000 [0.000, 0.434]",
+      "bob_accepts": "0.000 [0.000, 0.434]",
+      "charlie_accepts": "0.000 [0.000, 0.434]",
+      "response_watch": "0.000 [0.000, 0.434]",
+      "response_quarantine": "1.000 [0.566, 1.000]",
+      "early_abort": "0.600 [0.231, 0.882]",
+      "mean_tokens_saved_when_aborted": 0.245,
+      "classes": {
+        "EAVESDROPPING_TAMPERING": 5
+      },
+      "mean_abs_qber_error": 0.0396,
+      "detection_us_p50": 71.2,
+      "throughput_tx_per_s": 46.2
+    },
+    {
+      "scenario": "message_tampering",
+      "n_bits": 16,
+      "trials": 5,
+      "flagged_as_threat": "1.000 [0.566, 1.000]",
+      "correct_class": "1.000 [0.566, 1.000]",
+      "abstained_undetermined": "0.000 [0.000, 0.434]",
+      "elimination_rejects": "0.000 [0.000, 0.434]",
+      "bob_accepts": "0.000 [0.000, 0.434]",
+      "charlie_accepts": "0.000 [0.000, 0.434]",
+      "response_watch": "0.000 [0.000, 0.434]",
+      "response_quarantine": "0.000 [0.000, 0.434]",
+      "early_abort": "0.000 [0.000, 0.434]",
+      "mean_tokens_saved_when_aborted": null,
+      "classes": {
+        "MESSAGE_INTEGRITY_VIOLATION": 5
+      },
+      "mean_abs_qber_error": 0.0099,
+      "detection_us_p50": 87.4,
+      "throughput_tx_per_s": 47.5
+    },
+    {
+      "scenario": "repudiation",
+      "n_bits": 16,
+      "trials": 5,
+      "flagged_as_threat": "0.800 [0.376, 0.964]",
+      "correct_class": "0.800 [0.376, 0.964]",
+      "abstained_undetermined": "0.000 [0.000, 0.434]",
+      "elimination_rejects": "0.800 [0.376, 0.964]",
+      "bob_accepts": "0.200 [0.036, 0.624]",
+      "charlie_accepts": "0.200 [0.036, 0.624]",
+      "response_watch": "0.200 [0.036, 0.624]",
+      "response_quarantine": "0.600 [0.231, 0.882]",
+      "early_abort": "0.000 [0.000, 0.434]",
+      "mean_tokens_saved_when_aborted": null,
+      "classes": {
+        "REPUDIATION_ATTEMPT": 4,
+        "BENIGN_AUTHENTIC": 1
+      },
+      "mean_abs_qber_error": 0.0099,
+      "detection_us_p50": 89.9,
+      "throughput_tx_per_s": 48.4
+    },
+    {
+      "scenario": "replay",
+      "n_bits": 16,
+      "trials": 5,
+      "flagged_as_threat": "1.000 [0.566, 1.000]",
+      "correct_class": "1.000 [0.566, 1.000]",
+      "abstained_undetermined": "0.000 [0.000, 0.434]",
+      "elimination_rejects": "0.400 [0.118, 0.769]",
+      "bob_accepts": "0.000 [0.000, 0.434]",
+      "charlie_accepts": "0.000 [0.000, 0.434]",
+      "response_watch": "0.000 [0.000, 0.434]",
+      "response_quarantine": "0.000 [0.000, 0.434]",
+      "early_abort": "0.000 [0.000, 0.434]",
+      "mean_tokens_saved_when_aborted": null,
+      "classes": {
+        "REPLAY_ATTACK": 5
+      },
+      "mean_abs_qber_error": null,
+      "detection_us_p50": 32.5,
+      "throughput_tx_per_s": 46.3
+    },
+    {
+      "scenario": "impersonation",
+      "n_bits": 16,
+      "trials": 5,
+      "flagged_as_threat": "1.000 [0.566, 1.000]",
+      "correct_class": "1.000 [0.566, 1.000]",
+      "abstained_undetermined": "0.000 [0.000, 0.434]",
+      "elimination_rejects": "0.000 [0.000, 0.434]",
+      "bob_accepts": "0.000 [0.000, 0.434]",
+      "charlie_accepts": "0.000 [0.000, 0.434]",
+      "response_watch": "0.000 [0.000, 0.434]",
+      "response_quarantine": "0.000 [0.000, 0.434]",
+      "early_abort": "0.000 [0.000, 0.434]",
+      "mean_tokens_saved_when_aborted": null,
+      "classes": {
+        "IMPERSONATION_ATTACK": 5
+      },
+      "mean_abs_qber_error": null,
+      "detection_us_p50": 31.4,
+      "throughput_tx_per_s": 1358.7
+    },
+    {
+      "scenario": "eve_loss_exploit",
+      "n_bits": 16,
+      "trials": 5,
+      "flagged_as_threat": "1.000 [0.566, 1.000]",
+      "correct_class": "1.000 [0.566, 1.000]",
+      "abstained_undetermined": "0.000 [0.000, 0.434]",
+      "elimination_rejects": "0.000 [0.000, 0.434]",
+      "bob_accepts": "0.000 [0.000, 0.434]",
+      "charlie_accepts": "0.000 [0.000, 0.434]",
+      "response_watch": "0.400 [0.118, 0.769]",
+      "response_quarantine": "0.600 [0.231, 0.882]",
+      "early_abort": "1.000 [0.566, 1.000]",
+      "mean_tokens_saved_when_aborted": 0.0,
+      "classes": {
+        "EAVESDROPPING_TAMPERING": 4,
+        "INSUFFICIENT_TOKENS": 1
+      },
+      "mean_abs_qber_error": 0.0454,
+      "detection_us_p50": 67.4,
+      "throughput_tx_per_s": 71.0
+    },
+    {
+      "scenario": "eve_cloning",
+      "n_bits": 16,
+      "trials": 5,
+      "flagged_as_threat": "1.000 [0.566, 1.000]",
+      "correct_class": "0.000 [0.000, 0.434]",
+      "abstained_undetermined": "0.000 [0.000, 0.434]",
+      "elimination_rejects": "0.200 [0.036, 0.624]",
+      "bob_accepts": "0.000 [0.000, 0.434]",
+      "charlie_accepts": "0.000 [0.000, 0.434]",
+      "response_watch": "0.000 [0.000, 0.434]",
+      "response_quarantine": "1.000 [0.566, 1.000]",
+      "early_abort": "0.800 [0.376, 0.964]",
+      "mean_tokens_saved_when_aborted": 0.367,
+      "classes": {
+        "EAVESDROPPING_TAMPERING": 4,
+        "EXTERNAL_FORGERY": 1
+      },
+      "mean_abs_qber_error": 0.0714,
+      "detection_us_p50": 84.9,
+      "throughput_tx_per_s": 17.4
+    },
+    {
+      "scenario": "eve_partial_intercept",
+      "n_bits": 16,
+      "trials": 5,
+      "flagged_as_threat": "0.000 [0.000, 0.434]",
+      "correct_class": "0.000 [0.000, 0.434]",
+      "abstained_undetermined": "0.000 [0.000, 0.434]",
+      "elimination_rejects": "0.000 [0.000, 0.434]",
+      "bob_accepts": "1.000 [0.566, 1.000]",
+      "charlie_accepts": "1.000 [0.566, 1.000]",
+      "response_watch": "0.000 [0.000, 0.434]",
+      "response_quarantine": "0.000 [0.000, 0.434]",
+      "early_abort": "0.000 [0.000, 0.434]",
+      "mean_tokens_saved_when_aborted": null,
+      "classes": {
+        "CHANNEL_NOISE": 5
+      },
+      "mean_abs_qber_error": 0.018,
+      "detection_us_p50": 93.6,
+      "throughput_tx_per_s": 47.3
+    },
+    {
+      "scenario": "eve_collective",
+      "n_bits": 16,
+      "trials": 5,
+      "flagged_as_threat": "0.000 [0.000, 0.434]",
+      "correct_class": "0.000 [0.000, 0.434]",
+      "abstained_undetermined": "0.000 [0.000, 0.434]",
+      "elimination_rejects": "0.000 [0.000, 0.434]",
+      "bob_accepts": "1.000 [0.566, 1.000]",
+      "charlie_accepts": "1.000 [0.566, 1.000]",
+      "response_watch": "0.000 [0.000, 0.434]",
+      "response_quarantine": "0.000 [0.000, 0.434]",
+      "early_abort": "0.000 [0.000, 0.434]",
+      "mean_tokens_saved_when_aborted": null,
+      "classes": {
+        "CHANNEL_NOISE": 4,
+        "BENIGN_AUTHENTIC": 1
+      },
+      "mean_abs_qber_error": 0.0254,
+      "detection_us_p50": 92.2,
+      "throughput_tx_per_s": 48.7
+    }
+  ],
+  "lockout": [
+    {
+      "n_bits": 16,
+      "trials": 3,
+      "runs_per_trial": 3,
+      "sequences_ever_quarantined": "0.000 [0.000, 0.562]"
+    }
+  ]
+}

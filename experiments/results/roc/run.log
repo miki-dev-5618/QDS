@@ -1,0 +1,6 @@
+Using depolarizing cells with 1000 trials each from E:\2026-2\sih 2026\experiments\results\harness\raw.jsonl
+Skipped (no runs in E:\2026-2\sih 2026\experiments\results\harness\raw.jsonl): cloning, partial_ir
+L=16  eve_forgery    AUC 0.9997 [0.9995, 0.9999]  (1000 attack / 1000 honest runs)  Hoeffding FPR 0.117 TPR 1.000  exact FPR 0.000 TPR 0.974
+L=16  eve_intercept  AUC 0.9997 [0.9995, 0.9999]  (1000 attack / 1000 honest runs)  Hoeffding FPR 0.117 TPR 1.000  exact FPR 0.000 TPR 0.992
+L=16  dishonest_bob  AUC 0.9804 [0.9758, 0.9858]  (1000 attack / 1000 honest runs)  Hoeffding FPR 0.117 TPR 0.854  exact FPR 0.000 TPR 0.816
+Wrote roc_auc.csv, roc_points.csv and 2 figures to E:\2026-2\sih 2026\experiments\results\roc

@@ -1,0 +1,24 @@
+{
+  "config": {
+    "argv": [
+      "--seed",
+      "2026",
+      "--out",
+      "E:\\2026-2\\sih 2026\\experiments\\results\\baselines",
+      "--bits",
+      "16",
+      "--trials",
+      "5",
+      "--seq-runs",
+      "2",
+      "--seq-length",
+      "10"
+    ],
+    "seed": 2026,
+    "trials": null,
+    "quick": true,
+    "script_sha256": "54bd389d3cf4a767fba96a88c267155b37d3356f0d5a97744164856b9b8a8574"
+  },
+  "seconds": 5.69,
+  "finished": "2026-10-30 18:04:39"
+}
