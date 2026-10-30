@@ -255,7 +255,7 @@
                   <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 4. Eve MITM Channel Intercept</span>
                   <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
                 </span>
-                <span class="threat-desc">Eve intercept-resends every Bell half; verifiers estimate QBER from test tokens.</span>
+                <span class="threat-desc">Session-wide intercept on whichever route is chosen. Repeating it can affect both routes. For a fault only on R1 → R2, use the edge controls below.</span>
               </button>
 
               <button type="button" class="threat-card" data-threat="message_tampering" aria-pressed="false">
@@ -380,7 +380,6 @@
           <section class="panel" id="liveRoutingSection">
             <div class="section-head">
               <h2 class="section-title"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-link"/></svg> Links &amp; router</h2>
-              <button type="button" class="nav-btn" id="btnResetLinks"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-rotate"/></svg> Reset links (reason required)</button>
             </div>
 
             <div class="link-panel">
@@ -440,6 +439,10 @@
                   <button type="button" class="nav-btn" id="stopRouting">Emergency stop</button>
                   <button type="button" class="nav-btn" id="resumeRouting">Clear emergency stop</button>
                 </div>
+                <details class="routing-details"><summary>Advanced recovery · only to reuse failed links</summary>
+                  <p class="section-note">Leave the failed edge quarantined to test alternate routing. Recovery is for restoring a restricted scope later; it is not a prerequisite for using R3.</p>
+                  <button type="button" class="nav-btn" id="btnResetLinks">Recover restricted scopes</button>
+                </details>
               </fieldset>
               <p id="routingMessage" class="section-note" role="status"></p>
               <div id="routeRefusal" class="matrix-table-wrapper"></div>

@@ -1,6 +1,7 @@
 """Issue 4: server-side sessions and authorisation, end to end through the API."""
 import importlib
 import os
+import numpy as np
 
 import pytest
 from fastapi.testclient import TestClient
@@ -139,8 +140,10 @@ def test_reset_requires_admin_but_no_reason(server):
 def test_quarantine_blocks_until_reset(server):
     admin = client(server, ADMIN)
     reset(admin)
-    r = send(admin, "eve_forgery", 64)
-    tx = r.json()["transmission"]
+    # A real channel alarm can restrict distribution; classical signature
+    # substitution alone must never create this signer-wide stop.
+    tx = server.qds_engine.execute_protocol("quantum channel test", 64, rng=np.random.default_rng(1),
+        channel=server.ChannelModel(depolarizing=0), scenario=server.ThreatScenarioConfig(threat_type=server.ThreatType.EVE_INTERCEPT)).to_dict()
     assert tx["enforcement"]["action"] == "link_quarantined"
     incident_id = tx["enforcement"]["incident_id"]
     inc = admin.get(f"/api/audit/{incident_id}").json()
@@ -151,7 +154,7 @@ def test_quarantine_blocks_until_reset(server):
     assert blocked.json()["detail"]["incident_id"] == incident_id and blocked.json()["refusal_us"] >= 0
     topo = admin.get("/api/topology").json()["router"]["hops"]
     assert topo["alice->QR-1"]["state"] == "down" and topo["alice->QR-1"]["dropped"] >= 1
-    body = reset(admin, "investigated test forgery").json()
+    body = reset(admin, "investigated channel disturbance").json()
     assert body["channel_state"]["alice->verifiers"]["state"] == "reset_pending"
     assert body["reset_record"]["chain_seq"] > inc["record"]["chain"]["seq"]
     ok = send(admin)
@@ -172,7 +175,8 @@ def test_audit_chain_verifies(server):
 def test_state_and_records_survive_restart(server):
     admin = client(server, ADMIN)
     reset(admin)
-    tx_id = send(admin, "eve_forgery", 64).json()["transmission"]["transmission_id"]
+    tx_id = server.qds_engine.execute_protocol("quantum channel persistence test", 64, rng=np.random.default_rng(1),
+        channel=server.ChannelModel(depolarizing=0), scenario=server.ThreatScenarioConfig(threat_type=server.ThreatType.EVE_INTERCEPT)).transmission_id
     restarted = importlib.reload(server)  # same HEDWIG_DB and key file
     admin = client(restarted, ADMIN)
     assert send(admin).status_code == 423  # quarantine persisted

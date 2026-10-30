@@ -84,3 +84,24 @@ def test_topology_validation_and_emergency_endpoints(routing_server):
     admin.post("/api/routing/emergency", json={"enabled": False, "reason": "restored"})
     assert admin.post("/api/topology", json={"preset": "star"}).status_code == 200
     assert admin.post("/api/sign-and-send", json=request).status_code == 200
+
+
+def test_preview_and_isolated_failover_test_preserve_active_network(routing_server):
+    server = routing_server
+    admin, bob = login(server, "admin"), login(server, "bob")
+    original = server.qds_engine.topology.digest
+    states = server.qds_engine.guard.to_dict()
+    assert bob.post("/api/routing/preview", json={}).status_code == 403
+    assert bob.post("/api/routing/demo").status_code == 403
+    preview = admin.post("/api/routing/preview", json={}).json()
+    assert preview["status"] == "ready" and preview["prepared_tokens"] == 0
+    assert len(server.store.route_history()) == 0
+    response = admin.post("/api/routing/demo")
+    assert response.status_code == 200
+    report = response.json()
+    assert report["status"] == "passed" and all(report["checks"].values())
+    assert server.qds_engine.topology.digest == original
+    assert server.qds_engine.guard.to_dict() == states
+    assert server.store.route_history() == []
+    assert admin.get(f"/api/audit/{report['test_id']}").status_code == 200
+    assert bob.get(f"/api/audit/{report['test_id']}").status_code == 403

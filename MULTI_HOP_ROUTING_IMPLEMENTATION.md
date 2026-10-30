@@ -6,6 +6,12 @@ The default topology remains the compatible `legacy-star/1`. The admin console c
 
 ## Try the requested demonstration
 
+The top of the admin page now shows **Last send** and **Next send**, along with the exact edge/path exclusions and the routing priority. The live graph can highlight the next planned route or the last recorded route; planned routes do not claim actual token traffic.
+
+For a repeatable check without changing the active network, click **Run isolated failover test**. This executes the real planner and teleportation backend in a separate in-memory test network: baseline through R1/R2, independent probe of an injected R1-to-R2 intercept, and a fresh send through R3. The report checks actual R3 traffic, zero new traffic on the failed edge, and that the primary remains quarantined with zero resets. The test has its own signed evidence and is separate from live-session history.
+
+**Classical Eve forgery is a package-rejection test.** It substitutes the revealed classical signature after distribution. Policy `hedwig-qcb/3` rejects that package without declaring a faulty quantum link or stopping Alice. A single, unambiguous old detector stop caused by `EXTERNAL_FORGERY` is corrected once with an audited policy transition; manual stops and mixed/other evidence are preserved. A genuine signer/emergency stop still affects every route. An old pooled channel stop in the legacy star is preserved and must be recovered before starting a new live demonstration. That initial cleanup is separate from rerouting around a newly blocked edge.
+
 1. Start the server normally, log in as Admin, and find **Links & router ? Quantum routes**.
 2. Select **Multi-hop demo (R1/R2 + R3)** and click **Activate preset**. Use Bob and Charlie (the demo additionally supports Dave and Erin).
 3. Send an authentic baseline. Its recorded routes use Alice ? R1 ? R2 ? each recipient.
@@ -55,6 +61,8 @@ Relays are assumed to follow the protocol. Classical correction/reveal/symmetris
 | `GET /api/topology` | Authenticated; topology, edge restriction state and independent monitoring freshness; experimental injections and full router data are admin-only |
 | `POST /api/topology` | Admin; activate `{preset: "demo-multihop"}` or `{topology: ...}` for future sessions |
 | `GET /api/routing/refusals` | Admin; persisted preflight refusals and rejected candidates |
+| `POST /api/routing/preview` | Admin; plan the current roster without preparing qubits or recording a session |
+| `POST /api/routing/demo` | Admin; repeatable isolated, signed failover proof; active network unchanged |
 | `GET /api/routing/history` | Authorized stored route plans and execution; recipient-filtered outside Admin |
 | `GET /api/sessions/{id}/routes` | Authorized historical topology, plan, decisions and execution |
 | `POST /api/routing/fault` | Admin; edge, reason and action `attack`, `clear_attack`, or `manual`; manual state `watch` or `quarantined` |

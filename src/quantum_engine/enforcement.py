@@ -3,7 +3,7 @@ Quantum Circuit Breaker (QCB): per-scope state machine and latency measurement.
 
 Units of isolation (scopes), each with its own independent state:
   * ``alice->verifiers`` - signer scope: signer/session-level findings that are
-    not quantum-channel faults (external forgery, repudiation). Quarantine
+    not quantum-channel faults (authenticated signer/repudiation evidence). Quarantine
     blocks the signer's distribution and reveal.
   * ``bob->charlie``     - pooled verifier-to-verifier classical forwarding.
   * ``edge:<digest>``   - one topology-specific quantum-distribution edge

@@ -290,14 +290,14 @@ HEDWIG includes 8 realistic threat simulation scenarios:
 | Attack Scenario | Injected Mechanism | Observable Evidence | System Verdict & Response |
 | :--- | :--- | :--- | :--- |
 | **`authentic`** | Honest transmission under typical depolarising channel noise ($p=0.01$). | $k \le \text{Threshold}$, Mismatches $\le \lfloor s_a n \rfloor$. | **ACCEPTED** (Link: `OPEN`) |
-| **`eve_forgery`** | Adversary replaces Alice's quantum signature with random states. | Massive elimination mismatches ($\approx 25\%$) + commitment mismatch. | **EXTERNAL_FORGERY** (Immediate `QUARANTINE`) |
+| **`eve_forgery`** | Adversary replaces Alice's revealed classical signature with random guesses. | Elimination mismatches ($\approx 25\%$) + commitment mismatch. | **EXTERNAL_FORGERY** (reject the package; quantum routes remain available) |
 | **`eve_intercept`** | Eve intercept-resends Bell qubits during teleportation. | Disclosed test tokens show elevated QBER ($\approx 25\%$). Early abort triggered. | **EAVESDROPPING_TAMPERING** (`QUARANTINE`) |
 | **`message_tampering`**| Classical message content modified in transit after signing. | Recomputed message digest $\neq$ committed context digest. | **MESSAGE_INTEGRITY_VIOLATION** (Reject; Link remains `OPEN`) |
 | **`repudiation`** | Dishonest Alice sends orthogonal states to Charlie to deny her signature. | Commitment holds, but signature contradicts distributed elimination states. | **REPUDIATION_ATTEMPT** (`QUARANTINE` / `WATCH`) |
 | **`replay`** | Adversary re-sends a previously accepted signature payload. | Session nonce found in consumed nonce replay registry. | **REPLAY_ATTACK** (Reject; Link remains `OPEN`) |
 | **`impersonation`** | Rogue party attempts verification without a valid distribution record. | Missing session distribution mapping in verifier memory. | **IMPERSONATION_ATTACK** (Reject; Link remains `OPEN`) |
 | **`dishonest_bob`** | Bob tampers with a signature and forwards it to Charlie. | Fails Charlie's forwarded threshold $s_v$ and commitment validation. | **DISHONEST_VERIFIER_FORGERY** (Quarantine `bob->charlie`) |
-| **`eve_loss_exploit`** | Eve intercepts tokens and selectively blocks/drops those where her measurement yielded poor results (disguising attacks as channel loss). | High loss rate; surviving tokens are tested with $n_{\text{surviving}}$. If $n_{\text{surviving}} < n_{\min}$, session halts with `INSUFFICIENT_TOKENS`. If Eve forwards counterfeit states, contradictions trigger `EXTERNAL_FORGERY`. | **INSUFFICIENT_TOKENS** (`WATCH`) or **EXTERNAL_FORGERY** (`QUARANTINE`) |
+| **`eve_loss_exploit`** | Eve intercepts and drops quantum tokens, then may substitute the revealed classical signature. | Channel tests and surviving evidence decide channel disturbance/loss. Classical signature substitution is checked separately. | Channel disturbance can restrict its path; `EXTERNAL_FORGERY` alone rejects only the package. |
 
 > **Fair-Sampling Assumption in QDS with Erasure:**
 > In lossy quantum channels, heralded token loss (erasure) is treated as benign physical attenuation rather than an active attack, provided the channel satisfies the *fair-sampling assumption* (loss occurs independently of token state or measurement basis). An adversary exploiting loss (`eve_loss_exploit`) attempts to bypass detection by discarding poorly-measured tokens. HEDWIG prevents this vulnerability by enforcing a minimum surviving token count $n_{\min}$ (e.g., $\ge 60\%$ of planned tokens); if surviving tokens drop below $n_{\min}$, the session aborts with `INSUFFICIENT_TOKENS` and places the link on `WATCH` rather than accepting compromised subsets.
@@ -447,13 +447,13 @@ To showcase the system during Hackathon presentations, follow this recommended w
 2. **Message Tampering Detection:**
    - On `/admin`, select `message_tampering` and enter modified text.
    - Show on `/bob` that the message digest mismatch is flagged instantly while quantum links remain `OPEN` (preventing denial-of-service lockout).
-3. **Quantum Forgery & Circuit Breaker Quarantine:**
+3. **Classical Forgery Rejection:**
    - On `/admin`, arm `eve_forgery` and submit.
-   - Show elimination table contradictions ($\approx 25\%$), immediate detection of `EXTERNAL_FORGERY`, and automatic transition to **QUARANTINED** (HTTP 423 block on subsequent sends).
+   - Show elimination contradictions and commitment failure. `EXTERNAL_FORGERY` rejects the forged package; an authentic next send remains possible. This supplies no evidence that a quantum edge failed.
 4. **Eavesdropping Intercept & Early Abort:**
-   - In Admin console, perform an administrative reset with reason `"Clearing test incident"`.
-   - Arm `eve_intercept` and submit.
-   - Highlight the **Sequential Early Abort** notice (*"Stream aborted after Block 2/4"*), demonstrating 39%+ token conservation under active cyber attack.
+   - For link-local failover, activate the multi-hop demo, send a baseline, inject and probe an intercept on `R1->R2`, then send fresh qubits. Keep that edge quarantined: the next route goes through R3 without resetting it.
+   - The top-of-page **Run isolated failover test** performs this sequence in a separate test network and shows actual traversal counts and zero resets. **Last send / Next send** explains the active network's route choice.
+   - The older `eve_intercept` card injects a session-wide attack on whichever route is chosen. Repeating that attack can affect both routes; it is not a single-edge fault.
 5. **Post-Quantum Audit Chain Verification:**
    - In the Admin console, click **Verify Audit Chain**.
    - Show that all transaction records, incidents, and administrative resets form a continuous, untampered SHA-256 hash chain with dual Ed25519 and ML-DSA-65 signatures.

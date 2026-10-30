@@ -62,7 +62,9 @@ function renderChannelBanner(channelState) {
       return `<div class="banner-quarantined">${icon('ban')}<span>SCOPE <strong>${escapeHtml(label)}</strong> QUARANTINED — ${escapeHtml(s.reason)} ` +
         `(${escapeHtml(s.transmission_id)}; incident ${escapeHtml(s.incident_id || '—')}; ` +
         `${s.purged_records} unaccepted record(s) purged). Operations requiring this scope are refused. ` +
-        `Fresh sessions can use eligible alternate quantum routes.</span></div>`;
+        `${['alice->verifiers', '*emergency-stop*'].includes(link) ? 'This is a shared signer/global stop: changing relays cannot bypass it.' :
+          link === 'bob->charlie' ? 'This stops classical verifier forwarding, not quantum distribution.' :
+          'Fresh sessions can use an eligible alternate quantum route without resetting this failed scope.'}</span></div>`;
     }
     if (s.state === 'watch') {
       const until = s.watch_until ? new Date(s.watch_until * 1000).toLocaleTimeString() : '—';

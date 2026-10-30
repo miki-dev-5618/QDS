@@ -70,7 +70,6 @@ function setArmedThreatUI(threatType) {
   const tamperedGroup = document.getElementById('tamperedGroup');
   if (tamperedGroup) tamperedGroup.style.display = threatType === 'message_tampering' ? 'block' : 'none';
   updateForwarderControls();
-  if (changed && typeof refreshRoutingPreview === 'function') refreshRoutingPreview();
   const badge = document.getElementById('activeThreatBadge');
   if (badge) {
     badge.textContent = threatType.toUpperCase();
@@ -109,6 +108,7 @@ function syncRecipientControls(changed) {
   const prev = dSel.value;
   dSel.innerHTML = eligible.map(v => `<option value="${v}"${v === prev ? ' selected' : ''}>${cap(v)}</option>`).join('');
   updateForwarderControls();
+  if (changed && typeof refreshRoutingPreview === 'function') refreshRoutingPreview();
 }
 
 function updateForwarderControls() {
@@ -427,7 +427,8 @@ function renderLinks(channelState) {
 async function resetLinks() {
   try {
     const { data } = await api('/api/channel/reset', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({reason: document.getElementById('routingReason')?.value || 'Admin recovery'})
     }, 'admin');
     renderLinks(data.channel_state);
     refreshTopology();
@@ -446,7 +447,10 @@ async function refreshTopology() {
   try {
     const { data } = await api('/api/topology', {}, 'admin');
     await renderRouting(data);
-  } catch (e) { /* informational */ }
+  } catch (e) {
+    const el = document.getElementById('nextRouteSummary');
+    if (el) el.textContent = `Could not load the routing preview: ${e.message}. Restart the server if it is running an older build.`;
+  }
 }
 
 function renderTopology(router) {

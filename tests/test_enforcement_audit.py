@@ -128,7 +128,7 @@ def test_transitions_are_logged_with_actor_and_policy(clock):
     last = g.transitions[-1]
     assert last["actor"] == "admin" and last["reason"] == "false positive check"
     assert last["old_state"] == "quarantined" and last["new_state"] == "reset_pending"
-    assert all(t["policy_version"] == "hedwig-qcb/2" for t in g.transitions)
+    assert all(t["policy_version"] == g.policy.version for t in g.transitions)
 
 
 def test_link_state_survives_restart(tmp_path, clock):

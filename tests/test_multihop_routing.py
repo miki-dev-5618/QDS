@@ -7,13 +7,14 @@ import numpy as np
 import pytest
 
 from src.quantum_engine import (AuditAuthority, ChannelModel, ChannelGuard, Store, TeleportationQDS,
-    ResponseDecision, verify_certificate, verify_chain)
+    ResponseDecision, ResponsePolicy, verify_certificate, verify_chain, ThreatScenarioConfig, ThreatType)
 from src.quantum_engine.enforcement import LINK_FORWARD, LINK_SIGNER, edge_scope, path_scope
 from src.quantum_engine.monitoring import probe_edges
 from src.quantum_engine.routing import allocate, RoutingPolicy, RouteUnavailable
 from src.quantum_engine.teleportation import (StatevectorTeleportationBackend, QiskitTeleportationBackend,
     TeleportJob, build_multihop_circuit)
 from src.quantum_engine.topology import Topology, TopologyError, route_model
+from src.quantum_engine.routing_demo import run_failover_demo
 
 
 def demo(**kwargs):
@@ -305,3 +306,52 @@ def test_duplicate_assessment_is_idempotent_and_emergency_is_explicit(tmp_path):
         guard.check_open(LINK_SIGNER)
     guard.emergency(False, "admin", "maintenance complete")
     guard.check_open(LINK_SIGNER)
+
+
+@pytest.mark.parametrize("topology", ["star", "demo-multihop"])
+def test_classical_eve_forgery_rejects_package_without_stopping_routes(topology):
+    engine = TeleportationQDS(backend="statevector", topology=topology, channel=ChannelModel(depolarizing=0))
+    result = engine.execute_protocol("classical forgery", 64, rng=np.random.default_rng(4),
+        scenario=ThreatScenarioConfig(threat_type=ThreatType.EVE_FORGERY))
+    assert result.threat_report.classification.value == "EXTERNAL_FORGERY"
+    assert result.response.verdict == "reject" and result.response.response_action == "none"
+    assert all(st["state"] == "open" for st in engine.guard.to_dict().values())
+    assert engine.preview_routes()["status"] == "ready"
+    assert engine.execute_protocol("honest next send", 32, rng=np.random.default_rng(5)).to_dict()["session_outcome"] == "all_accepted"
+
+
+def test_route_preview_explains_failover_without_preparing_or_resetting(monkeypatch, rng):
+    engine = demo()
+    before = engine.distribute("alice", "baseline", 32, rng)
+    fault(engine, "R1->R2")
+    monkeypatch.setattr(engine, "_prepare", lambda *a, **kw: pytest.fail("Preview prepared states"))
+    preview = engine.preview_routes()
+    assert preview["prepared_tokens"] == 0 and preview["status"] == "ready"
+    assert preview["plan"]["routes"]["bob"]["nodes"] == ["alice", "R3", "bob"]
+    assert any(c.get("edge") == "R1->R2" and c["state"] == "quarantined" for c in preview["plan"]["candidates"]["bob"]["rejected"])
+    assert engine.guard.state(edge_scope("R1->R2", engine.topology.digest)) == "quarantined"
+    assert len(engine.store.route_history()) == 1
+    assert before.route_plan.to_dict()["routes"]["bob"]["nodes"] == ["alice", "R1", "R2", "bob"]
+
+
+@pytest.mark.parametrize("backend", ["statevector", "qiskit"])
+def test_isolated_demo_proves_real_traffic_reroutes_while_failed_link_stays_down(backend):
+    report = run_failover_demo(backend)
+    assert report["status"] == "passed" and all(report["checks"].values())
+    assert report["blocked_edge_after_send"] == "quarantined" and report["reset_calls"] == 0
+    assert report["after"]["execution"]["edges"]["alice->R3"]["attempted"] > 0
+
+
+def test_old_single_classical_forgery_stop_is_corrected_once_but_other_stops_survive(tmp_path):
+    store = Store(str(tmp_path / "old-policy.db"))
+    old = ChannelGuard(policy=ResponsePolicy(version="hedwig-qcb/2"), store=store)
+    old.apply(LINK_SIGNER, ResponseDecision("reject", "quarantine", "strong", 1e-9,
+        "EXTERNAL_FORGERY: evidence from substituted revealed signature"), "old-classical-finding")
+    old.manual("edge:real-fault", "quarantined", "admin", "retain real fault")
+    corrected = ChannelGuard(store=store)
+    assert corrected.state(LINK_SIGNER) == "open"
+    assert corrected.state("edge:real-fault") == "quarantined"
+    assert len(corrected.policy_corrections) == 1
+    assert ChannelGuard(store=store).policy_corrections == []
+    corrected.manual(LINK_SIGNER, "quarantined", "admin", "Signer is suspended")
+    assert ChannelGuard(store=store).state(LINK_SIGNER) == "quarantined"

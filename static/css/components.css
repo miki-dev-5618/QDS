@@ -958,7 +958,7 @@
 .routing-toolbar .nav-btn { cursor: pointer; }
 .topology-wrap #topologySvg { max-width: 100%; }
 .topology-wrap { overflow-x: auto; }
-.routing-overview { border-top: 3px solid var(--primary); }
+.routing-overview { border-top: 3px solid var(--primary); grid-column: 1 / -1; }
 .route-comparison { border: 1px solid var(--line); border-radius: 8px; margin: 12px 0; padding: 14px; }
 .route-comparison h3 { font-size: 14px; margin: 0 0 10px; }
 .route-comparison .route-line { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 10px; margin: 8px 0; font-size: 13px; }
