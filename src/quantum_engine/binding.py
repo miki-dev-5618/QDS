@@ -34,6 +34,7 @@ from .canonical import canonical_json
 PROTOCOL_VERSION = "HEDWIG-QDS-v2.2"
 _DOMAIN = b"HEDWIG-QDS-v2|commitment|"
 _MESSAGE_DOMAIN = b"HEDWIG-QDS-v2|message|"
+_RESERVE_DOMAIN = b"HEDWIG-QDS-v2|reserve-commitment|"
 DIGEST_ALGORITHMS = {"sha256": hashlib.sha256, "sha3-512": hashlib.sha3_512}
 DEFAULT_DIGEST = "sha256"
 
@@ -96,6 +97,18 @@ def commitment(context: SignedContext, signature: List[Tuple[int, int]], blindin
     return h.hexdigest()
 
 
+def reserve_commitment(context: SignedContext, reserve: List[Tuple[int, int]], blinding: str) -> str:
+    """Commitment to the precommitted reserve positions (domain separated from the main commitment)."""
+    h = hashlib.sha256()
+    h.update(_RESERVE_DOMAIN)
+    h.update(context.canonical_bytes())
+    h.update(b"|")
+    h.update(encode_signature(reserve).encode("ascii"))
+    h.update(b"|")
+    h.update(bytes.fromhex(blinding))
+    return h.hexdigest()
+
+
 def new_blinding() -> str:
     return secrets.token_hex(32)
 
@@ -108,6 +121,13 @@ def digest_matches(message: str, context: SignedContext) -> bool:
         return False
 
 
+@dataclass(frozen=True)
+class ReserveOpening:
+    """The signer's opening of the precommitted reserve positions (sent only on a borderline request)."""
+    states: Tuple[Tuple[int, int], ...]
+    blinding: str
+
+
 @dataclass
 class SignedPackage:
     """Everything a verifier receives at reveal time (classical)."""
@@ -116,6 +136,7 @@ class SignedPackage:
     revealed_signature: List[Tuple[int, int]]
     blinding: str
     forwarded_by: Optional[str] = None
+    reserve: Optional[ReserveOpening] = None
 
     def copy(self, **changes) -> "SignedPackage":
         d = dict(
@@ -124,6 +145,7 @@ class SignedPackage:
             revealed_signature=list(self.revealed_signature),
             blinding=self.blinding,
             forwarded_by=self.forwarded_by,
+            reserve=self.reserve,
         )
         d.update(changes)
         return SignedPackage(**d)
@@ -134,4 +156,5 @@ class SignedPackage:
             "message": self.message,
             "revealed_signature": [list(s) for s in self.revealed_signature],
             "forwarded_by": self.forwarded_by,
+            "reserve_opened": self.reserve is not None,
         }

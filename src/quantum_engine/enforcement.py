@@ -61,9 +61,17 @@ class LinkState:
     refused: int = 0
     watch_evidence: List[float] = field(default_factory=list)   # p-values of weak alerts in the window
     combined_p: Optional[float] = None                          # Fisher combination of watch_evidence
+    scope_note: Optional[str] = None
+    reset_epoch: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "LinkState":
+        valid_keys = cls.__dataclass_fields__.keys()
+        filtered = {k: v for k, v in d.items() if k in valid_keys}
+        return cls(**filtered)
 
 
 class ChannelGuard:
@@ -80,7 +88,7 @@ class ChannelGuard:
             saved = store.get_json("links")
             if saved:
                 for name, d in saved.items():
-                    self.links[name] = LinkState(**d)
+                    self.links[name] = LinkState.from_dict(d)
         if router is not None:
             for name, st in self.links.items():
                 router.sync(name, st.state)
@@ -145,8 +153,7 @@ class ChannelGuard:
             combined = fisher_combined_p(evidence)
             strikes = len(evidence)
             escalate = (action == "quarantine" or cur.state == RESET_PENDING or
-                        (cur.state == WATCH and (combined <= self.policy.escalate_alpha
-                                                 or strikes >= self.policy.watch_strikes)))
+                        (cur.state == WATCH and self.policy.should_escalate(combined, strikes)))
             if escalate:
                 if cur.state == QUARANTINED:
                     return None

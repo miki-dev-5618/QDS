@@ -1,0 +1,10 @@
+L=16  honest p=0.005           v2.1 correct 1.000 [0.566, 1.000]  v2.2 correct 1.000 [0.566, 1.000]  undetermined 0.000 [0.000, 0.434]
+L=16  honest p=0.01            v2.1 correct 1.000 [0.566, 1.000]  v2.2 correct 1.000 [0.566, 1.000]  undetermined 0.000 [0.000, 0.434]
+L=16  honest p=0.03 (QBER=e0)  v2.1 correct 0.800 [0.376, 0.964]  v2.2 correct 0.800 [0.376, 0.964]  undetermined 0.200 [0.036, 0.624]
+L=16  honest + bursts          v2.1 correct 0.800 [0.376, 0.964]  v2.2 correct 0.800 [0.376, 0.964]  undetermined 0.000 [0.000, 0.434]
+L=16  intercept 25%            v2.1 correct 0.200 [0.036, 0.624]  v2.2 correct 0.400 [0.118, 0.769]  undetermined 0.000 [0.000, 0.434]
+L=16  intercept 50%            v2.1 correct 0.200 [0.036, 0.624]  v2.2 correct 0.400 [0.118, 0.769]  undetermined 0.400 [0.118, 0.769]
+L=16  intercept 100%           v2.1 correct 1.000 [0.566, 1.000]  v2.2 correct 1.000 [0.566, 1.000]  undetermined 0.000 [0.000, 0.434]
+L=16  dishonest signer         v2.1 correct 0.800 [0.376, 0.964]  v2.2 correct 0.800 [0.376, 0.964]  undetermined 0.000 [0.000, 0.434]
+
+Wrote E:\2026-2\sih 2026\experiments\results\sweep_tiers\sweep_tiers.md

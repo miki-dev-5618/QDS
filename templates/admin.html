@@ -24,6 +24,8 @@
         <div class="side-label">Other nodes</div>
         <a href="/bob" target="_blank" class="side-link"><span class="role-avatar bob" aria-hidden="true">β</span> Open Bob <svg class="icon icon-sm ext" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-external"/></svg></a>
         <a href="/charlie" target="_blank" class="side-link"><span class="role-avatar charlie" aria-hidden="true">γ</span> Open Charlie <svg class="icon icon-sm ext" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-external"/></svg></a>
+        <div class="side-label">Evidence</div>
+        <a href="/results" class="side-link"><svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-gauge"/></svg> Experiment results</a>
       </nav>
 
       <div class="sidebar-foot">
@@ -116,10 +118,19 @@
                 <div class="form-group">
                   <label class="form-label" for="noiseProfileSelect">Channel noise profile</label>
                   <select id="noiseProfileSelect" class="form-select">
-                    <option value="depolarizing" selected>Depolarizing Channel (Baseline)</option>
-                    <option value="readout">Readout (Measurement) Error</option>
+                    <option value="ideal">Ideal (noiseless)</option>
+                    <option value="depolarising_1pct" selected>Depolarising (1% baseline)</option>
+                    <option value="ibm_fake">IBM fake-backend noise (calibrated)</option>
+                    <option value="amp_damping">Amplitude damping</option>
+                    <option value="readout">Readout (measurement) error</option>
+                    <option value="lossy">Lossy channel (heralded photon loss)</option>
                   </select>
                 </div>
+              </div>
+
+              <div class="form-group" id="noiseParamGroup">
+                <label class="form-label" for="noiseParamRange"><span id="noiseParamName">depolarizing</span>: <span id="noiseParamLabel">0.010</span></label>
+                <input type="range" id="noiseParamRange" class="form-range" min="0" max="0.3" step="0.005" value="0.01">
               </div>
 
               <div id="readoutControls" class="form-row" style="display:none; background: rgba(56, 189, 248, 0.05); padding: 10px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.2); margin-bottom: 15px;">
@@ -235,6 +246,67 @@
                 </span>
                 <span class="threat-desc">Eve selectively blocks tokens she measured poorly, exploiting channel loss / erasure.</span>
               </button>
+
+              <button type="button" class="threat-card" data-threat="eve_cloning" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 10. Eve Quantum 1→2 Cloning</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">Eve taps tokens via 1→2 quantum cloner (Universal 5/6 or Phase-Covariant ~0.854), retaining clone 1.</span>
+              </button>
+
+              <button type="button" class="threat-card" data-threat="eve_partial_intercept" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 11. Eve Partial Intercept–Resend</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">Eve intercepts a tuned fraction f ∈ [5%, 100%] of Bell halves, balancing QBER vs eavesdropping intelligence.</span>
+              </button>
+
+              <button type="button" class="threat-card" data-threat="eve_collective" aria-pressed="false">
+                <span class="threat-header">
+                  <span class="threat-name"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-zap"/></svg> 12. Eve Ancilla Probe (Collective)</span>
+                  <span class="threat-check" aria-hidden="true"><svg class="icon" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-check"/></svg></span>
+                </span>
+                <span class="threat-desc">Eve entangles traveling qubits with an ancilla |0⟩ via controlled-Ry(θ), performing Helstrom measurement after basis announcement.</span>
+              </button>
+            </div>
+
+            <div id="cloningControls" class="form-row" style="display:none; background: rgba(168, 85, 247, 0.07); padding: 12px; border-radius: 6px; border: 1px solid rgba(168, 85, 247, 0.25); margin-top: 15px; margin-bottom: 15px;">
+              <div class="form-group" style="flex: 1.3;">
+                <label class="form-label" for="clonerTypeSelect">1→2 Quantum cloner</label>
+                <select id="clonerTypeSelect" class="form-select">
+                  <option value="universal" selected>Universal Symmetric (F = 5/6 ≈ 83.3%, Error ≈ 16.7%)</option>
+                  <option value="phase_covariant">Phase-Covariant BB84 (F ≈ 85.4%, Error ≈ 14.6% - Stealthier)</option>
+                </select>
+              </div>
+              <div class="form-group" style="flex: 0.9;">
+                <label class="form-label" for="cloningRateRange">Interception rate: <span id="cloningRateLabel">100%</span></label>
+                <input type="range" id="cloningRateRange" class="form-range" min="0.1" max="1.0" step="0.05" value="1.0">
+              </div>
+            </div>
+
+            <div id="partialInterceptControls" class="form-row" style="display:none; background: rgba(56, 189, 248, 0.07); padding: 12px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.25); margin-top: 15px; margin-bottom: 15px;">
+              <div class="form-group" style="flex: 1;">
+                <label class="form-label" for="partialInterceptRange">Intercept fraction (f): <span id="partialInterceptLabel">20%</span></label>
+                <input type="range" id="partialInterceptRange" class="form-range" min="0.05" max="1.0" step="0.05" value="0.20">
+              </div>
+            </div>
+
+            <div id="collectiveControls" class="form-row" style="display:none; background: rgba(16, 185, 129, 0.07); padding: 12px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.25); margin-top: 15px; margin-bottom: 15px;">
+              <div class="form-group" style="flex: 1;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                  <label class="form-label" for="collectiveThetaRange" style="margin:0;">Ancilla probe angle (θ): <span id="collectiveThetaLabel" style="font-family:monospace; font-weight:600; color:var(--primary-ink, #0284c7);">0.785 rad (45.0°) [π/4]</span></label>
+                  <div style="display:flex; gap:6px;">
+                    <button type="button" class="btn-xs" style="padding:2px 8px; font-size:11px; border:1px solid rgba(16, 185, 129, 0.4); border-radius:4px; background:rgba(16, 185, 129, 0.15); cursor:pointer;" onclick="setThetaPreset(Math.PI/6, 'π/6')">π/6 (30°)</button>
+                    <button type="button" class="btn-xs" style="padding:2px 8px; font-size:11px; border:1px solid rgba(16, 185, 129, 0.4); border-radius:4px; background:rgba(16, 185, 129, 0.15); cursor:pointer;" onclick="setThetaPreset(Math.PI/4, 'π/4')">π/4 (45°)</button>
+                    <button type="button" class="btn-xs" style="padding:2px 8px; font-size:11px; border:1px solid rgba(16, 185, 129, 0.4); border-radius:4px; background:rgba(16, 185, 129, 0.15); cursor:pointer;" onclick="setThetaPreset(Math.PI/3, 'π/3')">π/3 (60°)</button>
+                    <button type="button" class="btn-xs" style="padding:2px 8px; font-size:11px; border:1px solid rgba(16, 185, 129, 0.4); border-radius:4px; background:rgba(16, 185, 129, 0.15); cursor:pointer;" onclick="setThetaPreset(Math.PI/2, 'π/2')">π/2 (90°)</button>
+                    <button type="button" class="btn-xs" style="padding:2px 8px; font-size:11px; border:1px solid rgba(16, 185, 129, 0.4); border-radius:4px; background:rgba(16, 185, 129, 0.15); cursor:pointer;" onclick="setThetaPreset(Math.PI, 'π')">π (180°)</button>
+                  </div>
+                </div>
+                <input type="range" id="collectiveThetaRange" class="form-range" min="0.5236" max="3.14159" step="0.001" value="0.7854">
+              </div>
             </div>
 
             <div class="form-group" id="tamperedGroup" style="display:none; animation:slide-in 0.2s ease;">
@@ -310,6 +382,6 @@
   </div>
 
   <script src="/static/js/common.js?v=2.3"></script>
-  <script src="/static/js/admin.js?v=2.5"></script>
+  <script src="/static/js/admin.js?v=2.6"></script>
 </body>
 </html>

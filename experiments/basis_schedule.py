@@ -64,7 +64,7 @@ class ScheduleAwareEve:
         for s in stream:
             noise = str(rng.choice(["X", "Y", "Z"])) if rng.random() < self.dep else None
             if rng.random() < self.f:
-                basis = s.meas_basis if (schedule_public and s.kind == "sig") else int(rng.integers(0, 2))
+                basis = s.meas_basis if (schedule_public and s.kind in ("sig", "rsv")) else int(rng.integers(0, 2))
                 self.events.append((basis, noise))
             else:
                 self.events.append((None, noise))

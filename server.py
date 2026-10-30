@@ -1,4 +1,5 @@
 import asyncio
+import csv
 import json
 import os
 import sys
@@ -6,7 +7,7 @@ import time
 from typing import Any, Dict, List, Optional, Set
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect, status
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import numpy as np
@@ -33,6 +34,7 @@ from src.quantum_engine import (
     verify_certificate_report,
     verify_chain,
 )
+from src.quantum_engine import noise_profiles
 from src.quantum_engine.audit import strip_evidence
 from src.quantum_engine.enforcement import LINK_FORWARD, LINK_SIGNER
 
@@ -48,7 +50,8 @@ def _pq_setting() -> Optional[bool]:
 
 
 auth = Authenticator()
-store = Store(os.environ.get("HEDWIG_DB", os.path.join(CURRENT_DIR, "data", "hedwig.db")))
+db_url = os.environ.get("HEDWIG_DATABASE_URL")
+store = Store(db_url) if db_url else Store(os.environ.get("HEDWIG_DB", os.path.join(CURRENT_DIR, "data", "hedwig.db")))
 audit_authority = AuditAuthority(os.environ.get(
     "HEDWIG_AUDIT_KEY", os.path.join(CURRENT_DIR, "data", "audit_ed25519.pem")), pq=_pq_setting(), store=store)
 qds_engine = TeleportationQDS(backend=os.environ.get("HEDWIG_BACKEND", "qiskit"), store=store, audit=audit_authority)
@@ -198,6 +201,14 @@ class SignAndSendRequest(BaseModel):
     readout_p10: Optional[float] = 0.0
     readout_location: Optional[str] = "both"
     eta_loss: Optional[float] = 0.0
+    cloner_type: Optional[str] = "universal"
+    cloning_rate: Optional[float] = 1.0
+    partial_intercept_fraction: Optional[float] = 0.05
+    collective_theta: Optional[float] = None
+    noise_param: Optional[float] = None   # the selected profile's main parameter (see /api/noise-profiles)
+
+
+LEGACY_NOISE_PROFILES = (None, "depolarizing", "readout", "lossy")   # values the original fields already handled
 
 
 class ForwardRequest(BaseModel):
@@ -237,6 +248,58 @@ app.add_api_route("/bob", _page("bob", "bob.html"), methods=["GET"], response_cl
 app.add_api_route("/charlie", _page("charlie", "charlie.html"), methods=["GET"], response_class=HTMLResponse)
 
 
+# ------------------------------------------------------------- results page (D10)
+RESULTS_DIR = os.path.join(CURRENT_DIR, "experiments", "results")   # written by run_experiments.py
+RESULT_TABS = [  # (tab id, title, step folders under RESULTS_DIR)
+    ("roc", "ROC", ["roc"]),
+    ("ablations", "Ablations", ["ablate_adaptive", "ablate_early_abort", "ablate_escalation", "ablate_tiers"]),
+    ("baselines", "Baselines", ["baselines"]),
+    ("tightness", "Tightness", ["tightness", "sweep_collective"]),
+    ("hardware", "Hardware run", ["hardware"]),
+]
+MAX_TABLE_ROWS = 50
+
+
+def _results_section(step: str) -> Dict[str, Any]:
+    folder = os.path.join(RESULTS_DIR, step)
+    files = sorted(f for f in os.listdir(folder) if not f.startswith(".") and f != "run.log") \
+        if os.path.isdir(folder) else []
+    tables = []
+    for name in (f for f in files if f.endswith(".csv")):
+        with open(os.path.join(folder, name), newline="", encoding="utf-8") as fh:
+            rows = list(csv.reader(fh))
+        tables.append({"name": name, "header": rows[0] if rows else [], "rows": rows[1:MAX_TABLE_ROWS + 1],
+                       "more": max(0, len(rows) - 1 - MAX_TABLE_ROWS)})
+    return {"step": step, "files": files, "images": [f for f in files if f.endswith(".png")], "tables": tables}
+
+
+def _results_context() -> Dict[str, Any]:
+    try:
+        with open(os.path.join(RESULTS_DIR, "manifest.json"), encoding="utf-8") as fh:
+            manifest = json.load(fh)
+    except (OSError, ValueError):
+        manifest = None
+    tabs = [{"id": tid, "title": title, "sections": [_results_section(step) for step in steps]}
+            for tid, title, steps in RESULT_TABS]
+    return {"tabs": tabs, "manifest": manifest}
+
+
+@app.get("/results", response_class=HTMLResponse)
+async def results_page(request: Request):
+    if not any_session(request):
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse(request, "results.html", _results_context())
+
+
+@app.get("/results/files/{step}/{name}")
+async def results_file(step: str, name: str, session: Dict = Depends(require_any)):
+    root = os.path.realpath(RESULTS_DIR)
+    path = os.path.realpath(os.path.join(root, step, name))
+    if os.path.commonpath([root, path]) != root or not os.path.isfile(path):
+        raise HTTPException(404, "Not generated yet")
+    return FileResponse(path)
+
+
 # ------------------------------------------------------------- auth API
 @app.post("/api/login")
 async def api_login(req: LoginRequest, request: Request):
@@ -271,6 +334,7 @@ async def _run_and_publish(scenario: ThreatScenarioConfig, message: str, n_bits:
     result = await asyncio.to_thread(qds_engine.execute_protocol, message_text=message, n_bits=n_bits,
                                      sender=sender, scenario=scenario, channel=channel)
     tx = result.to_dict()
+    tx["noise"] = noise_profiles.describe_channel(channel or qds_engine.default_channel)
     state.record(tx)
     await manager.broadcast_transmission(tx)
     return tx
@@ -295,19 +359,34 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
         raise HTTPException(400, f"Unknown threat_type {req.threat_type}")
     sender = SIGNER_IDENTITY["admin"]   # from the authenticated session, never from the client
     n_bits = max(8, min(64, req.n_bits))
-    scenario = ThreatScenarioConfig(threat_type=t_type, tampered_message_text=req.tampered_text,
-                                    claimed_sender=sender)
+    scenario = ThreatScenarioConfig(
+        threat_type=t_type,
+        tampered_message_text=req.tampered_text,
+        claimed_sender=sender,
+        cloner_type=req.cloner_type or "universal",
+        cloning_rate=float(req.cloning_rate if req.cloning_rate is not None else 1.0),
+        partial_intercept_fraction=float(req.partial_intercept_fraction if req.partial_intercept_fraction is not None else 0.05),
+        collective_theta=float(req.collective_theta) if req.collective_theta is not None else (3.141592653589793 / 4),
+    )
 
-    # Optional channel noise configuration
+    # Optional channel noise configuration. Requests that use only the original fields keep their exact
+    # behaviour; a new profile name or a noise_param goes through the noise selector's profiles.
     channel = None
-    if req.noise_profile == "readout" or (req.readout_p01 and req.readout_p01 > 0) or (req.readout_p10 and req.readout_p10 > 0):
-        channel = make_readout_channel(
-            p01=req.readout_p01 or 0.0,
-            p10=req.readout_p10 or 0.0,
-            location=req.readout_location or "both",
-        )
-    elif req.noise_profile == "lossy" or (req.eta_loss and req.eta_loss > 0):
-        channel = make_lossy_channel(eta_loss=req.eta_loss or 0.1)
+    try:
+        profile = noise_profiles.canonical(req.noise_profile)
+        if req.noise_param is not None or req.noise_profile not in LEGACY_NOISE_PROFILES:
+            channel = noise_profiles.build_channel(profile, req.noise_param)
+    except noise_profiles.NoiseProfileError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
+    if channel is None:
+        if req.noise_profile == "readout" or (req.readout_p01 and req.readout_p01 > 0) or (req.readout_p10 and req.readout_p10 > 0):
+            channel = make_readout_channel(
+                p01=req.readout_p01 or 0.0,
+                p10=req.readout_p10 or 0.0,
+                location=req.readout_location or "both",
+            )
+        elif req.noise_profile == "lossy" or (req.eta_loss and req.eta_loss > 0):
+            channel = make_lossy_channel(eta_loss=req.eta_loss or 0.1)
 
     published = []
     async with engine_lock:
@@ -326,6 +405,13 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
         except ChannelQuarantined as q:
             return _refused(q, started_ns, {"transmissions": published})
     return {"status": "success", "transmission": published[-1], "transmissions": published, "stats": state.stats}
+
+
+@app.get("/api/noise-profiles")
+async def api_noise_profiles(session: Dict = Depends(require_any)):
+    """Profiles for the admin noise selector: availability, parameter range, and the server's default channel."""
+    return {"profiles": noise_profiles.catalogue(),
+            "default": noise_profiles.describe_channel(qds_engine.default_channel)}
 
 
 @app.post("/api/dishonest-bob-forward")
@@ -459,6 +545,7 @@ async def api_audit_verify(cert: Dict[str, Any]):
 async def api_audit_public_key():
     return {"keys": audit_authority.trusted_keys(), "public_key_pem": audit_authority.public_key_pem,
             "post_quantum": audit_authority.post_quantum, "pq_provider": pq_provider(),
+            "key_provider": audit_authority.provider.name,
             "note": "Ed25519 is classical. Certificates are post-quantum signed only when they also carry a "
                     "verifying ML-DSA-65 signature."}
 
@@ -475,7 +562,8 @@ async def api_metrics(session: Dict = Depends(require_role("admin"))):
     return {"latency": qds_engine.latency.to_dict(), "stats": state.stats,
             "channel_state": qds_engine.guard.to_dict(), "parameters": qds_engine.params.to_dict(),
             "policy": qds_engine.policy.to_dict(), "backend": qds_engine.backend.name,
-            "audit": {"post_quantum": audit_authority.post_quantum, "pq_provider": pq_provider()}}
+            "audit": {"post_quantum": audit_authority.post_quantum, "pq_provider": pq_provider(),
+                      "key_provider": audit_authority.provider.name}}
 
 
 @app.get("/api/security-events")

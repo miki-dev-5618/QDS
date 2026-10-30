@@ -7,6 +7,7 @@ channel, a dishonest party's own preparation, or a previously observed
 package. Scenario names never leave this module except as experiment ground
 truth attached after detection.
 """
+import math
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -31,6 +32,9 @@ class ThreatType(str, Enum):
     REPLAY = "replay"
     IMPERSONATION = "impersonation"
     EVE_LOSS_EXPLOIT = "eve_loss_exploit"
+    EVE_CLONING = "eve_cloning"
+    EVE_PARTIAL_INTERCEPT = "eve_partial_intercept"  # opt-in partial intercept-resend
+    EVE_COLLECTIVE = "eve_collective"                # one concrete ancilla-probe attack (B3)
 
 
 @dataclass
@@ -41,6 +45,10 @@ class ThreatScenarioConfig:
     claimed_sender: str = "alice"
     repudiation_tamper_ratio: float = 0.5
     loss_exploit_block_rate: float = 0.5
+    cloner_type: str = "universal"       # "universal" or "phase_covariant"
+    cloning_rate: float = 1.0            # fraction of tokens cloned by Eve
+    partial_intercept_fraction: float = 0.05  # fraction for EVE_PARTIAL_INTERCEPT in [0.05, 1.0]
+    collective_theta: float = math.pi / 4     # probe strength for EVE_COLLECTIVE in [0, pi]
 
 
 class NoPackageToReplay(Exception):
@@ -69,6 +77,60 @@ class EveLossExploitAdversary:
 
     def observe(self, sent, outcomes):
         pass
+
+
+# Composition of the background Pauli with the probe's phase flip (global phases dropped).
+_TIMES_Z = {None: "Z", "X": "Y", "Y": "X", "Z": None}
+
+
+def probe_flip_probability(theta: float, basis: int) -> float:
+    """P(token flipped in its own basis) after Eve's controlled-Ry(theta) probe; basis 0 = Z, 1 = X."""
+    return 0.0 if basis == 0 else (1.0 - math.cos(theta / 2.0)) / 2.0
+
+
+def probe_guess_probability(theta: float, basis: int) -> float:
+    """P(Eve guesses the token bit) from her ancilla alone (Helstrom), once the basis is announced."""
+    return (1.0 + math.sin(theta / 2.0)) / 2.0 if basis == 0 else 0.5
+
+
+class EveCollectiveAdversary:
+    """
+    ONE concrete collective (ancilla-probe) attack - not a proof against all collective attacks.
+
+    For every token Eve prepares an ancilla |0>, applies the same controlled-Ry(theta)
+    (token = control, ancilla = target), forwards the token and keeps the ancilla. After
+    the bases are announced she measures each ancilla individually (Helstrom measurement)
+    to guess the token's bit. She probes the travelling qubit; with the public
+    teleportation corrections this is equivalent to probing the token itself.
+
+    Effect on the token: Z-basis states are untouched; X-basis states lose coherence by a
+    factor cos(theta/2), i.e. a phase flip with probability (1 - cos(theta/2)) / 2. That
+    flip is composed with the channel's own noise event. Eve's information: Helstrom
+    success (1 + sin(theta/2)) / 2 on Z-basis tokens, 1/2 on X-basis tokens.
+    """
+
+    def __init__(self, theta: float, channel: ChannelModel):
+        if not 0.0 <= theta <= math.pi:
+            raise ValueError(f"collective_theta must be in [0, pi], got {theta!r}")
+        self.theta = theta
+        self.channel = channel
+        self.guess_correct: List[bool] = []   # one entry per signature copy that reached the verifiers
+
+    def tap(self, stream, schedule_public, rng):
+        events = []
+        for (eve_basis, noise), s in zip(self.channel.sample_events(len(stream), rng), stream):
+            if rng.random() < probe_flip_probability(self.theta, s.basis):
+                noise = _TIMES_Z[noise]
+            events.append((eve_basis, noise))
+        self._guesses = [rng.random() < probe_guess_probability(self.theta, s.basis) for s in stream]
+        return events
+
+    def observe(self, sent, outcomes):
+        self.guess_correct = [g for s, g in zip(sent, self._guesses) if s.kind == "sig"]
+
+    @property
+    def guess_accuracy(self) -> float:
+        return sum(self.guess_correct) / len(self.guess_correct) if self.guess_correct else float("nan")
 
 
 class ThreatSuite:
@@ -141,6 +203,12 @@ class ThreatSuite:
             tapped = ChannelModel(depolarizing=channel.depolarizing, intercept_rate=scenario.channel_intercept_rate)
             return engine.transmit(sender, message, n_bits, rng, tapped)
 
+        if t == ThreatType.EVE_PARTIAL_INTERCEPT:
+            return cls._eve_partial_intercept(engine, scenario, message, n_bits, sender, rng, channel)
+
+        if t == ThreatType.EVE_COLLECTIVE:
+            return cls.eve_collective(engine, scenario.collective_theta, message, n_bits, sender, rng, channel)[0]
+
         if t == ThreatType.REPUDIATION:
             session = engine.distribute(sender, message, n_bits, rng, channel,
                                         prepare_copies=cls.asymmetric_preparation(scenario.repudiation_tamper_ratio))
@@ -186,6 +254,38 @@ class ThreatSuite:
             return cls._delivered(engine, package, n_bits, session,
                                   notes=["Eve intercepted and blocked poorly measured tokens exploiting loss."])
 
+        if t == ThreatType.EVE_CLONING:
+            from .cloning import simulate_eve_cloning_step
+            # Eve clones tokens with specified cloner
+            cloning_ch = ChannelModel(
+                depolarizing=channel.depolarizing,
+                noise_profile="cloning",
+                cloner_type=scenario.cloner_type,
+                cloning_rate=scenario.cloning_rate,
+            )
+            session = engine.distribute(sender, message, n_bits, rng, cloning_ch)
+            package = engine.reveal(session)
+
+            # Eve uses her measurements on Clone 1 to build a counterfeit signature.
+            # For each position in signature, Eve measured her retained clone.
+            # With probability = cloner fidelity when basis matches, her measurement matches Alice's bit.
+            # When Eve's basis doesn't match Alice's, outcome is random (50%).
+            # Overall accuracy on Alice's bit: 1/2 * F + 1/2 * 0.5.
+            eve_forged_sig = []
+            for b, ba in session.signature:
+                eve_basis = int(rng.integers(0, 2))
+                # Eve measures her clone
+                step = simulate_eve_cloning_step(b, ba, meas_basis_receiver=ba,
+                                                cloner_type=scenario.cloner_type, rng=rng)
+                eve_guess_bit = step["eve_outcome"]
+                eve_forged_sig.append((eve_guess_bit, eve_basis))
+
+            # Eve attempts forgery using her measured clone information
+            forged_package = package.copy(revealed_signature=eve_forged_sig)
+            tr = cls._delivered(engine, forged_package, n_bits, session,
+                                notes=[f"Eve cloned tokens using {scenario.cloner_type} cloner and attempted signature forgery."])
+            return tr
+
         if t == ThreatType.DISHONEST_BOB:
             session = engine.distribute(sender, message, n_bits, rng, channel)
             tr = cls.dishonest_bob_forward(
@@ -196,6 +296,64 @@ class ThreatSuite:
 
         raise ValueError(f"Unknown scenario {t}")
 
+    # ------------------------------------------------ partial intercept-resend
+    @staticmethod
+    def _eve_partial_intercept(
+        engine,
+        scenario: "ThreatScenarioConfig",
+        message: str,
+        n_bits: int,
+        sender: str,
+        rng: np.random.Generator,
+        channel: Optional[ChannelModel],
+    ) -> "Transcript":
+        """
+        Opt-in partial intercept-resend attack.
+
+        Eve independently intercepts each transmitted token with probability *f*
+        (per-token Bernoulli sampling), measures it in a randomly chosen basis,
+        and resends the post-measurement state.  Non-intercepted tokens pass
+        through untouched.
+
+        The realised interception count is Binomial(n_stream, f) — it fluctuates
+        around f * n_stream.  The configured fraction *f* is reported as the
+        information-gain proxy (not a mutual-information calculation).
+
+        When f = 1.0, every token is intercepted; this is mathematically
+        equivalent to EVE_INTERCEPT with channel_intercept_rate = 1.0 when the
+        background depolarizing rate is the same.
+
+        Parameters
+        ----------
+        scenario.partial_intercept_fraction : float
+            Must be in [0.05, 1.0] (inclusive).  Values outside this range
+            raise ValueError.
+        """
+        f = scenario.partial_intercept_fraction
+        if not isinstance(f, (int, float)):
+            raise TypeError(
+                f"partial_intercept_fraction must be a float in [0.05, 1.0], got {type(f).__name__!r}"
+            )
+        f = float(f)
+        if f < 0.05 or f > 1.0:
+            raise ValueError(
+                f"partial_intercept_fraction must be in [0.05, 1.0], got {f!r}"
+            )
+        tapped = ChannelModel(
+            depolarizing=channel.depolarizing,
+            intercept_rate=f,
+        )
+        return engine.transmit(sender, message, n_bits, rng, tapped)
+
+    @classmethod
+    def eve_collective(cls, engine, theta: float, message: str, n_bits: int, sender: str,
+                       rng: np.random.Generator, channel: ChannelModel) -> Tuple[Transcript, EveCollectiveAdversary]:
+        """Honest signer, every token probed by EveCollectiveAdversary. Returns the transcript and Eve's record."""
+        eve = EveCollectiveAdversary(theta, channel)
+        session = engine.distribute(sender, message, n_bits, rng, channel, adversary=eve)
+        return cls._delivered(engine, engine.reveal(session), n_bits, session,
+                              notes=[f"Eve probed every token with controlled-Ry(theta={theta:.3f})."]), eve
+
     @staticmethod
     def _delivered(engine, package, n_bits, session, notes=None) -> Transcript:
         if session is not None and session.aborted:
@@ -204,7 +362,7 @@ class ThreatSuite:
                               display={}, session=session, channel_test=session.channel_test,
                               channel_model=session.channel_model,
                               notes=list(notes or []) + ["Channel test alarm: signature never revealed."])
-        results = engine.deliver(package)
+        results = engine.deliver(package, session=session)
         return Transcript(kind="direct", link=LINK_SIGNER, n_bits=n_bits, package=package, results=results,
                           display={r.verifier: r for r in results}, session=session,
                           channel_test=session.channel_test if session else None,
