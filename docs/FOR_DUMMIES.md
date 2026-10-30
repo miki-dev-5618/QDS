@@ -130,6 +130,7 @@ sequenceDiagram
 | **SQLite 3** | Lightweight relational database | Stores transmission logs, circuit breaker state transitions, and audit chains in `data/hedwig.db`. |
 | **Cryptography (Ed25519)** | Classical public-key signature library | Signs audit records and certificates with fast, established digital signatures. |
 | **dilithium-py (ML-DSA-65)** | NIST Post-Quantum signature standard | Dual-signs audit records so receipts remain secure even against future quantum computers. |
+| **SoftHSM2 / PKCS#11** | Hardware Security Module abstraction | Allows storing audit signing keys inside a secure software/hardware cryptographic vault. |
 | **Vanilla HTML/CSS/JS** | Web frontend interface | Clean, responsive dark-mode cyber console with zero heavy external node/npm build dependencies. |
 
 ---
@@ -218,6 +219,7 @@ sih 2026/
 | **9. Eve Loss Exploit** | Eve intercepts tokens and drops any that she disturbs. | A thief who steals letters and burns any with ink smudges. | Loss rate monitor detects an abnormal drop in received tokens. |
 | **10. Eve Cloning** | Eve passes qubits through a theoretical Quantum Cloning Machine. | Trying to duplicate a high-security watermark on a home copier. | The No-Cloning Theorem limits cloner fidelity ($\le 83.33\%$). Caught by fidelity bounds! |
 | **11. Partial Intercept** | Eve only intercepts 5% of tokens to try to fly under the radar. | A spy inspecting only 1 out of every 20 letters. | **Sequential Early Abort** catches the cumulative errors across blocks and escalates to quarantine. |
+| **12. Collective Attack** | Eve entangles an extra helper qubit (ancilla) to every token and measures them later. | A wiretapper recording vibrations on a wire to analyze after the codebook is disclosed. | Disturbs quantum phase and elevates test-token QBER during basis comparison. Caught by Tier 1. |
 
 ---
 
@@ -298,6 +300,7 @@ cd "e:\2026-2\sih 2026"
 pip install -r requirements.txt
 pip install -r requirements-pq.txt
 pip install -r requirements-dev.txt
+pip install -r requirements-hsm.txt   # (Optional) For Hardware Security Module support
 ```
 
 ### Step 5: Start the Server

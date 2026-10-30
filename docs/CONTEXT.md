@@ -1,4 +1,4 @@
-﻿# HEDWIG — AI Context Document
+# HEDWIG — AI Context Document
 
 > **For AI coding sessions.** Read this before making any change. Then read the
 > actual source file(s) relevant to your task before editing anything.
@@ -37,14 +37,17 @@ No real quantum hardware is involved.
 | Tier 1 channel test + sequential early abort | `src/quantum_engine/channel.py` |
 | Tier 2 blind disturbance-pattern attribution | `src/quantum_engine/discriminator.py` |
 | Adaptive test-token allocation (C2) | `src/quantum_engine/security.py`, `thresholds.py` |
+| Exact binomial threshold calculations (C1) | `src/quantum_engine/thresholds.py`, `verifier.py` |
 | Precommitted reserve evidence stage | `src/quantum_engine/binding.py`, `verifier.py` |
 | 11 simulated attack injectors (ThreatSuite) | `src/quantum_engine/threats.py` |
 | Quantum Circuit Breaker (OPEN/WATCH/QUARANTINED/RESET_PENDING) | `src/quantum_engine/enforcement.py` |
 | Fisher combined p-value escalation | `src/quantum_engine/policy.py` |
 | Hybrid Ed25519 + ML-DSA-65 Q-Cert audit ledger | `src/quantum_engine/audit.py`, `signers.py` |
+| Key providers (software PEM/JSON & SoftHSM2 PKCS#11) | `src/quantum_engine/key_provider.py`, `audit.py` |
 | SHA-256 hash-chained audit records | `src/quantum_engine/audit.py`, `store.py` |
 | SQLite persistence (circuit-breaker state, nonces, audit chain) | `src/quantum_engine/store.py` |
 | FastAPI web UI with role-based sessions and WebSocket broadcast | `server.py`, `auth.py` |
+| Docker Compose deployment & Locust load testing harness | `Dockerfile`, `docker-compose.yml`, `locustfile.py` |
 
 ---
 
@@ -380,6 +383,10 @@ Top-level result of one protocol run. `to_dict()` produces the transmission JSON
 | `HEDWIG_DB` | `data/hedwig.db` | SQLite database path |
 | `HEDWIG_AUDIT_KEY` | `data/audit_ed25519.pem` | Ed25519 private key path |
 | `HEDWIG_AUDIT_PQ` | `auto` | ML-DSA-65 mode: `auto`, `require`, `off` |
+| `HEDWIG_KEY_PROVIDER` | `software` | Key provider: `software` (file-backed) or `softhsm` (PKCS#11) |
+| `HEDWIG_PKCS11_LIB` | (none) | Path to SoftHSM2/PKCS#11 DLL/so |
+| `HEDWIG_PKCS11_TOKEN` | `hedwig` | SoftHSM2 token label |
+| `HEDWIG_PKCS11_PIN` | (none) | User PIN for SoftHSM2 token |
 | `HEDWIG_USERS_FILE` | (none) | Path to hashed credentials JSON |
 | `EARLY_ABORT` | `on` | Sequential early abort toggle: `on`/`off`/`true`/`false` |
 | `DETECTION_TIERS` | `2` | Detection depth: `1` or `2` |
@@ -419,6 +426,7 @@ Top-level result of one protocol run. `to_dict()` produces the transmission JSON
 | `GET` | `/api/audit-public-key` | None | Active and retired public keys |
 | `POST` | `/api/audit/rotate-key` | admin | Rotates Ed25519 audit key |
 | `GET` | `/api/metrics` | admin | Latency, stats, QCB state, parameters |
+| `GET` | `/results` | any | Experiment results page (ROC, ablations, baselines) |
 | `GET` | `/api/security-events` | admin | Last 100 security events |
 | `WS` | `/ws/{role}` | role cookie | Full-duplex broadcast stream |
 

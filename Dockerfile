@@ -25,8 +25,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
  
 # --- dependencies (cached layer) --------------------------------------------
-COPY requirements.txt ./
-RUN pip install -r requirements.txt
+COPY requirements.txt requirements-pq.txt ./
+ARG INSTALL_PQ=true
+RUN pip install -r requirements.txt \
+    && if [ "$INSTALL_PQ" = "true" ]; then pip install -r requirements-pq.txt; fi
+# cached layer
  
 # --- application ------------------------------------------------------------
 COPY . .

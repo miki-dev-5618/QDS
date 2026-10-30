@@ -12,3 +12,8 @@ data/
 .env
 Dockerfile
 docker-compose.yml
+compose.yaml
+docker-compose.override.yml
+experiments/results/
+tests/
+*.md

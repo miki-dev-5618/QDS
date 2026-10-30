@@ -97,7 +97,7 @@ graph TD
 - **Quantum Simulation:** `qiskit` (2.5.2), `qiskit-aer` (0.17.2), `numpy` (2.3.2)
 - **Backend API & Web Server:** `fastapi` (0.115.0), `uvicorn` (0.30.6), `websockets` (16.0), `jinja2` (3.1.6)
 - **Classical & Post-Quantum Cryptography:** `cryptography` (48.0.0), `dilithium-py` (1.4.0, NIST FIPS 204 ML-DSA-65)
-- **Persistence & Auditing:** SQLite 3 (`sqlite3` standard library), Ed25519 PEM keys, JSON-canonical hash chains
+- **Persistence & Auditing:** SQLite 3 (`sqlite3` standard library), Ed25519 PEM keys, SoftHSM2 (PKCS#11 token support), JSON-canonical hash chains
 - **Testing & Quality Assurance:** `pytest` (24 automated test suites)
 - **Experiments & Benchmarking:** Multiprocessing trial harnesses with seeded RNGs, Wilson score intervals, and ROC curves
 
@@ -197,6 +197,10 @@ graph TD
    - Development & test dependencies:
      ```bash
      pip install -r requirements-dev.txt
+```
+   - *(Optional) SoftHSM2 / PKCS#11 token dependencies:*
+     ```bash
+     pip install -r requirements-hsm.txt
      ```
 
 4. **Run the Application:**
@@ -208,6 +212,32 @@ graph TD
    run_v2.bat
    ```
    Open your browser to: **`http://localhost:8000`**
+
+### 5.4 Docker & Docker Compose Deployment (Optional)
+To deploy the application stack using Docker:
+- **Full Bundle (App + PostgreSQL 15):**
+  ```bash
+  docker compose up --build
+  ```
+- **Single Container (App with SQLite persistence):**
+  ```bash
+  docker build -t hedwig .
+  docker run -p 8000:8000 -v hedwig_data:/app/data hedwig
+  ```
+The image runs securely as non-root (`uid: 10001`), packages post-quantum signatures (`dilithium-py`), and includes automatic HTTP container healthchecks on `/health`.
+
+### 5.3 Hardware Security Module / SoftHSM2 (Optional)
+By default (`HEDWIG_KEY_PROVIDER=software`), Ed25519 and ML-DSA-65 keys reside in `data/`. For PKCS#11 hardware token or software emulator (SoftHSM2) signing:
+1. Initialize a token: `softhsm2-util --init-token --free --label hedwig`
+2. Run with environment variables set:
+   ```bash
+   export HEDWIG_KEY_PROVIDER=softhsm
+   export HEDWIG_PKCS11_LIB=/path/to/libsofthsm2.so   # on Windows: softhsm2.dll
+   export HEDWIG_PKCS11_TOKEN=hedwig
+   export HEDWIG_PKCS11_PIN=<your_token_pin>
+   python server.py
+   ```
+3. Key rotation is supported via `POST /api/audit/rotate-key` or `AuditAuthority.rotate()`. Retired public keys remain verifiable via `GET /api/audit-public-key`.
 
 ---
 
@@ -260,6 +290,10 @@ HEDWIG implements **11 simulated threat scenarios** executed via `src/quantum_en
 | `HEDWIG_DB` | `data/hedwig.db` | Path | SQLite persistent database path |
 | `HEDWIG_AUDIT_KEY` | `data/audit_ed25519.pem` | Path | Ed25519 audit authority private key path |
 | `HEDWIG_AUDIT_PQ` | `auto` | `auto`, `require`, `off` | Enforce ML-DSA-65 post-quantum dual signing |
+| `HEDWIG_KEY_PROVIDER` | `software` | `software`, `softhsm` | Audit key provider backend (file vs. PKCS#11 SoftHSM2) |
+| `HEDWIG_PKCS11_LIB` | None | Path | Dynamic library path to PKCS#11 module (.dll / .so) |
+| `HEDWIG_PKCS11_TOKEN`| `hedwig` | String | Token label for SoftHSM2 PKCS#11 token |
+| `HEDWIG_PKCS11_PIN`  | None | String | User PIN for SoftHSM2 PKCS#11 token |
 | `HEDWIG_USERS_FILE` | None | Path to JSON | PBKDF2 hashed credentials file path |
 | `EARLY_ABORT` | `on` | `on`, `off`, `true`, `false` | Enable/disable sequential early abort |
 | `DETECTION_TIERS` | `2` | `1`, `2` | Detection tier depth (ablation toggle) |
