@@ -29,12 +29,31 @@ function handleMessage(msg) {
   }
 }
 
+function formatNoise(noise) {
+  if (!noise) return '—';
+  const params = Object.entries(noise.params || {})
+    .filter(([, val]) => val !== null && val !== undefined)
+    .map(([k, val]) => `${k}=${typeof val === 'number' ? Number(val.toFixed(4)) : val}`);
+  return params.length ? `${noise.label} (${params.join(', ')})` : noise.label;
+}
+
+function renderNoise(tx, v) {
+  const noiseEl = document.getElementById('noiseVal');
+  if (noiseEl) noiseEl.textContent = formatNoise(tx.noise);
+  const rateEl = document.getElementById('mismatchRateVal');
+  if (rateEl) {
+    rateEl.textContent = (v && v.total_checked)
+      ? `${(100 * v.mismatches / v.total_checked).toFixed(1)}% (${v.mismatches}/${v.total_checked})` : '—';
+  }
+}
+
 function renderTransmission(tx) {
   if (tx.enforcement) renderChannelBanner(tx.enforcement.channel_state);
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('activeContent').style.display = 'block';
 
   const v = tx[ROLE];
+  renderNoise(tx, v);
   const report = tx.threat_report;
   const banner = document.getElementById('verdictBanner');
 
