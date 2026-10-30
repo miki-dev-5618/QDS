@@ -68,6 +68,11 @@ def _trials(a, default_flag="--trials"):
     return [default_flag, str(a.trials)] if a.trials else []
 
 
+def _harness_raw(out):
+    """raw.jsonl written by the harness step, a sibling of this step's output dir."""
+    return os.path.join(os.path.dirname(out), "harness", "raw.jsonl")
+
+
 def _read_csv(path):
     with open(path, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
@@ -127,6 +132,21 @@ def baselines_headlines(out: str) -> List[Headline]:
              f"{r['value']} [{r['lo']}, {r['hi']}]", src) for r in _read_csv(path)]
 
 
+def collective_headlines(out: str) -> List[Headline]:
+    path = os.path.join(out, "sweep_collective.csv")
+    src = _rel(path)
+    return [(f"Collective probe theta={float(r['theta']):.4f}, L={r['L']}: detection | mismatch | Eve accuracy",
+             f"{float(r['detection_rate']):.3f} [{float(r['detection_lo']):.3f}, {float(r['detection_hi']):.3f}] | "
+             f"{float(r['mismatch_rate']):.4f} | {float(r['eve_accuracy']):.4f}", src) for r in _read_csv(path)]
+
+
+def tightness_headlines(out: str) -> List[Headline]:
+    path = os.path.join(out, "tightness.csv")
+    src = _rel(path)
+    return [(f"Verifier mismatch rate, {r['family']} {r['label']}",
+             f"{float(r['rate']):.4f} [{float(r['lo']):.4f}, {float(r['hi']):.4f}]", src) for r in _read_csv(path)]
+
+
 def adaptive_headlines(out: str) -> List[Headline]:
     path = os.path.join(out, "ablate_adaptive.csv")
     src = _rel(path)
@@ -145,8 +165,8 @@ def _c2_merged() -> Tuple[bool, str]:
 # ------------------------------------------------------------------ registry
 STEPS: List[Step] = [
     Step("harness", "D1", "Seeded experiment harness", "experiments/harness.py",
-         args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
-         quick_args=lambda out: ["--trials", "5"]),
+         args=lambda a, out: ["--seed", str(a.seed), "--out", out, "--workers", "1", "--profiles", "depolarizing", "readout", "lossy"] + _trials(a),
+         quick_args=lambda out: ["--trials", "3", "--bits", "16", "--workers", "1", "--profiles", "depolarizing", "readout", "lossy"]),
     Step("trials", "-", "Detection/attribution/response trials (README 13.2)", "experiments/run_trials.py",
          args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
          quick_args=lambda out: ["--trials", "5", "--bits", "16", "--lockout-trials", "3", "--lockout-runs", "3"],
@@ -163,9 +183,22 @@ STEPS: List[Step] = [
     Step("sweep_readout", "A3", "Readout error sweep", "experiments/sweep_readout.py",
          args=lambda a, out: ["--seed", str(a.seed), "--out", os.path.join(out, "sweep_readout.csv")] + _trials(a),
          quick_args=lambda out: ["--trials", "3"]),
-    Step("roc", "-", "ROC curves", "experiments/roc.py",
+    Step("roc", "D2", "ROC curves (from the harness raw.jsonl)", "experiments/make_roc.py",
+         args=lambda a, out: ["--seed", str(a.seed), "--out", out, "--raw", _harness_raw(out)],
+         quick_args=lambda out: ["--bootstrap", "50"]),
+    Step("ablate_early_abort", "D3", "Sequential early abort on vs off", "experiments/ablate_early_abort.py",
          args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
-         quick_args=lambda out: ["--trials", "5"]),
+         quick_args=lambda out: ["--trials", "5", "--bits", "16"]),
+    Step("ablate_tiers", "D4", "Tier 1 only vs Tier 1 + Tier 2 attribution", "experiments/ablate_tiers.py",
+         args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
+         quick_args=lambda out: ["--trials", "5", "--bits", "16"]),
+    Step("sweep_partial_ir", "B2", "Partial intercept-resend sweep", "experiments/sweep_partial_ir.py",
+         args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
+         quick_args=lambda out: ["--trials", "3", "--bits", "16", "--fractions", "0.2", "1.0"]),
+    Step("sweep_collective", "B3", "One collective (ancilla-probe) attack", "experiments/sweep_collective.py",
+         args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
+         quick_args=lambda out: ["--trials", "3", "--bits", "16", "--thetas", "0", "1.5708"],
+         headlines=collective_headlines),
     Step("ablate_adaptive", "D5", "Fixed vs adaptive allocation", "experiments/ablate_adaptive.py",
          args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
          quick_args=lambda out: ["--trials", "3", "--bits", "16"],
@@ -179,9 +212,9 @@ STEPS: List[Step] = [
          args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
          quick_args=lambda out: ["--bits", "16", "--trials", "5", "--seq-runs", "2", "--seq-length", "10"],
          headlines=baselines_headlines),
-    Step("tightness", "-", "Bound tightness plot", "experiments/tightness.py",
+    Step("tightness", "B4", "Tight-threshold plot", "experiments/plot_tightness.py",
          args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
-         quick_args=lambda out: ["--trials", "5"]),
+         quick_args=lambda out: ["--trials", "3"], headlines=tightness_headlines),
     Step("threshold_table", "-", "Threshold table", "experiments/threshold_table.py",
          args=lambda a, out: ["--seed", str(a.seed), "--out", out],
          quick_args=lambda out: []),

@@ -1,0 +1,4 @@
+n_bits,attack,noise_profile,n_positive,n_negative,auc,auc_ci_low,auc_ci_high,hoeffding_fpr,hoeffding_tpr,exact_fpr,exact_tpr
+16,eve_forgery,depolarizing,1000,1000,0.9997,0.9995,0.9999,0.117,1.0,0.0,0.974
+16,eve_intercept,depolarizing,1000,1000,0.9997,0.9995,0.9999,0.117,1.0,0.0,0.992
+16,dishonest_bob,depolarizing,1000,1000,0.9804,0.9758,0.9858,0.117,0.854,0.0,0.816

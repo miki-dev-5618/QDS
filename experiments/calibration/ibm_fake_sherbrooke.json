@@ -1,0 +1,29 @@
+{
+  "backend_name": "fake_sherbrooke",
+  "calibration_date": "2026-10-30 10:52:48 UTC",
+  "shots_per_state": 1000,
+  "effective_error_rate": 0.0208,
+  "fidelity": 0.9792,
+  "confusion_matrix": {
+    "0": {
+      "p0": 0.979,
+      "p1": 0.021,
+      "error_rate": 0.021
+    },
+    "1": {
+      "p0": 0.014,
+      "p1": 0.986,
+      "error_rate": 0.014
+    },
+    "+": {
+      "p0": 0.969,
+      "p1": 0.031,
+      "error_rate": 0.031
+    },
+    "-": {
+      "p0": 0.017,
+      "p1": 0.983,
+      "error_rate": 0.017
+    }
+  }
+}

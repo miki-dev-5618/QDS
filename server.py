@@ -1,4 +1,5 @@
 import asyncio
+import csv
 import json
 import os
 import sys
@@ -6,7 +7,7 @@ import time
 from typing import Any, Dict, List, Optional, Set
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect, status
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import numpy as np
@@ -202,6 +203,7 @@ class SignAndSendRequest(BaseModel):
     cloner_type: Optional[str] = "universal"
     cloning_rate: Optional[float] = 1.0
     partial_intercept_fraction: Optional[float] = 0.05
+    collective_theta: Optional[float] = None
     noise_param: Optional[float] = None   # the selected profile's main parameter (see /api/noise-profiles)
 
 
@@ -243,6 +245,58 @@ app.add_api_route("/admin", _page("admin", "admin.html"), methods=["GET"], respo
 app.add_api_route("/alice", _page("admin", "admin.html"), methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/bob", _page("bob", "bob.html"), methods=["GET"], response_class=HTMLResponse)
 app.add_api_route("/charlie", _page("charlie", "charlie.html"), methods=["GET"], response_class=HTMLResponse)
+
+
+# ------------------------------------------------------------- results page (D10)
+RESULTS_DIR = os.path.join(CURRENT_DIR, "experiments", "results")   # written by run_experiments.py
+RESULT_TABS = [  # (tab id, title, step folders under RESULTS_DIR)
+    ("roc", "ROC", ["roc"]),
+    ("ablations", "Ablations", ["ablate_adaptive", "ablate_early_abort", "ablate_escalation", "ablate_tiers"]),
+    ("baselines", "Baselines", ["baselines"]),
+    ("tightness", "Tightness", ["tightness", "sweep_collective"]),
+    ("hardware", "Hardware run", ["hardware"]),
+]
+MAX_TABLE_ROWS = 50
+
+
+def _results_section(step: str) -> Dict[str, Any]:
+    folder = os.path.join(RESULTS_DIR, step)
+    files = sorted(f for f in os.listdir(folder) if not f.startswith(".") and f != "run.log") \
+        if os.path.isdir(folder) else []
+    tables = []
+    for name in (f for f in files if f.endswith(".csv")):
+        with open(os.path.join(folder, name), newline="", encoding="utf-8") as fh:
+            rows = list(csv.reader(fh))
+        tables.append({"name": name, "header": rows[0] if rows else [], "rows": rows[1:MAX_TABLE_ROWS + 1],
+                       "more": max(0, len(rows) - 1 - MAX_TABLE_ROWS)})
+    return {"step": step, "files": files, "images": [f for f in files if f.endswith(".png")], "tables": tables}
+
+
+def _results_context() -> Dict[str, Any]:
+    try:
+        with open(os.path.join(RESULTS_DIR, "manifest.json"), encoding="utf-8") as fh:
+            manifest = json.load(fh)
+    except (OSError, ValueError):
+        manifest = None
+    tabs = [{"id": tid, "title": title, "sections": [_results_section(step) for step in steps]}
+            for tid, title, steps in RESULT_TABS]
+    return {"tabs": tabs, "manifest": manifest}
+
+
+@app.get("/results", response_class=HTMLResponse)
+async def results_page(request: Request):
+    if not any_session(request):
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse(request, "results.html", _results_context())
+
+
+@app.get("/results/files/{step}/{name}")
+async def results_file(step: str, name: str, session: Dict = Depends(require_any)):
+    root = os.path.realpath(RESULTS_DIR)
+    path = os.path.realpath(os.path.join(root, step, name))
+    if os.path.commonpath([root, path]) != root or not os.path.isfile(path):
+        raise HTTPException(404, "Not generated yet")
+    return FileResponse(path)
 
 
 # ------------------------------------------------------------- auth API
@@ -311,6 +365,7 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
         cloner_type=req.cloner_type or "universal",
         cloning_rate=float(req.cloning_rate if req.cloning_rate is not None else 1.0),
         partial_intercept_fraction=float(req.partial_intercept_fraction if req.partial_intercept_fraction is not None else 0.05),
+        collective_theta=float(req.collective_theta) if req.collective_theta is not None else (3.141592653589793 / 4),
     )
 
     # Optional channel noise configuration. Requests that use only the original fields keep their exact

@@ -69,6 +69,8 @@ function setArmedThreatUI(threatType) {
   if (cloningControls) cloningControls.style.display = threatType === 'eve_cloning' ? 'flex' : 'none';
   const partialInterceptControls = document.getElementById('partialInterceptControls');
   if (partialInterceptControls) partialInterceptControls.style.display = threatType === 'eve_partial_intercept' ? 'flex' : 'none';
+  const collectiveControls = document.getElementById('collectiveControls');
+  if (collectiveControls) collectiveControls.style.display = threatType === 'eve_collective' ? 'flex' : 'none';
   const badge = document.getElementById('activeThreatBadge');
   if (badge) {
     badge.textContent = threatType.toUpperCase();
@@ -110,6 +112,32 @@ function initComposer() {
   if (partialInterceptRange && partialInterceptLabel) {
     partialInterceptRange.addEventListener('input', () => {
       partialInterceptLabel.textContent = `${Math.round(parseFloat(partialInterceptRange.value) * 100)}%`;
+    });
+  }
+
+  const collectiveThetaRange = document.getElementById('collectiveThetaRange');
+  const collectiveThetaLabel = document.getElementById('collectiveThetaLabel');
+  function formatTheta(val, preset) {
+    const deg = (val * 180 / Math.PI).toFixed(1);
+    const radStr = val.toFixed(3);
+    return preset ? `${radStr} rad (${deg}°) [${preset}]` : `${radStr} rad (${deg}°)`;
+  }
+  const MIN_THETA = Math.PI / 6; // 30° ≈ 0.5236 rad
+  window.setThetaPreset = (val, label) => {
+    if (collectiveThetaRange && collectiveThetaLabel) {
+      const clamped = Math.max(MIN_THETA, val);
+      collectiveThetaRange.value = clamped.toFixed(4);
+      collectiveThetaLabel.textContent = formatTheta(clamped, label);
+    }
+  };
+  if (collectiveThetaRange && collectiveThetaLabel) {
+    collectiveThetaRange.addEventListener('input', () => {
+      let val = parseFloat(collectiveThetaRange.value) || MIN_THETA;
+      if (val < MIN_THETA) {
+        val = MIN_THETA;
+        collectiveThetaRange.value = val.toFixed(4);
+      }
+      collectiveThetaLabel.textContent = formatTheta(val);
     });
   }
 
@@ -186,6 +214,10 @@ function initComposer() {
       if (currentThreat === 'eve_partial_intercept') {
         const fractionElem = document.getElementById('partialInterceptRange');
         payload.partial_intercept_fraction = fractionElem ? parseFloat(fractionElem.value) || 0.05 : 0.05;
+      }
+      if (currentThreat === 'eve_collective') {
+        const thetaElem = document.getElementById('collectiveThetaRange');
+        payload.collective_theta = thetaElem ? parseFloat(thetaElem.value) || 0.7854 : 0.7854;
       }
       if (isReadout) {
         payload.readout_location = locElem ? locElem.value : 'both';

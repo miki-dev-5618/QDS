@@ -1,0 +1,15 @@
+L=16   authentic          flagged 0.000 [0.000, 0.434]  correct 1.000 [0.566, 1.000]  quarantine 0.000 [0.000, 0.434]
+L=16   eve_forgery        flagged 1.000 [0.566, 1.000]  correct 1.000 [0.566, 1.000]  quarantine 1.000 [0.566, 1.000]
+L=16   dishonest_bob      flagged 1.000 [0.566, 1.000]  correct 1.000 [0.566, 1.000]  quarantine 1.000 [0.566, 1.000]
+L=16   eve_intercept      flagged 1.000 [0.566, 1.000]  correct 1.000 [0.566, 1.000]  quarantine 1.000 [0.566, 1.000]
+L=16   message_tampering  flagged 1.000 [0.566, 1.000]  correct 1.000 [0.566, 1.000]  quarantine 0.000 [0.000, 0.434]
+L=16   repudiation        flagged 0.800 [0.376, 0.964]  correct 0.800 [0.376, 0.964]  quarantine 0.600 [0.231, 0.882]
+L=16   replay             flagged 1.000 [0.566, 1.000]  correct 1.000 [0.566, 1.000]  quarantine 0.000 [0.000, 0.434]
+L=16   impersonation      flagged 1.000 [0.566, 1.000]  correct 1.000 [0.566, 1.000]  quarantine 0.000 [0.000, 0.434]
+L=16   eve_loss_exploit   flagged 1.000 [0.566, 1.000]  correct 1.000 [0.566, 1.000]  quarantine 0.600 [0.231, 0.882]
+L=16   eve_cloning        flagged 1.000 [0.566, 1.000]  correct 0.000 [0.000, 0.434]  quarantine 1.000 [0.566, 1.000]
+L=16   eve_partial_intercept flagged 0.000 [0.000, 0.434]  correct 0.000 [0.000, 0.434]  quarantine 0.000 [0.000, 0.434]
+L=16   eve_collective     flagged 0.000 [0.000, 0.434]  correct 0.000 [0.000, 0.434]  quarantine 0.000 [0.000, 0.434]
+L=16   honest x3: ever quarantined 0.000 [0.000, 0.562]
+
+Wrote E:\2026-2\sih 2026\experiments\results\trials\results.md

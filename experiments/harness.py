@@ -57,6 +57,9 @@ EXPECTED = {  # classifications that count as the correct verdict for each injec
     "replay": {"REPLAY_ATTACK"},
     "impersonation": {"IMPERSONATION_ATTACK"},
     "eve_loss_exploit": {"INSUFFICIENT_TOKENS", "EXTERNAL_FORGERY", "EAVESDROPPING_TAMPERING"},
+    "eve_cloning": {"EAVESDROPPING_TAMPERING"},
+    "eve_partial_intercept": {"EAVESDROPPING_TAMPERING"},
+    "eve_collective": {"EAVESDROPPING_TAMPERING"},
 }
 
 SUMMARY_FIELDS = [
