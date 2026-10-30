@@ -71,7 +71,7 @@ def measure(n_bits, trials, seed):
         lo, hi = wilson_interval(m, n)
         rows.append({"family": family, "label": label, "strength": round(strength, 4), "mismatches": m,
                      "copies": n, "rate": round(m / n, 5), "lo": round(lo, 5), "hi": round(hi, 5)})
-        print(f"{family:11s} {label:10s} mismatch {m / n:.4f} [{lo:.4f}, {hi:.4f}]  ({n} copies)", flush=True)
+        print(f"{family:11s} {label.encode('ascii', 'replace').decode('ascii'):10s} mismatch {m / n:.4f} [{lo:.4f}, {hi:.4f}]  ({n} copies)", flush=True)
     return rows
 
 

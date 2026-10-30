@@ -1,0 +1,10 @@
+experiment,L,condition,rule,runs,length,quarantined,rate,rate_lo,rate_hi,mean_alerts,mean_tx,mean_lo,mean_hi,median_tx,median_lo,median_hi,censored
+honest,16,honest,fisher,4,40,0,0.0,0.0,0.4899,0.0,,,,,,,4
+attack,16,intercept f=0.2,fisher,4,40,4,1.0,0.5101,1.0,2.0,5.0,3.25,7.75,4.0,3.0,9.0,0
+attack,16,intercept f=1,fisher,4,40,4,1.0,0.5101,1.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,0
+honest,16,honest,fisher_only,4,40,0,0.0,0.0,0.4899,0.0,,,,,,,4
+attack,16,intercept f=0.2,fisher_only,4,40,4,1.0,0.5101,1.0,2.0,5.0,3.25,7.75,4.0,3.0,9.0,0
+attack,16,intercept f=1,fisher_only,4,40,4,1.0,0.5101,1.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,0
+honest,16,honest,counter,4,40,0,0.0,0.0,0.4899,0.0,,,,,,,4
+attack,16,intercept f=0.2,counter,4,40,4,1.0,0.5101,1.0,2.5,7.0,5.25,9.75,6.0,5.0,11.0,0
+attack,16,intercept f=1,counter,4,40,4,1.0,0.5101,1.0,0.0,1.0,1.0,1.0,1.0,1.0,1.0,0

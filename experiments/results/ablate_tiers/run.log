@@ -1,0 +1,7 @@
+tiers=1 L=16  repudiation    accuracy 0.000 [0.000, 0.434]  undetermined 0.000  wrong blame 1.000
+tiers=1 L=16  eve_intercept  accuracy 1.000 [0.566, 1.000]  undetermined 0.000  wrong blame 0.000
+tiers=1 L=16  eve_forgery    accuracy 1.000 [0.566, 1.000]  undetermined 0.000  wrong blame 0.000
+tiers=2 L=16  repudiation    accuracy 0.600 [0.231, 0.882]  undetermined 0.400  wrong blame 0.000
+tiers=2 L=16  eve_intercept  accuracy 1.000 [0.566, 1.000]  undetermined 0.000  wrong blame 0.000
+tiers=2 L=16  eve_forgery    accuracy 1.000 [0.566, 1.000]  undetermined 0.000  wrong blame 0.000
+Wrote E:\2026-2\sih 2026\experiments\results\ablate_tiers\ablate_tiers.csv, E:\2026-2\sih 2026\experiments\results\ablate_tiers\ablate_tiers_confusion.csv, E:\2026-2\sih 2026\experiments\results\ablate_tiers\ablate_tiers.png, E:\2026-2\sih 2026\experiments\results\ablate_tiers\ablate_tiers.svg

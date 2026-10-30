@@ -165,8 +165,8 @@ def _c2_merged() -> Tuple[bool, str]:
 # ------------------------------------------------------------------ registry
 STEPS: List[Step] = [
     Step("harness", "D1", "Seeded experiment harness", "experiments/harness.py",
-         args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
-         quick_args=lambda out: ["--trials", "5"]),
+         args=lambda a, out: ["--seed", str(a.seed), "--out", out, "--workers", "1", "--profiles", "depolarizing", "readout", "lossy"] + _trials(a),
+         quick_args=lambda out: ["--trials", "3", "--bits", "16", "--workers", "1", "--profiles", "depolarizing", "readout", "lossy"]),
     Step("trials", "-", "Detection/attribution/response trials (README 13.2)", "experiments/run_trials.py",
          args=lambda a, out: ["--seed", str(a.seed), "--out", out] + _trials(a),
          quick_args=lambda out: ["--trials", "5", "--bits", "16", "--lockout-trials", "3", "--lockout-runs", "3"],
