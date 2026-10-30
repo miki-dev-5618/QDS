@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HEDWIG • Quantum Digital Signature Portal</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=2.3">
+  <link rel="stylesheet" href="/static/css/components.css?v=2.3">
+</head>
+<body>
+  <div class="login-wrapper">
+    <main class="login-card">
+      <div class="login-header">
+        <div class="brand-mark" aria-hidden="true">Ψ</div>
+        <h1>HEDWIG // QDS</h1>
+        <p>Teleportation Quantum Digital Signatures &amp; Threat Detection</p>
+      </div>
+
+      {% if demo_credentials %}
+      <div class="preset-label" id="presetLabel">Quick select node</div>
+      <div class="preset-pills" role="group" aria-labelledby="presetLabel">
+        <button type="button" class="preset-pill active" data-role="admin" aria-pressed="true">Alice / Admin</button>
+        <button type="button" class="preset-pill" data-role="bob" aria-pressed="false">Bob (Verifier 1)</button>
+        <button type="button" class="preset-pill" data-role="charlie" aria-pressed="false">Charlie (Verifier 2)</button>
+      </div>
+      <div class="demo-warning"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-alert"/></svg><span>DEMO CREDENTIALS ACTIVE — set HEDWIG_USERS_FILE before sharing this server.</span></div>
+      {% endif %}
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label" for="username">Node identity</label>
+          <input type="text" id="username" class="form-input" value="{{ 'admin' if demo_credentials else '' }}" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Quantum auth token</label>
+          <input type="password" id="password" class="form-input" value="{{ 'admin2026' if demo_credentials else '' }}" required autocomplete="current-password">
+        </div>
+
+        <div id="errorMsg" class="form-error" role="alert" style="display:none;"></div>
+
+        <button type="submit" class="btn-primary" id="btnLogin">
+          <span>Authenticate Node</span> <svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-arrow-right"/></svg>
+        </button>
+      </form>
+    </main>
+  </div>
+
+  <script src="/static/js/auth.js?v=2.3"></script>
+</body>
+</html>
