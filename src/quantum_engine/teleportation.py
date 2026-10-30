@@ -522,6 +522,14 @@ def get_fake_backend(backend_name: Optional[str] = None):
         if target and hasattr(fake_provider, target):
             cls = getattr(fake_provider, target)
             return cls()
+        if target:
+            # Device names must reach their own calibration snapshot: a hardware
+            # result file stores "ibm_fez", the fake provider exports "FakeFez".
+            stem = target[4:] if target.startswith("ibm_") else target
+            tail = stem.rsplit("_", 1)[-1]
+            for cand in (f"Fake{stem.capitalize()}", f"Fake{tail.capitalize()}"):
+                if hasattr(fake_provider, cand):
+                    return getattr(fake_provider, cand)()
         for cand in ["FakeManila", "FakeSherbrooke", "FakeBrisbane", "FakeTorino"]:
             if hasattr(fake_provider, cand):
                 return getattr(fake_provider, cand)()
