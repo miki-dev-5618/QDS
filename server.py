@@ -56,7 +56,8 @@ def _pq_setting() -> Optional[bool]:
 
 
 auth = Authenticator()
-store = Store(os.environ.get("HEDWIG_DB", os.path.join(CURRENT_DIR, "data", "hedwig.db")))
+db_url = os.environ.get("HEDWIG_DATABASE_URL")
+store = Store(db_url) if db_url else Store(os.environ.get("HEDWIG_DB", os.path.join(CURRENT_DIR, "data", "hedwig.db")))
 audit_authority = AuditAuthority(os.environ.get(
     "HEDWIG_AUDIT_KEY", os.path.join(CURRENT_DIR, "data", "audit_ed25519.pem")), pq=_pq_setting(), store=store)
 qds_engine = TeleportationQDS(backend=os.environ.get("HEDWIG_BACKEND", "qiskit"), store=store, audit=audit_authority,
