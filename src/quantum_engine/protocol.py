@@ -435,7 +435,7 @@ class TeleportationQDS:
         route_stats = {v: {"planned": sum(s.verifier == v for s in stream), "attempted": 0,
             "received": 0, "lost": 0, "test_planned": sum(s.kind == "test" and s.verifier == v for s in stream),
             "tested": 0, "errors": 0, "edges": {}} for v in roster}
-                for block in np.array_split(np.arange(len(stream)), max(1, self.params.abort_chunks)):
+        for block in np.array_split(np.arange(len(stream)), max(1, self.params.abort_chunks)):
             if len(block) == 0:
                 continue
 
