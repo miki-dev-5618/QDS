@@ -1,0 +1,101 @@
+name: HEDWIG CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  # Default to SQLite; override with HEDWIG_DATABASE_URL if you want PG tests.
+  HEDWIG_DATABASE_URL: ""
+  # Use the built-in demo credentials (localhost only).
+  HEDWIG_USERS_FILE: ""
+  # HEDWIG_BACKEND is tested both ways; keep the default qiskit for broad compat.
+  HEDWIG_BACKEND: "qiskit"
+  # Reduce trial count for the quick smoke test.
+  HEDWIG_QUICK_TRIALS: "2"
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }} × ${{ matrix.driver }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+        driver: ["sqlite", "postgresql"]
+        include:
+          # When driver=postgresql, require psycopg; skip if unavailable.
+          - python-version: "3.13"
+            driver: "postgresql"
+            # This job will be skipped inside the test matrix if psycopg is missing.
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Install psycopg (postgresql driver only)
+        if: matrix.driver == "postgresql"
+        run: |
+          pip install psycopg[binary]
+
+      - name: ruff lint
+        run: ruff check .
+
+      - name: pytest with PostgreSQL service container
+        # When driver is postgresql, we use the postgres action; otherwise we
+        # rely on the in‑process Store which defaults to SQLite.
+        run: |
+          if [ "${{ matrix.driver }}" = "postgresql" ]; then
+            # PostgreSQL service container is started automatically by the
+            # test infrastructure (see below).  We just ensure it's ready.
+            pg_isready -U hedwig -d hedwig
+          fi
+          # Run the test suite; each test decides which driver to use based on
+          # HEDWIG_DATABASE_URL.
+          python -m pytest tests/ -v --tb=short -k "not postgres" \
+            --timeout=120 \
+            -o "filterwarnings=default"
+
+      - name: PostgreSQL service container (only for postgresql driver job)
+        if: matrix.driver == "postgresql"
+        services:
+          postgres:
+            image: postgres:15
+            env:
+              POSTGRES_USER: hedwig
+              POSTGRES_PASSWORD: hedwig
+              POSTGRES_DB: hedwig
+            ports: ["5432:5432"]
+            # Wait for PostgreSQL to be ready.
+            options: >-
+              --health-cmd pg_isready -U hedwig -d hedwig
+              --health-interval 10s
+              --health-timeout 5s
+              --health-retries 12
+        run: |
+          # Small delay for the service to become healthy
+          sleep 10
+          # Export the DB URL so the test Store picks PostgreSQL
+          export HEDWIG_DATABASE_URL="postgresql://hedwig:hedwig@localhost:5432/hedwig"
+          # Re-run pytest limited to the PostgreSQL-aware tests
+          python -m pytest tests/test_store_postgres.py tests/test_health.py -v --tb=short \
+            --timeout=120
+
+      - name: Quick experiment smoke test
+        run: |
+          python run_experiments.py --quick \
+            --trials ${{ env.HEDWIG_QUICK_TRIALS }} \
+            --bits 32
