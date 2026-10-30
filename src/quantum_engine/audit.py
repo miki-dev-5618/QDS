@@ -28,9 +28,6 @@ default (only the domain-separated digest is recorded).
 """
 import base64
 import copy
-import glob
-import os
-import shutil
 import threading
 import time
 from typing import Any, Dict, List, Optional, Union
@@ -38,7 +35,8 @@ from typing import Any, Dict, List, Optional, Union
 from .binding import message_digest
 from .canonical import CANONICAL_VERSION, canonical_json, digest_json, sha256_hex
 from .security import ASSUMPTIONS
-from .signers import ED25519, Ed25519Signer, MLDSA65Signer, key_id_for, verify_signature
+from .key_provider import KeyProvider, make_key_provider
+from .signers import ED25519, key_id_for, verify_signature
 
 AUDIT_VERSION = "hedwig-audit/2"
 SIMULATOR_VERSION = "HEDWIG V2.2"
@@ -214,78 +212,54 @@ def build_reset_record(transitions: List[Dict[str, Any]], actor: str, reason: st
 # --------------------------------------------------------------- authority
 class AuditAuthority:
     """
-    Verifier-side audit service. Keys persist next to ``key_path`` so records
-    stay verifiable across restarts; ``rotate()`` retires the active Ed25519
-    key (kept for verification) and creates a new one.
+    Verifier-side audit service. Signing keys come from a ``KeyProvider``
+    (``key_provider.py``; HEDWIG_KEY_PROVIDER = software (default) | softhsm).
+    Keys persist next to ``key_path`` so records stay verifiable across
+    restarts; ``rotate()`` retires the active keys (their public halves stay
+    in the keyring for verification) and creates new ones.
 
     pq: True = require ML-DSA-65 (error if no provider), False = Ed25519 only,
         None = hybrid when a provider is installed (default).
     """
 
-    def __init__(self, key_path: Optional[str] = None, pq: Optional[bool] = None, store=None):
+    def __init__(self, key_path: Optional[str] = None, pq: Optional[bool] = None, store=None,
+                 provider: Optional[KeyProvider] = None):
         self.key_path = key_path
         self.store = store
         self._lock = threading.Lock()
         self._chain_mem: Optional[tuple] = None
-        self._ed = Ed25519Signer.load_or_create(key_path)
-        self._pq = None
-        if pq is not False:
-            self._pq = MLDSA65Signer.load_or_create(key_path + ".mldsa65.json" if key_path else None)
-            if pq is True and self._pq is None:
-                raise RuntimeError("ML-DSA-65 requested but no provider is installed "
-                                   "(pip install dilithium-py, or liboqs-python).")
-        self._retired: Dict[str, Dict[str, str]] = {}
-        if key_path:
-            for p in sorted(glob.glob(os.path.join(self._retired_dir(), "*.pem"))):
-                s = Ed25519Signer.load_or_create(p)
-                self._retired[s.key_id] = {"algorithm": ED25519, "public_key": s.public_key}
-
-    def _retired_dir(self) -> str:
-        return (self.key_path or "") + ".retired"
-
-    @property
-    def signers(self):
-        return [s for s in (self._ed, self._pq) if s is not None]
+        self.provider = provider or make_key_provider(key_path, pq)
 
     @property
     def public_key_pem(self) -> str:
-        return self._ed.public_key
+        return next(k["public_key"] for k in self.provider.active_keys() if k["algorithm"] == ED25519)
 
     @property
     def post_quantum(self) -> bool:
-        return self._pq is not None
+        return any(k["post_quantum"] for k in self.provider.active_keys())
 
     def trusted_keys(self) -> Dict[str, Dict[str, Any]]:
-        keys = {s.key_id: {"algorithm": s.algorithm, "public_key": s.public_key, "status": "active",
-                           "post_quantum": s.post_quantum, "provider": s.provider} for s in self.signers}
-        for kid, k in self._retired.items():
-            keys[kid] = {**k, "status": "retired", "post_quantum": False}
-        return keys
+        return self.provider.get_public_keys()
 
     def rotate(self) -> Dict[str, Any]:
-        if not self.key_path:
-            raise RuntimeError("Key rotation needs a persistent key path.")
         with self._lock:
-            old = self._ed
-            os.makedirs(self._retired_dir(), exist_ok=True)
-            shutil.move(self.key_path, os.path.join(self._retired_dir(), f"{old.key_id}.pem"))
-            self._retired[old.key_id] = {"algorithm": ED25519, "public_key": old.public_key}
-            self._ed = Ed25519Signer.load_or_create(self.key_path)
-        return {"retired": old.key_id, "active": self._ed.key_id}
+            return self.provider.rotate()
 
     def sign(self, record: Dict[str, Any], evidence: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Sign a record (adds the signature suite to it first, so the suite itself is signed)."""
         record = dict(record)
-        record["signature_suite"] = [{"algorithm": s.algorithm, "key_id": s.key_id, "post_quantum": s.post_quantum}
-                                     for s in self.signers]
+        keys = self.provider.active_keys()
+        record["signature_suite"] = [{"algorithm": k["algorithm"], "key_id": k["key_id"],
+                                      "post_quantum": k["post_quantum"]} for k in keys]
         payload = canonical_json(record)
         cert = {
             "format": AUDIT_VERSION,
             "record": record,
             "payload_sha256": sha256_hex(payload),
-            "signatures": [{"algorithm": s.algorithm, "key_id": s.key_id, "post_quantum": s.post_quantum,
-                            "signature": base64.b64encode(s.sign(payload)).decode("ascii")} for s in self.signers],
-            "public_keys": {s.key_id: {"algorithm": s.algorithm, "public_key": s.public_key} for s in self.signers},
+            "signatures": [{"algorithm": k["algorithm"], "key_id": k["key_id"], "post_quantum": k["post_quantum"],
+                            "signature": base64.b64encode(self.provider.sign(k["key_id"], payload)).decode("ascii")}
+                           for k in keys],
+            "public_keys": {k["key_id"]: {"algorithm": k["algorithm"], "public_key": k["public_key"]} for k in keys},
         }
         if evidence is not None:
             cert["evidence"] = evidence

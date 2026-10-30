@@ -1,0 +1,7 @@
+tiers,n_bits,truth,channel,signature,forgery,undetermined,accepted,other
+1,16,signature,5,0,0,0,0,0
+1,16,channel,5,0,0,0,0,0
+1,16,forgery,0,0,5,0,0,0
+2,16,signature,0,3,0,2,0,0
+2,16,channel,5,0,0,0,0,0
+2,16,forgery,0,0,5,0,0,0

@@ -1,0 +1,12 @@
+L=16  honest           fisher       false quarantine 0.000 [0.000, 0.490]
+L=16  intercept f=0.2  fisher       tx to quarantine mean 5.0 [3.25, 7.75] median 4 censored 0
+L=16  intercept f=1    fisher       tx to quarantine mean 1.0 [1.0, 1.0] median 1 censored 0
+L=16  honest           fisher_only  false quarantine 0.000 [0.000, 0.490]
+L=16  intercept f=0.2  fisher_only  tx to quarantine mean 5.0 [3.25, 7.75] median 4 censored 0
+L=16  intercept f=1    fisher_only  tx to quarantine mean 1.0 [1.0, 1.0] median 1 censored 0
+L=16  honest           counter      false quarantine 0.000 [0.000, 0.490]
+L=16  intercept f=0.2  counter      tx to quarantine mean 7.0 [5.25, 9.75] median 6 censored 0
+L=16  intercept f=1    counter      tx to quarantine mean 1.0 [1.0, 1.0] median 1 censored 0
+
+Wrote E:\2026-2\sih 2026\experiments\results\ablate_escalation\ablate_escalation.csv and E:\2026-2\sih 2026\experiments\results\ablate_escalation\ablate_escalation.md
+Wrote E:\2026-2\sih 2026\experiments\results\ablate_escalation\ablate_escalation.png
