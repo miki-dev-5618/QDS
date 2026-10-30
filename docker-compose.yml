@@ -1,0 +1,50 @@
+# HEDWIG Infra Bundle: application + PostgreSQL 15.
+#
+#   docker compose up --build
+#   open http://localhost:8000
+#
+# Default is a local demo: weak db password, built-in demo logins, SQLite
+# still used unless HEDWIG_DATABASE_URL points at postgresql://.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${HEDWIG_PORT:-8000}:8000"
+    environment:
+      PORT: "8000"
+      # Selects PostgreSQL in store.py (sub-step b). Remove/comment this line
+      # to fall back to the SQLite default at data/hedwig.db.
+      HEDWIG_DATABASE_URL: "postgresql://hedwig:${HEDWIG_POSTGRES_PASSWORD:-hedwig}@db:5432/hedwig"
+      HEDWIG_BACKEND: "${HEDWIG_BACKEND:-qiskit}"
+      # HEDWIG_USERS_FILE: unset -> built-in DEMO credentials (localhost only).
+      # Mount a users file and set this before exposing the server.
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Named volume (not a bind mount) so the uid-10001 runtime user can
+      # write data/hedwig.db and data/audit_ed25519.pem on any host OS.
+      - appdata:/app/data
+ 
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: hedwig
+      POSTGRES_PASSWORD: "${HEDWIG_POSTGRES_PASSWORD:-hedwig}"
+      POSTGRES_DB: hedwig
+    ports:   # localhost only; remove if nothing outside compose needs it
+      - "${HEDWIG_DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hedwig -d hedwig"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+ 
+volumes:
+  pgdata:
+  appdata:

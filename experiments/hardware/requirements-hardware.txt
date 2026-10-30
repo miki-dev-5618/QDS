@@ -1,0 +1,5 @@
+# Extra dependency for hardware mode only (see README.md).
+# Install with: python -m pip install -r experiments/hardware/requirements-hardware.txt
+# The rest of HEDWIG keeps running without this package; the main
+# requirements.txt is intentionally left unchanged.
+qiskit-ibm-runtime

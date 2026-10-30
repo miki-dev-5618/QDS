@@ -353,6 +353,12 @@ class ThreatSuite:
             return cls.eve_collective(engine, scenario.collective_theta, message, n_bits, sender, rng, channel,
                                       config=cfg)[0]
 
+        if t == ThreatType.EVE_PARTIAL_INTERCEPT:
+            return cls._eve_partial_intercept(engine, scenario, message, n_bits, sender, rng, channel)
+
+        if t == ThreatType.EVE_COLLECTIVE:
+            return cls.eve_collective(engine, scenario.collective_theta, message, n_bits, sender, rng, channel)[0]
+
         if t == ThreatType.REPUDIATION:
             session = engine.distribute(sender, message, n_bits, rng, channel, config=cfg,
                                         prepare_copies=cls.asymmetric_preparation(scenario.repudiation_tamper_ratio))
@@ -488,15 +494,18 @@ class ThreatSuite:
             depolarizing=channel.depolarizing,
             intercept_rate=f,
         )
-        return engine.transmit(sender, message, n_bits, rng, tapped, config=cfg)
+return engine.transmit(sender, message, n_bits, rng, tapped, config=cfg)
 
-    @classmethod
-    def eve_collective(cls, engine, theta: float, message: str, n_bits: int, sender: str,
-                       rng: np.random.Generator, channel: ChannelModel,
-                       config: Optional[SessionConfig] = None) -> Tuple[Transcript, EveCollectiveAdversary]:
-        """Honest signer, every token probed by EveCollectiveAdversary. Returns the transcript and Eve's record."""
-        eve = EveCollectiveAdversary(theta, channel)
-        session = engine.distribute(sender, message, n_bits, rng, channel, config=config, adversary=eve)
+@classmethod
+def eve_collective(cls, engine, theta: float, message: str, n_bits: int, sender: str,
+                   rng: np.random.Generator, channel: ChannelModel,
+                   config: Optional[SessionConfig] = None) -> Tuple[Transcript, EveCollectiveAdversary]:
+    """Honest signer, every token probed by EveCollectiveAdversary. Returns the transcript and Eve's record."""
+    eve = EveCollectiveAdversary(theta, channel)
+    session = engine.distribute(sender, message, n_bits, rng, channel, config=config, adversary=eve)
+
+return cls._delivered(engine, engine.reveal(session), n_bits, session,
+                      notes=[f"Eve probed every token with controlled-Ry(theta={theta:.3f})."]), eve
         return cls._delivered(engine, engine.reveal(session), n_bits, session,
                               notes=[f"Eve probed every token with controlled-Ry(theta={theta:.3f})."]), eve
 

@@ -1,0 +1,4 @@
+# Optional: HEDWIG_KEY_PROVIDER=softhsm keeps the Ed25519 audit key in a PKCS#11 token.
+# Needs SoftHSM2 (a software HSM emulator, installed separately) - see docs/KEY_PROVIDERS.md.
+-r requirements.txt
+python-pkcs11==0.10.1

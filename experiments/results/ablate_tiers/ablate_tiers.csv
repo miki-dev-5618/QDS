@@ -1,0 +1,7 @@
+tiers,scenario,truth,n_bits,noise_profile,seed,trials,accuracy,accuracy_ci_low,accuracy_ci_high,undetermined_rate,undetermined_ci_low,undetermined_ci_high,wrong_blame_rate,wrong_blame_ci_low,wrong_blame_ci_high
+1,repudiation,signature,16,depolarizing,2026,5,0.0,0.0,0.4345,0.0,0.0,0.4345,1.0,0.5655,1.0
+1,eve_intercept,channel,16,depolarizing,2026,5,1.0,0.5655,1.0,0.0,0.0,0.4345,0.0,0.0,0.4345
+1,eve_forgery,forgery,16,depolarizing,2026,5,1.0,0.5655,1.0,0.0,0.0,0.4345,0.0,0.0,0.4345
+2,repudiation,signature,16,depolarizing,2026,5,0.6,0.2307,0.8824,0.4,0.1176,0.7693,0.0,0.0,0.4345
+2,eve_intercept,channel,16,depolarizing,2026,5,1.0,0.5655,1.0,0.0,0.0,0.4345,0.0,0.0,0.4345
+2,eve_forgery,forgery,16,depolarizing,2026,5,1.0,0.5655,1.0,0.0,0.0,0.4345,0.0,0.0,0.4345

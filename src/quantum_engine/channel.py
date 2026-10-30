@@ -189,6 +189,21 @@ def make_lossy_channel(
     )
 
 
+def make_cloning_channel(
+    cloner_type: str = "universal",
+    cloning_rate: float = 1.0,
+    depolarizing: float = 0.0,
+) -> ChannelModel:
+    """Create a ChannelModel where Eve clones tokens via 1->2 symmetric quantum cloner."""
+    return ChannelModel(
+        noise_profile="cloning",
+        cloner_type=cloner_type,
+        cloning_rate=float(cloning_rate),
+        depolarizing=depolarizing,
+        intercept_rate=0.0,
+    )
+
+
 
 def make_cloning_channel(
     cloner_type: str = "universal",

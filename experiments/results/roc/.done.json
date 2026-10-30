@@ -1,0 +1,20 @@
+{
+  "config": {
+    "argv": [
+      "--seed",
+      "2026",
+      "--out",
+      "E:\\2026-2\\sih 2026\\experiments\\results\\roc",
+      "--raw",
+      "E:\\2026-2\\sih 2026\\experiments\\results\\harness\\raw.jsonl",
+      "--bootstrap",
+      "50"
+    ],
+    "seed": 2026,
+    "trials": null,
+    "quick": true,
+    "script_sha256": "8624cf4d783f4b259b6d2a0ed29aef7ee41bdae0f2f82eb8a410f21553e04ce8"
+  },
+  "seconds": 2.38,
+  "finished": "2026-10-30 18:04:05"
+}

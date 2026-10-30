@@ -32,6 +32,11 @@ Rules (policy version ``hedwig-qcb/3``):
     Two borderline honest-noise alerts (p ~ 0.15 each) combine to ~0.11 and
     do not lock the link; two moderately strong ones (p ~ 0.02) combine to
     ~0.004 and do.
+  * Escalation rule (``escalation``, env ESCALATION; for ablation only):
+        fisher       (default) the rule above: Fisher OR watch_strikes alerts
+        fisher_only  Fisher-combined p <= escalate_alpha only, no strike count
+        counter      quarantine after watch_strikes weak alerts, p-values ignored
+    Strong alerts quarantine immediately under every rule.
   * A link on RESET_PENDING (probation after an admin reset) is quarantined
     again by any quantum-evidence alert, and returns to OPEN after one fully
     accepted transmission.
@@ -45,12 +50,14 @@ is checked repeatedly over a sequence, so its honest rate is measured in
 ``experiments/run_trials.py`` (false lock-out over honest sequences), not bounded.
 """
 import math
-from dataclasses import dataclass, asdict
+import os
+from dataclasses import dataclass, asdict, field
 from typing import Any, Dict, Sequence
 
 from .detection import BENIGN, ThreatClassification, ThreatReport
 
-POLICY_VERSION = "hedwig-qcb/3"
+POLICY_VERSION = "hedwig-qcb/2"
+ESCALATION_RULES = ("fisher", "fisher_only", "counter")
 
 CLASSICAL_ONLY = {
     ThreatClassification.REPLAY_ATTACK,
@@ -69,9 +76,25 @@ class ResponsePolicy:
     watch_window_s: float = 900.0
     watch_strikes: int = 3
     escalate_alpha: float = 1e-2
+    escalation: str = field(default_factory=lambda: os.environ.get("ESCALATION", "").strip().lower() or "fisher")
+
+    def __post_init__(self):
+        if self.escalation not in ESCALATION_RULES:
+            raise ValueError(f"escalation must be one of {ESCALATION_RULES}, got {self.escalation!r}")
+
+    def should_escalate(self, combined_p: float, strikes: int) -> bool:
+        """Weak-alert escalation from WATCH under the selected rule."""
+        if self.escalation == "counter":
+            return strikes >= self.watch_strikes
+        if self.escalation == "fisher_only":
+            return combined_p <= self.escalate_alpha
+        return combined_p <= self.escalate_alpha or strikes >= self.watch_strikes
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        if self.escalation == "fisher":  # default rule: keep the recorded policy identical to before
+            del d["escalation"]
+        return d
 
 
 def fisher_combined_p(p_values: Sequence[float]) -> float:

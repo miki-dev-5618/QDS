@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "mode": "dry-run",
+  "job_id": null,
+  "backend_name": "aer_simulator",
+  "timestamp": "2026-10-26T18:27:08Z",
+  "timestamp_compact": "20261026T182708Z",
+  "scope": "isolated 3-qubit teleportation benchmark; full QDS protocol NOT run on hardware",
+  "execution": {
+    "shots": 2000,
+    "optimization_level": 1,
+    "sampler": "SamplerV2",
+    "channel": null,
+    "seed": 2026,
+    "transpile_backend": "generic_backend_5q"
+  },
+  "states": [
+    {
+      "label": "0",
+      "bit": 0,
+      "basis": 0,
+      "measurement_basis": 0,
+      "counts": {
+        "000": 519,
+        "001": 509,
+        "010": 470,
+        "011": 502
+      },
+      "shots": 2000,
+      "success_count": 2000,
+      "success_rate": 1.0,
+      "circuit": {
+        "name": "teleport_0",
+        "num_qubits": 5,
+        "num_clbits": 3,
+        "depth": 14,
+        "size": 19
+      }
+    },
+    {
+      "label": "1",
+      "bit": 1,
+      "basis": 0,
+      "measurement_basis": 0,
+      "counts": {
+        "100": 528,
+        "101": 489,
+        "110": 505,
+        "111": 478
+      },
+      "shots": 2000,
+      "success_count": 2000,
+      "success_rate": 1.0,
+      "circuit": {
+        "name": "teleport_1",
+        "num_qubits": 5,
+        "num_clbits": 3,
+        "depth": 14,
+        "size": 20
+      }
+    },
+    {
+      "label": "+",
+      "bit": 0,
+      "basis": 1,
+      "measurement_basis": 1,
+      "counts": {
+        "000": 498,
+        "001": 494,
+        "010": 508,
+        "011": 500
+      },
+      "shots": 2000,
+      "success_count": 2000,
+      "success_rate": 1.0,
+      "circuit": {
+        "name": "teleport_2",
+        "num_qubits": 5,
+        "num_clbits": 3,
+        "depth": 11,
+        "size": 19
+      }
+    },
+    {
+      "label": "-",
+      "bit": 1,
+      "basis": 1,
+      "measurement_basis": 1,
+      "counts": {
+        "100": 491,
+        "101": 502,
+        "110": 510,
+        "111": 497
+      },
+      "shots": 2000,
+      "success_count": 2000,
+      "success_rate": 1.0,
+      "circuit": {
+        "name": "teleport_3",
+        "num_qubits": 5,
+        "num_clbits": 3,
+        "depth": 11,
+        "size": 19
+      }
+    }
+  ],
+  "total_shots": 8000
+}

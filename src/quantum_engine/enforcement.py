@@ -116,6 +116,12 @@ class LinkState:
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "LinkState":
+        valid_keys = cls.__dataclass_fields__.keys()
+        filtered = {k: v for k, v in d.items() if k in valid_keys}
+        return cls(**filtered)
+
 
 class ChannelGuard:
     def __init__(self, policy: Optional[ResponsePolicy] = None, store=None, router=None,
@@ -251,8 +257,7 @@ class ChannelGuard:
             combined = fisher_combined_p(evidence)
             strikes = len(evidence)
             escalate = (action == "quarantine" or cur.state == RESET_PENDING or
-                        (cur.state == WATCH and (combined <= self.policy.escalate_alpha
-                                                 or strikes >= self.policy.watch_strikes)))
+                        (cur.state == WATCH and self.policy.should_escalate(combined, strikes)))
             if escalate:
                 if cur.state == QUARANTINED:
                     return None

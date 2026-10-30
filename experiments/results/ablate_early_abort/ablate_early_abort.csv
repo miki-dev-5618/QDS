@@ -1,0 +1,7 @@
+early_abort,scenario,n_bits,noise_profile,seed,trials,detection_rate,detection_ci_low,detection_ci_high,false_abort_rate,false_abort_ci_low,false_abort_ci_high,early_abort_rate,early_abort_ci_low,early_abort_ci_high,mean_tokens_sent,mean_tokens_planned,bandwidth_saved
+on,authentic,16,depolarizing,2026,5,,,,0.0,0.0,0.4345,0.0,0.0,0.4345,98.0,98.0,0.0
+on,eve_intercept,16,depolarizing,2026,5,1.0,0.5655,1.0,,,,0.6,0.2307,0.8824,69.2,98.0,0.2939
+on,eve_forgery,16,depolarizing,2026,5,1.0,0.5655,1.0,,,,0.0,0.0,0.4345,98.0,98.0,0.0
+off,authentic,16,depolarizing,2026,5,,,,0.0,0.0,0.4345,0.0,0.0,0.4345,98.0,98.0,0.0
+off,eve_intercept,16,depolarizing,2026,5,1.0,0.5655,1.0,,,,0.0,0.0,0.4345,98.0,98.0,0.0
+off,eve_forgery,16,depolarizing,2026,5,1.0,0.5655,1.0,,,,0.0,0.0,0.4345,98.0,98.0,0.0

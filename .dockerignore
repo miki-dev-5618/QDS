@@ -1,0 +1,19 @@
+# Keep the build context small and never bake host state into the image.
+.git
+.github
+.venv
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+data/
+*.log
+.env
+Dockerfile
+docker-compose.yml
+compose.yaml
+docker-compose.override.yml
+experiments/results/
+tests/
+*.md

@@ -435,25 +435,51 @@ class TeleportationQDS:
         route_stats = {v: {"planned": sum(s.verifier == v for s in stream), "attempted": 0,
             "received": 0, "lost": 0, "test_planned": sum(s.kind == "test" and s.verifier == v for s in stream),
             "tested": 0, "errors": 0, "edges": {}} for v in roster}
-        for block in np.array_split(np.arange(len(stream)), max(1, self.params.abort_chunks)):
+                for block in np.array_split(np.arange(len(stream)), max(1, self.params.abort_chunks)):
             if len(block) == 0:
                 continue
+
             try:
                 with self.guard.snapshot():
                     self._check_plan(route_plan)
-                    jobs = [hop_jobs(stream[i], route_edges[stream[i].verifier], events[i], channel,
-                                     injections, rng) for i in block]
-                    block_outcomes = (self.backend.run_routes(jobs, rng) if hasattr(self.backend, "run_routes")
-                                      else self.backend.run([j[0] for j in jobs], rng))
+
+                    jobs = [
+                        hop_jobs(
+                            stream[i],
+                            route_edges[stream[i].verifier],
+                            events[i],
+                            channel,
+                            injections,
+                            rng
+                        )
+                        for i in block
+                    ]
+
+                    block_outcomes = (
+                        self.backend.run_routes(jobs, rng)
+                        if hasattr(self.backend, "run_routes")
+                        else self.backend.run([j[0] for j in jobs], rng)
+                    )
+
                     for i, hop_stream, out in zip(block, jobs, block_outcomes):
                         slot = stream[i]
                         stats = route_stats[slot.verifier]
-                        count_traversal(route_edges[slot.verifier], hop_stream, counters, self.router, topology.digest)
-                        count_traversal(route_edges[slot.verifier], hop_stream, stats["edges"])
+
+                        count_traversal(
+                            route_edges[slot.verifier],
+                            hop_stream, counters, self.router, topology.digest
+                        )
+                        count_traversal(
+                            route_edges[slot.verifier],
+                            hop_stream, stats["edges"]
+                        )
+
                         stats["attempted"] += 1
                         stats["received"] += int(not out.is_lost)
                         stats["lost"] += int(out.is_lost)
+
                         outcomes.append(out)
+
                         if out.is_lost:
                             total_lost += 1
                         elif slot.kind == "test":
@@ -462,11 +488,14 @@ class TeleportationQDS:
                             errors += err
                             stats["tested"] += 1
                             stats["errors"] += err
+
             except ChannelQuarantined as exc:
                 route_abort, stopping_scope = str(exc), exc.link
                 break
-            if errors > k_strong and len(outcomes) < len(stream):
+
+            if self.params.early_abort and errors > k_strong and len(outcomes) < len(stream):
                 break  # decisive: the remaining tokens are never sent
+
         sent = len(outcomes)
         if adversary is not None:
             adversary.observe(stream[:sent], outcomes)

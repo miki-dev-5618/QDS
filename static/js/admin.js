@@ -272,10 +272,44 @@ function initComposer() {
 
   const noiseProfileSelect = document.getElementById('noiseProfileSelect');
   const readoutControls = document.getElementById('readoutControls');
-  if (noiseProfileSelect && readoutControls) {
-    noiseProfileSelect.addEventListener('change', () => {
-      readoutControls.style.display = noiseProfileSelect.value === 'readout' ? 'flex' : 'none';
+  const noiseParamGroup = document.getElementById('noiseParamGroup');
+  const noiseParamRange = document.getElementById('noiseParamRange');
+  const noiseParamLabel = document.getElementById('noiseParamLabel');
+  let noiseProfiles = {};
+
+  function applyNoiseProfile() {
+    const spec = noiseProfiles[noiseProfileSelect.value];
+    const param = spec && spec.param;
+    if (readoutControls) readoutControls.style.display = noiseProfileSelect.value === 'readout' ? 'flex' : 'none';
+    noiseParamGroup.style.display = param ? '' : 'none';
+    if (param) {
+      document.getElementById('noiseParamName').textContent = param.name;
+      Object.assign(noiseParamRange, { min: param.min, max: param.max, step: param.step });
+      noiseParamRange.value = param.default;
+      noiseParamLabel.textContent = Number(param.default).toFixed(3);
+    }
+  }
+
+  if (noiseProfileSelect) {
+    noiseProfileSelect.addEventListener('change', applyNoiseProfile);
+    noiseParamRange.addEventListener('input', () => {
+      noiseParamLabel.textContent = Number(noiseParamRange.value).toFixed(3);
     });
+    api('/api/noise-profiles', {}, 'admin').then(({ data }) => {
+      data.profiles.forEach(p => {
+        noiseProfiles[p.name] = p;
+        const opt = noiseProfileSelect.querySelector(`option[value="${p.name}"]`);
+        if (!opt) return;
+        opt.disabled = !p.available;
+        opt.title = p.available ? '' : p.reason;
+        if (!p.available) opt.textContent = `${p.label} (unavailable)`;
+      });
+      // Preselect the channel the server uses by default, so an untouched form keeps the server's behaviour.
+      if (noiseProfiles[data.default.profile] && noiseProfiles[data.default.profile].available) {
+        noiseProfileSelect.value = data.default.profile;
+      }
+      applyNoiseProfile();
+    }).catch(err => logTerminal('ERR', `Noise profiles unavailable: ${err.message}`));
   }
 
   form.addEventListener('submit', async (e) => {
@@ -295,10 +329,17 @@ function initComposer() {
         n_bits: parseInt(bitSelect.value),
         threat_type: currentThreat,
         tampered_text: tampered ? tampered.value : null,
-        noise_profile: isReadout ? 'readout' : 'depolarizing',
+        noise_profile: noiseProfileSelect ? noiseProfileSelect.value : (isReadout ? 'readout' : 'depolarizing'),
         ...recipientPayload(),
-      };
-      if (currentThreat === 'eve_intercept') payload.attack_edge = document.getElementById('attackEdge').value || null;
+        };
+
+        if (noiseParamGroup && noiseParamGroup.style.display !== 'none') {
+          payload.noise_param = parseFloat(noiseParamRange.value);
+        }
+
+        if (currentThreat === 'eve_intercept') {
+          payload.attack_edge = document.getElementById('attackEdge').value || null;
+        }
       if (currentThreat === 'eve_cloning') {
         const clonerElem = document.getElementById('clonerTypeSelect');
         const rateElem = document.getElementById('cloningRateRange');

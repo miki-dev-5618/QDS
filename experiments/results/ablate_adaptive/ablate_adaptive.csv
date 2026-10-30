@@ -1,0 +1,9 @@
+L,scenario,mode,trials,rejected,rejected_lo,rejected_hi,undetermined,undetermined_lo,undetermined_hi,mean_tokens
+16,authentic,fixed,3,0.0,0.0,0.5615,0.0,0.0,0.5615,48.0
+16,authentic,adaptive,3,0.0,0.0,0.5615,0.0,0.0,0.5615,98.0
+16,eve_forgery,fixed,3,1.0,0.4385,1.0,0.0,0.0,0.5615,48.0
+16,eve_forgery,adaptive,3,1.0,0.4385,1.0,0.0,0.0,0.5615,98.0
+16,eve_intercept,fixed,3,1.0,0.4385,1.0,0.0,0.0,0.5615,40.0
+16,eve_intercept,adaptive,3,1.0,0.4385,1.0,0.0,0.0,0.5615,66.0
+16,repudiation,fixed,3,1.0,0.4385,1.0,0.3333,0.0615,0.7923,48.0
+16,repudiation,adaptive,3,1.0,0.4385,1.0,0.3333,0.0615,0.7923,98.0
