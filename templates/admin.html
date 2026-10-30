@@ -118,10 +118,19 @@
                 <div class="form-group">
                   <label class="form-label" for="noiseProfileSelect">Channel noise profile</label>
                   <select id="noiseProfileSelect" class="form-select">
-                    <option value="depolarizing" selected>Depolarizing Channel (Baseline)</option>
-                    <option value="readout">Readout (Measurement) Error</option>
+                    <option value="ideal">Ideal (noiseless)</option>
+                    <option value="depolarising_1pct" selected>Depolarising (1% baseline)</option>
+                    <option value="ibm_fake">IBM fake-backend noise (calibrated)</option>
+                    <option value="amp_damping">Amplitude damping</option>
+                    <option value="readout">Readout (measurement) error</option>
+                    <option value="lossy">Lossy channel (heralded photon loss)</option>
                   </select>
                 </div>
+              </div>
+
+              <div class="form-group" id="noiseParamGroup">
+                <label class="form-label" for="noiseParamRange"><span id="noiseParamName">depolarizing</span>: <span id="noiseParamLabel">0.010</span></label>
+                <input type="range" id="noiseParamRange" class="form-range" min="0" max="0.3" step="0.005" value="0.01">
               </div>
 
               <div id="readoutControls" class="form-row" style="display:none; background: rgba(56, 189, 248, 0.05); padding: 10px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.2); margin-bottom: 15px;">
@@ -373,6 +382,6 @@
   </div>
 
   <script src="/static/js/common.js?v=2.3"></script>
-  <script src="/static/js/admin.js?v=2.5"></script>
+  <script src="/static/js/admin.js?v=2.6"></script>
 </body>
 </html>

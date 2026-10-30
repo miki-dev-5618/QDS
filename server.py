@@ -34,6 +34,7 @@ from src.quantum_engine import (
     verify_certificate_report,
     verify_chain,
 )
+from src.quantum_engine import noise_profiles
 from src.quantum_engine.audit import strip_evidence
 from src.quantum_engine.enforcement import LINK_FORWARD, LINK_SIGNER
 
@@ -203,6 +204,10 @@ class SignAndSendRequest(BaseModel):
     cloning_rate: Optional[float] = 1.0
     partial_intercept_fraction: Optional[float] = 0.05
     collective_theta: Optional[float] = None
+    noise_param: Optional[float] = None   # the selected profile's main parameter (see /api/noise-profiles)
+
+
+LEGACY_NOISE_PROFILES = (None, "depolarizing", "readout", "lossy")   # values the original fields already handled
 
 
 class ForwardRequest(BaseModel):
@@ -328,6 +333,7 @@ async def _run_and_publish(scenario: ThreatScenarioConfig, message: str, n_bits:
     result = await asyncio.to_thread(qds_engine.execute_protocol, message_text=message, n_bits=n_bits,
                                      sender=sender, scenario=scenario, channel=channel)
     tx = result.to_dict()
+    tx["noise"] = noise_profiles.describe_channel(channel or qds_engine.default_channel)
     state.record(tx)
     await manager.broadcast_transmission(tx)
     return tx
@@ -362,16 +368,24 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
         collective_theta=float(req.collective_theta) if req.collective_theta is not None else (3.141592653589793 / 4),
     )
 
-    # Optional channel noise configuration
+    # Optional channel noise configuration. Requests that use only the original fields keep their exact
+    # behaviour; a new profile name or a noise_param goes through the noise selector's profiles.
     channel = None
-    if req.noise_profile == "readout" or (req.readout_p01 and req.readout_p01 > 0) or (req.readout_p10 and req.readout_p10 > 0):
-        channel = make_readout_channel(
-            p01=req.readout_p01 or 0.0,
-            p10=req.readout_p10 or 0.0,
-            location=req.readout_location or "both",
-        )
-    elif req.noise_profile == "lossy" or (req.eta_loss and req.eta_loss > 0):
-        channel = make_lossy_channel(eta_loss=req.eta_loss or 0.1)
+    try:
+        profile = noise_profiles.canonical(req.noise_profile)
+        if req.noise_param is not None or req.noise_profile not in LEGACY_NOISE_PROFILES:
+            channel = noise_profiles.build_channel(profile, req.noise_param)
+    except noise_profiles.NoiseProfileError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
+    if channel is None:
+        if req.noise_profile == "readout" or (req.readout_p01 and req.readout_p01 > 0) or (req.readout_p10 and req.readout_p10 > 0):
+            channel = make_readout_channel(
+                p01=req.readout_p01 or 0.0,
+                p10=req.readout_p10 or 0.0,
+                location=req.readout_location or "both",
+            )
+        elif req.noise_profile == "lossy" or (req.eta_loss and req.eta_loss > 0):
+            channel = make_lossy_channel(eta_loss=req.eta_loss or 0.1)
 
     published = []
     async with engine_lock:
@@ -390,6 +404,13 @@ async def api_sign_and_send(req: SignAndSendRequest, session: Dict = Depends(req
         except ChannelQuarantined as q:
             return _refused(q, started_ns, {"transmissions": published})
     return {"status": "success", "transmission": published[-1], "transmissions": published, "stats": state.stats}
+
+
+@app.get("/api/noise-profiles")
+async def api_noise_profiles(session: Dict = Depends(require_any)):
+    """Profiles for the admin noise selector: availability, parameter range, and the server's default channel."""
+    return {"profiles": noise_profiles.catalogue(),
+            "default": noise_profiles.describe_channel(qds_engine.default_channel)}
 
 
 @app.post("/api/dishonest-bob-forward")
@@ -523,6 +544,7 @@ async def api_audit_verify(cert: Dict[str, Any]):
 async def api_audit_public_key():
     return {"keys": audit_authority.trusted_keys(), "public_key_pem": audit_authority.public_key_pem,
             "post_quantum": audit_authority.post_quantum, "pq_provider": pq_provider(),
+            "key_provider": audit_authority.provider.name,
             "note": "Ed25519 is classical. Certificates are post-quantum signed only when they also carry a "
                     "verifying ML-DSA-65 signature."}
 
@@ -539,7 +561,8 @@ async def api_metrics(session: Dict = Depends(require_role("admin"))):
     return {"latency": qds_engine.latency.to_dict(), "stats": state.stats,
             "channel_state": qds_engine.guard.to_dict(), "parameters": qds_engine.params.to_dict(),
             "policy": qds_engine.policy.to_dict(), "backend": qds_engine.backend.name,
-            "audit": {"post_quantum": audit_authority.post_quantum, "pq_provider": pq_provider()}}
+            "audit": {"post_quantum": audit_authority.post_quantum, "pq_provider": pq_provider(),
+                      "key_provider": audit_authority.provider.name}}
 
 
 @app.get("/api/security-events")
