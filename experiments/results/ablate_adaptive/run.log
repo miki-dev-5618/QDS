@@ -1,9 +1,0 @@
-L=16  authentic      fixed    rejected 0.000 [0.000, 0.561]  undetermined 0.000  tokens 48.0
-L=16  authentic      adaptive rejected 0.000 [0.000, 0.561]  undetermined 0.000  tokens 98.0
-L=16  eve_forgery    fixed    rejected 1.000 [0.439, 1.000]  undetermined 0.000  tokens 48.0
-L=16  eve_forgery    adaptive rejected 1.000 [0.439, 1.000]  undetermined 0.000  tokens 98.0
-L=16  eve_intercept  fixed    rejected 1.000 [0.439, 1.000]  undetermined 0.000  tokens 40.0
-L=16  eve_intercept  adaptive rejected 1.000 [0.439, 1.000]  undetermined 0.000  tokens 66.0
-L=16  repudiation    fixed    rejected 1.000 [0.439, 1.000]  undetermined 0.333  tokens 48.0
-L=16  repudiation    adaptive rejected 1.000 [0.439, 1.000]  undetermined 0.333  tokens 98.0
-Wrote E:\2026-2\sih 2026\experiments\results\ablate_adaptive\ablate_adaptive.csv and E:\2026-2\sih 2026\experiments\results\ablate_adaptive\ablate_adaptive.png

@@ -1,7 +1,0 @@
-early_abort=on  L=16  authentic      false abort 0.000  tokens 98.0/98.0  saved 0.0%
-early_abort=on  L=16  eve_intercept  detected 1.000  tokens 69.2/98.0  saved 29.4%
-early_abort=on  L=16  eve_forgery    detected 1.000  tokens 98.0/98.0  saved 0.0%
-early_abort=off L=16  authentic      false abort 0.000  tokens 98.0/98.0  saved 0.0%
-early_abort=off L=16  eve_intercept  detected 1.000  tokens 98.0/98.0  saved 0.0%
-early_abort=off L=16  eve_forgery    detected 1.000  tokens 98.0/98.0  saved 0.0%
-Wrote E:\2026-2\sih 2026\experiments\results\ablate_early_abort\ablate_early_abort.csv, E:\2026-2\sih 2026\experiments\results\ablate_early_abort\ablate_early_abort.png, E:\2026-2\sih 2026\experiments\results\ablate_early_abort\ablate_early_abort.svg
