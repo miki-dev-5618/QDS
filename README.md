@@ -519,7 +519,7 @@ In strict adherence to academic and engineering integrity:
 
 ## 👥 13. Team & Attribution
 
-Developed by **Team ATHENA** for **Smart India Hackathon (SIH) 2026** and **QHack**.  
+Developed by **Team ATHENA** for **QHack-2026**.  
 For complete beginner guidance, analogies, and viva preparation, read [docs/FOR_DUMMIES.md](docs/FOR_DUMMIES.md).
 
 ---
