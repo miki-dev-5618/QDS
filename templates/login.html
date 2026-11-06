@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,9 +8,27 @@
   <link rel="stylesheet" href="/static/css/style.css?v=2.3">
   <link rel="stylesheet" href="/static/css/components.css?v=2.3">
 </head>
+
 <body>
   <div class="login-wrapper">
-    <main class="login-card">
+    <main class="login-card" style="position: relative;">
+      <!-- Demo credentials dropdown trigger on top right corner -->
+      <div class="demo-creds-dropdown-wrapper"
+        style="position: absolute; top: 1.25rem; right: 1.25rem; text-align: right; z-index: 10;">
+        <a href="javascript:void(0)" id="demoCredsToggle"
+          style="font-size: 0.78rem; color: var(--color-accent, #00d2ff); text-decoration: underline; cursor: pointer; font-weight: 500;">Click
+          here for demo credentials</a>
+        <div id="demoCredsDropdown"
+          style="display: none; position: absolute; right: 0; top: calc(100% + 6px); background: #131b2e; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); padding: 0.35rem 0; min-width: 170px; text-align: left;">
+          <button type="button" class="demo-cred-opt" data-user="admin" data-pass="Admin@123"
+            style="width: 100%; display: block; background: none; border: none; color: #e2e8f0; padding: 0.5rem 0.85rem; font-size: 0.82rem; text-align: left; cursor: pointer;">admin
+            / alice</button>
+          <button type="button" class="demo-cred-opt" data-user="bob" data-pass="Bob@123"
+            style="width: 100%; display: block; background: none; border: none; color: #e2e8f0; padding: 0.5rem 0.85rem; font-size: 0.82rem; text-align: left; cursor: pointer;">bob</button>
+          <button type="button" class="demo-cred-opt" data-user="charlie" data-pass="Charlie@123"
+            style="width: 100%; display: block; background: none; border: none; color: #e2e8f0; padding: 0.5rem 0.85rem; font-size: 0.82rem; text-align: left; cursor: pointer;">charlie</button>
+        </div>
+      </div>
       <div class="login-header">
         <div class="brand-mark" aria-hidden="true">Ψ</div>
         <h1>HEDWIG // QDS</h1>
@@ -23,28 +42,81 @@
         <button type="button" class="preset-pill" data-role="bob" aria-pressed="false">Bob (Verifier 1)</button>
         <button type="button" class="preset-pill" data-role="charlie" aria-pressed="false">Charlie (Verifier 2)</button>
       </div>
-      <div class="demo-warning"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14"><use href="/static/img/icons.svg?v=2.3#i-alert"/></svg><span>DEMO CREDENTIALS ACTIVE — set HEDWIG_USERS_FILE before sharing this server.</span></div>
+      <div class="demo-warning"><svg class="icon icon-sm" aria-hidden="true" width="14" height="14">
+          <use href="/static/img/icons.svg?v=2.3#i-alert" />
+        </svg><span>DEMO CREDENTIALS ACTIVE — set HEDWIG_USERS_FILE before sharing this server.</span></div>
       {% endif %}
 
       <form id="loginForm">
         <div class="form-group">
           <label class="form-label" for="username">Node identity</label>
-          <input type="text" id="username" class="form-input" value="{{ 'admin' if demo_credentials else '' }}" required autocomplete="username">
+          <input type="text" id="username" class="form-input" value="{{ 'admin' if demo_credentials else '' }}" required
+            autocomplete="username">
         </div>
         <div class="form-group">
           <label class="form-label" for="password">Quantum auth token</label>
-          <input type="password" id="password" class="form-input" value="{{ 'admin2026' if demo_credentials else '' }}" required autocomplete="current-password">
+          <input type="password" id="password" class="form-input" value="{{ 'admin2026' if demo_credentials else '' }}"
+            required autocomplete="current-password">
         </div>
 
         <div id="errorMsg" class="form-error" role="alert" style="display:none;"></div>
 
         <button type="submit" class="btn-primary" id="btnLogin">
-          <span>Authenticate Node</span> <svg class="icon" aria-hidden="true" width="18" height="18"><use href="/static/img/icons.svg?v=2.3#i-arrow-right"/></svg>
+          <span>Authenticate Node</span> <svg class="icon" aria-hidden="true" width="18" height="18">
+            <use href="/static/img/icons.svg?v=2.3#i-arrow-right" />
+          </svg>
         </button>
       </form>
     </main>
   </div>
 
   <script src="/static/js/auth.js?v=2.3"></script>
+  <script>
+    (function ()
+    {
+      const toggle = document.getElementById('demoCredsToggle');
+      const dropdown = document.getElementById('demoCredsDropdown');
+      const options = document.querySelectorAll('.demo-cred-opt');
+      const userInput = document.getElementById('username');
+      const passInput = document.getElementById('password');
+
+      if (!toggle || !dropdown) return;
+
+      toggle.addEventListener('click', (e) =>
+      {
+        e.stopPropagation();
+        dropdown.style.display = (dropdown.style.display === 'block') ? 'none' : 'block';
+      });
+
+      document.addEventListener('click', (e) =>
+      {
+        if (!dropdown.contains(e.target) && e.target !== toggle) {
+          dropdown.style.display = 'none';
+        }
+      });
+
+      options.forEach(opt =>
+      {
+        opt.addEventListener('mouseenter', () => opt.style.background = 'rgba(255,255,255,0.08)');
+        opt.addEventListener('mouseleave', () => opt.style.background = 'none');
+        opt.addEventListener('click', () =>
+        {
+          if (userInput) userInput.value = opt.getAttribute('data-user');
+          if (passInput) passInput.value = opt.getAttribute('data-pass');
+          dropdown.style.display = 'none';
+
+          // Sync preset pill active state if pills are present
+          const user = opt.getAttribute('data-user');
+          document.querySelectorAll('.preset-pill').forEach(p =>
+          {
+            const isActive = p.dataset.role === user;
+            p.classList.toggle('active', isActive);
+            p.setAttribute('aria-pressed', String(isActive));
+          });
+        });
+      });
+    })();
+  </script>
 </body>
+
 </html>
